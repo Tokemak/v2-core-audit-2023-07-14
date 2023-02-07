@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "\n====================\nContract format\n====================\n"
+forge fmt
+echo "Complete"
+
+echo "\n====================\nOther format\n====================\n"
+npx --no -- pretty-quick --staged
+
+echo "\n====================\nLint\n====================\n"
+npm run lint
+
+
+echo "\n====================\nGitleaks\n====================\n"
+gitleaks protect --verbose --staged
