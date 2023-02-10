@@ -9,5 +9,6 @@
   "[json]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-  "solidity.formatter": "forge"
+  "solidity.formatter": "forge",
+  "solidity.defaultCompiler": "remote"
 }
