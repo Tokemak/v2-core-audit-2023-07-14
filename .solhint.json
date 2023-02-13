@@ -3,6 +3,7 @@
   "rules": {
     "max-line-length": ["error", 120],
     "compiler-version": ["error", "0.8.17"],
-    "no-empty-blocks": "off"
+    "no-empty-blocks": "off",
+    "func-visibility": ["warn", { "ignoreConstructors": true }]
   }
 }

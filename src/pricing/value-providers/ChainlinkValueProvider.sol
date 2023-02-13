@@ -6,11 +6,11 @@ import "../../interfaces/pricing/IBaseValueProvider.sol";
 import "../../interfaces/external/IChainlinkFeedRegistry.sol";
 
 contract ChainlinkValueProvider is IBaseValueProvider {
-    IChainlinkFeedRegistry public registry;
+    IChainlinkFeedRegistry public immutable registry;
 
     error RegsitryAddressZero();
 
-    constructor(address _registry) public {
+    constructor(address _registry) {
         if (_registry == address(0)) {
             revert RegsitryAddressZero();
         }
