@@ -33,6 +33,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@chainlink/contracts": "^0.6.1",
     "@commitlint/cli": "^17.4.2",
     "@commitlint/config-conventional": "^17.4.2",
     "@semantic-release/commit-analyzer": "^9.0.2",

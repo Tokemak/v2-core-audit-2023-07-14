@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "./value-providers/IBaseValueProvider.sol";
-import "./IEthValueOracle.sol";
+import "../interfaces/pricing/IBaseValueProvider.sol";
+import "../interfaces/pricing/IEthValueOracle.sol";
 
 import "openzeppelin-contracts/access/Ownable.sol";
 
