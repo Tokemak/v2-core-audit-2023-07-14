@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "../../interfaces/pricing/IBaseValueProvider.sol";
+import { BaseValueProvider } from "./base/BaseValueProvider.sol";
 
-contract TokemakPlasmaVaultValueProvider is IBaseValueProvider {
-    function getPrice(address tokemakPoolToken) external { }
+// TODO: Finish - backlog
+contract TokemakPlasmaPoolValueProvider is BaseValueProvider {
+    constructor(address _ethValueOracle) BaseValueProvider(_ethValueOracle) { }
+
+    function getPrice(address plasmaPoolLpToPrice) external view override onlyValueOracle returns (uint256 price) { }
 }

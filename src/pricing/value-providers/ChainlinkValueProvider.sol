@@ -1,21 +1,94 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "../../interfaces/pricing/IBaseValueProvider.sol";
+import {
+    BaseValueProviderDenominations,
+    TokemakPricingPrecision,
+    Denominations
+} from "./base/BaseValueProviderDenominations.sol";
+import { IAggregatorV3Interface } from "../../interfaces/external/chainlink/IAggregatorV3Interface.sol";
 
-import "../../interfaces/external/IChainlinkFeedRegistry.sol";
+/**
+ * @title Gets the value of tokens that Chainlink provides a feed for.
+ * @dev Will convert all tokens to Eth pricing regardless of original denomination.
+ */
+contract ChainlinkValueProvider is BaseValueProviderDenominations {
+    /**
+     * @dev Mapping of token to oracle interface.  Private to enforce zero address checks.
+     */
+    mapping(address => IAggregatorV3Interface) private tokenToChainlinkOracle;
 
-contract ChainlinkValueProvider is IBaseValueProvider {
-    IChainlinkFeedRegistry public immutable registry;
+    /**
+     * @notice Emitted when a token has an oracle address set or removed.
+     * @param token Address of token.
+     * @param chainlinkOracle Address of chainlink oracle contract. Will be zero address on removal.
+     */
+    event ChainlinkOracleSet(address token, address chainlinkOracle);
 
-    error RegsitryAddressZero();
+    constructor(address _ethValueOracle) BaseValueProviderDenominations(_ethValueOracle) { }
 
-    constructor(address _registry) {
-        if (_registry == address(0)) {
-            revert RegsitryAddressZero();
-        }
-        registry = IChainlinkFeedRegistry(_registry);
+    /**
+     * @notice Allows oracle address to be set for token.
+     * @dev Only owner of contract system can access.
+     * @param token Address of token for which oracle will be set.
+     * @param chainlinkOracle Address of oracle to be set.
+     */
+    function setChainlinkOracle(address token, address chainlinkOracle) external onlyOwner {
+        if (token == address(0)) revert CannotBeZeroAddress();
+        tokenToChainlinkOracle[token] = IAggregatorV3Interface(chainlinkOracle);
+
+        emit ChainlinkOracleSet(token, chainlinkOracle);
     }
 
-    function getPrice(address token) external { }
+    /**
+     * @dev Returns address(0) when token does not have a set oracle.
+     */
+    function getChainlinkOracle(address token) external view returns (IAggregatorV3Interface) {
+        return tokenToChainlinkOracle[token];
+    }
+
+    // slither-disable-start timestamp
+    function getPrice(address token) external view override onlyValueOracle returns (uint256) {
+        address denomination = _getDenomination(token);
+        IAggregatorV3Interface chainlinkOracle = _getChainlinkOracle(token);
+        (uint80 roundId, int256 price,, uint256 updatedAt,) = chainlinkOracle.latestRoundData();
+        uint256 timestamp = block.timestamp;
+        if (
+            roundId == 0 || price == 0 || updatedAt == 0 || updatedAt > timestamp
+                || updatedAt < timestamp - DENOMINATION_TIMEOUT
+        ) revert InvalidDataReturned();
+
+        // Chainlink feeds have certain decimal precisions, does not neccessarily conform to underlying asset.
+        uint256 decimals = chainlinkOracle.decimals();
+        uint256 normalizedPrice = TokemakPricingPrecision.checkAndNormalizeDecimals(decimals, uint256(price));
+
+        /**
+         * Eth denominations are what we want, do not need to be repriced.
+         *
+         * If the token is `Denominations.ETH_IN_USD` and the Denominations.ETH_IN_USD check
+         *   is not present an infinite loop will occur with `_getPriceDenominationUSD()`.
+         *   This is due to the fact that `Denominations.ETH_IN_USD` has its denomination set
+         *   `Denominations.USD` in the system. This is the one token that we want returned
+         *   with its denomination in USD as it has a special use case, converting assets
+         *   priced in USD to Eth.
+         */
+        if (denomination != Denominations.ETH && token != Denominations.ETH_IN_USD) {
+            if (denomination == Denominations.USD) {
+                // USD special case, need to get Eth price in USD to convert to Eth.
+                normalizedPrice = _getPriceDenominationUSD(normalizedPrice);
+            } else {
+                normalizedPrice = _getPriceDenomination(denomination, normalizedPrice);
+            }
+        }
+        return normalizedPrice;
+    }
+    // slither-disable-end timestamp
+
+    /**
+     * @dev internal getter to access `tokenToChainlinkOracle` mapping, enforces address(0) check.
+     */
+    function _getChainlinkOracle(address token) internal view returns (IAggregatorV3Interface chainlinkOracle) {
+        chainlinkOracle = tokenToChainlinkOracle[token];
+        if (address(chainlinkOracle) == address(0)) revert CannotBeZeroAddress();
+    }
 }

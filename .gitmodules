@@ -17,3 +17,7 @@
 	path = lib/prb-math
 	url = https://github.com/PaulRBerg/prb-math
 	branch = v2.5.0
+[submodule "lib/usingtellor"]
+	path = lib/usingtellor
+	url = https://github.com/tellor-io/usingtellor
+	branch = v5.0.4

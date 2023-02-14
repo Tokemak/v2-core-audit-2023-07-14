@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.17;
+
+interface IWstEth {
+    /**
+     * @notice Gets the amount of wstEth tokens per stEth token.
+     * @dev returns answer in 18 decimals of precision.
+     */
+    function tokensPerStEth() external view returns (uint256);
+}

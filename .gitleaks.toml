@@ -13,12 +13,12 @@ regex = '''(?:\'|"|\s|^)(?:0x)?[a-fA-F0-9]{64}(?:\'|"|\s|;|$)'''
 
 [allowlist]
 paths = [
-    '''lib/forge-std/(.*?)''',
-    '''lib/openzeppelin-contracts/(.*?)''',
-    '''lib/prb-math/(.*?)''',
-    '''lib/openzeppelin-contracts-upgradeable/(.*?)''',
-    '''out/(.*?)''',
-    '''cache/(.*?)''',
-    '''node_modules/(.*?)''',
-    '''src/test/utils/Addresses.sol''',
+  '''lib/forge-std/(.*?)''',
+  '''lib/openzeppelin-contracts/(.*?)''',
+  '''lib/openzeppelin-contracts-upgradeable/(.*?)''',
+  '''out/(.*?)''',
+  '''cache/(.*?)''',
+  '''node_modules/(.*?)''',
+  '''src/test/utils/Addresses.sol''',
+  '''test/pricing/TellorValueProvider.t.sol''',
 ]
