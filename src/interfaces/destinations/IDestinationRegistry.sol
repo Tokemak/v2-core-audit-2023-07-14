@@ -5,6 +5,7 @@ import { IDestinationAdapter } from "./IDestinationAdapter.sol";
 
 interface IDestinationRegistry {
     event Register(DestinationType destination, address target);
+    event Replace(DestinationType destination, address target);
     event Unregister(DestinationType destination, address target);
 
     enum DestinationType {
@@ -13,10 +14,16 @@ interface IDestinationRegistry {
     }
 
     ///@notice Adds a new address of the given DestinationType
-    ///@dev Can overwrite previous value of the same DestinationType if was present before
+    ///@dev Fails if trying to overwrite previous value of the same DestinationType
     ///@param destination One from the DestinationType whitelist
     ///@param target address of the deployed DestinationAdapter
     function register(DestinationType destination, address target) external;
+
+    ///@notice Replaces an address of the given DestinationType
+    ///@dev Fails if given DestinationType was not set previously
+    ///@param destination One from the DestinationType whitelist
+    ///@param target address of the deployed DestinationAdapter
+    function replace(DestinationType destination, address target) external;
 
     ///@notice Removes an address of the given DestinationType
     ///@param destination One from the DestinationType whitelist
