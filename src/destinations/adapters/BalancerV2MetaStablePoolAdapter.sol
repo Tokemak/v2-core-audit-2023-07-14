@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.17;
 
-import "../../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import "../../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import "openzeppelin-contracts/access/AccessControl.sol";
+import "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { IDestinationAdapter } from "../../interfaces/destinations/IDestinationAdapter.sol";
 import { IAsset } from "../../interfaces/external/balancer/IAsset.sol";
 import { IVault } from "../../interfaces/external/balancer/IVault.sol";
 import { LibAdapter } from "./libs/LibAdapter.sol";
 
-contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter {
+contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl {
     using SafeERC20 for IERC20;
 
     enum JoinKind {

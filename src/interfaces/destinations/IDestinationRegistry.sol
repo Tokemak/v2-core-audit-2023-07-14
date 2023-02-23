@@ -4,9 +4,9 @@ pragma solidity 0.8.17;
 import { IDestinationAdapter } from "./IDestinationAdapter.sol";
 
 interface IDestinationRegistry {
-    event Register(DestinationType destination, address target);
-    event Replace(DestinationType destination, address target);
-    event Unregister(DestinationType destination, address target);
+    event Register(DestinationType indexed destination, address indexed target);
+    event Replace(DestinationType indexed destination, address indexed target);
+    event Unregister(DestinationType indexed destination, address indexed target);
 
     enum DestinationType {
         BalancerV2MetaStablePoolAdapter,

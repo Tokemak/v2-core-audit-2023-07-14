@@ -1,19 +1,24 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.17;
 
+import "openzeppelin-contracts/access/AccessControl.sol";
+
 import { IDestinationRegistry } from "../interfaces/destinations/IDestinationRegistry.sol";
 import { IDestinationAdapter } from "../interfaces/destinations/IDestinationAdapter.sol";
 
-// TODO: access control
-contract DestinationRegistry is IDestinationRegistry {
+contract DestinationRegistry is IDestinationRegistry, AccessControl {
     mapping(DestinationType => IDestinationAdapter) private destinations;
+
+    error ZeroAddress(string param);
+    error DestinationAlreadySet();
+    error DestinationNotPresent();
 
     function register(DestinationType destination, address target) public override {
         if (target == address(0)) {
-            revert("target cannot be 0 address");
+            revert ZeroAddress("target");
         }
         if (address(destinations[destination]) != address(0)) {
-            revert("destination is already set");
+            revert DestinationAlreadySet();
         }
         destinations[destination] = IDestinationAdapter(target);
 
@@ -21,12 +26,14 @@ contract DestinationRegistry is IDestinationRegistry {
     }
 
     function replace(DestinationType destination, address target) public override {
-        if (target == address(0)) {
-            revert("target cannot be 0 address");
-        }
+        if (target == address(0)) revert ZeroAddress("target");
+
         IDestinationAdapter existingDestination = destinations[destination];
         if (address(existingDestination) == address(0)) {
-            revert("destination is not present");
+            revert DestinationNotPresent();
+        }
+        if (address(destinations[destination]) == target) {
+            revert DestinationAlreadySet();
         }
         destinations[destination] = IDestinationAdapter(target);
 
@@ -36,7 +43,7 @@ contract DestinationRegistry is IDestinationRegistry {
     function unregister(DestinationType destination) public override {
         IDestinationAdapter target = destinations[destination];
         if (address(target) == address(0)) {
-            revert("destination is not present");
+            revert DestinationNotPresent();
         }
         delete destinations[destination];
 
@@ -46,7 +53,7 @@ contract DestinationRegistry is IDestinationRegistry {
     function getAdapter(DestinationType destination) public view override returns (IDestinationAdapter target) {
         target = destinations[destination];
         if (address(target) == address(0)) {
-            revert("destination is not present");
+            revert DestinationNotPresent();
         }
     }
 }

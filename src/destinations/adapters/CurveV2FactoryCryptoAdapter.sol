@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.17;
 
-import "../../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/access/AccessControl.sol";
+import "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import { IDestinationAdapter } from "../../interfaces/destinations/IDestinationAdapter.sol";
 import { ICryptoSwapPool, IPool } from "../../interfaces/external/curve/ICryptoSwapPool.sol";
 import { LibAdapter } from "./libs/LibAdapter.sol";
 
-contract CurveV2FactoryCryptoAdapter is IDestinationAdapter {
+contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl {
     address public constant CURVE_REGISTRY_ETH_ADDRESS_POINTER = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     struct ExtraParams {
