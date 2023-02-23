@@ -3,20 +3,28 @@ pragma solidity 0.8.17;
 
 import "openzeppelin-contracts/access/AccessControl.sol";
 import "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
 import { IDestinationAdapter } from "../../interfaces/destinations/IDestinationAdapter.sol";
 import { ICryptoSwapPool, IPool } from "../../interfaces/external/curve/ICryptoSwapPool.sol";
 import { LibAdapter } from "./libs/LibAdapter.sol";
 
-contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl {
+contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, ReentrancyGuard {
     address public constant CURVE_REGISTRY_ETH_ADDRESS_POINTER = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
-    struct ExtraParams {
+    struct CurveExtraParams {
         address poolAddress;
     }
 
-    function addLiquidity(uint256[] calldata amounts, uint256 minLpMintAmount, bytes calldata _extraParams) external {
-        (ExtraParams memory extraParams) = abi.decode(_extraParams, (ExtraParams));
+    function addLiquidity(
+        uint256[] calldata amounts,
+        uint256 minLpMintAmount,
+        bytes calldata extraParams
+    )
+        external
+        nonReentrant
+    {
+        (CurveExtraParams memory curveExtraParams) = abi.decode(extraParams, (CurveExtraParams));
 
         _validateAmounts(amounts);
         if (minLpMintAmount == 0) revert("minLpMintAmount must be > 0");
@@ -24,75 +32,78 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl {
         address[] memory tokens = new address[](amounts.length);
         for (uint256 i = 0; i < amounts.length; ++i) {
             uint256 amount = amounts[i];
-            address coin = ICryptoSwapPool(extraParams.poolAddress).coins(i);
+            //slither-disable-next-line calls-loop
+            address coin = ICryptoSwapPool(curveExtraParams.poolAddress).coins(i);
             tokens[i] = coin;
             if (amount > 0) {
-                LibAdapter._validateAndApprove(coin, extraParams.poolAddress, amount);
+                LibAdapter._validateAndApprove(coin, curveExtraParams.poolAddress, amount);
             }
         }
-        uint256 lpTokenBalanceBefore = IERC20(extraParams.poolAddress).balanceOf(address(this));
+        uint256 lpTokenBalanceBefore = IERC20(curveExtraParams.poolAddress).balanceOf(address(this));
 
-        uint256[] memory coinsBalancesBefore = _getCoinsBalances(extraParams.poolAddress, amounts.length);
+        uint256[] memory coinsBalancesBefore = _getCoinsBalances(curveExtraParams.poolAddress, amounts.length);
 
-        ICryptoSwapPool(extraParams.poolAddress).add_liquidity(amounts, minLpMintAmount);
+        ICryptoSwapPool(curveExtraParams.poolAddress).add_liquidity(amounts, minLpMintAmount);
 
-        uint256 lpTokenBalanceAfter = IERC20(extraParams.poolAddress).balanceOf(address(this));
+        uint256 lpTokenBalanceAfter = IERC20(curveExtraParams.poolAddress).balanceOf(address(this));
         uint256 lpTokenAmount = lpTokenBalanceAfter - lpTokenBalanceBefore;
         if (lpTokenAmount < minLpMintAmount) {
             revert("minLpMintAmount was not reached");
         }
 
-        uint256[] memory coinsBalancesAfter = _getCoinsBalances(extraParams.poolAddress, amounts.length);
+        uint256[] memory coinsBalancesAfter = _getCoinsBalances(curveExtraParams.poolAddress, amounts.length);
 
         _emitDepositEvent(
             _compareCoinsBalances(coinsBalancesBefore, coinsBalancesAfter, amounts, true),
             tokens,
-            [lpTokenAmount, lpTokenBalanceAfter, IERC20(extraParams.poolAddress).totalSupply()],
-            extraParams.poolAddress
+            [lpTokenAmount, lpTokenBalanceAfter, IERC20(curveExtraParams.poolAddress).totalSupply()],
+            curveExtraParams.poolAddress
         );
     }
 
     function removeLiquidity(
         uint256[] calldata amounts,
         uint256 maxLpBurnAmount,
-        bytes calldata _extraParams
+        bytes calldata extraParams
     )
         external
+        nonReentrant
     {
-        (ExtraParams memory extraParams) = abi.decode(_extraParams, (ExtraParams));
+        (CurveExtraParams memory curveExtraParams) = abi.decode(extraParams, (CurveExtraParams));
 
         _validateAmounts(amounts);
         if (maxLpBurnAmount == 0) revert("lpBurnAmount must be > 0");
 
-        uint256[] memory coinsBalancesBefore;
-        address[] memory tokens;
+        uint256[] memory coinsBalancesBefore = new uint256[](amounts.length);
+        address[] memory tokens = new address[](amounts.length);
         for (uint256 i = 0; i < amounts.length; ++i) {
-            address coin = IPool(extraParams.poolAddress).coins(i);
+            //slither-disable-next-line calls-loop
+            address coin = IPool(curveExtraParams.poolAddress).coins(i);
             coinsBalancesBefore[i] = coin == CURVE_REGISTRY_ETH_ADDRESS_POINTER
                 ? address(this).balance
                 : IERC20(coin).balanceOf(address(this));
 
-            tokens[i] = IPool(extraParams.poolAddress).coins(i);
+            tokens[i] = coin;
         }
 
         // In Curve V2 Factory Pools LP token address = pool address
-        uint256 lpTokenBalanceBefore = IERC20(extraParams.poolAddress).balanceOf(address(this));
+        uint256 lpTokenBalanceBefore = IERC20(curveExtraParams.poolAddress).balanceOf(address(this));
 
-        ICryptoSwapPool(extraParams.poolAddress).remove_liquidity(maxLpBurnAmount, amounts);
+        ICryptoSwapPool(curveExtraParams.poolAddress).remove_liquidity(maxLpBurnAmount, amounts);
 
-        uint256 lpTokenBalanceAfter = IERC20(extraParams.poolAddress).balanceOf(address(this));
+        uint256 lpTokenBalanceAfter = IERC20(curveExtraParams.poolAddress).balanceOf(address(this));
         uint256 lpTokenAmount = lpTokenBalanceBefore - lpTokenBalanceAfter;
         if (lpTokenAmount != maxLpBurnAmount) {
             revert("LP token amount mismatch");
         }
 
-        uint256[] memory coinsBalancesAfter = _getCoinsBalances(extraParams.poolAddress, amounts.length);
+        uint256[] memory coinsBalancesAfter = _getCoinsBalances(curveExtraParams.poolAddress, amounts.length);
 
         _emitWithdrawEvent(
             _compareCoinsBalances(coinsBalancesBefore, coinsBalancesAfter, amounts, false),
             tokens,
-            [lpTokenAmount, lpTokenBalanceAfter, IERC20(extraParams.poolAddress).totalSupply()],
-            extraParams.poolAddress
+            [lpTokenAmount, lpTokenBalanceAfter, IERC20(curveExtraParams.poolAddress).totalSupply()],
+            curveExtraParams.poolAddress
         );
     }
 
@@ -111,6 +122,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl {
         uint256 minAmount
     )
         external
+        nonReentrant
     {
         if (lpBurnAmount == 0 || minAmount == 0) {
             revert("Must not be 0");

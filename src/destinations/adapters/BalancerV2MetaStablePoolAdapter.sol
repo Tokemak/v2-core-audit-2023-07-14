@@ -4,13 +4,14 @@ pragma solidity 0.8.17;
 import "openzeppelin-contracts/access/AccessControl.sol";
 import "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
+import "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
 import { IDestinationAdapter } from "../../interfaces/destinations/IDestinationAdapter.sol";
 import { IAsset } from "../../interfaces/external/balancer/IAsset.sol";
 import { IVault } from "../../interfaces/external/balancer/IVault.sol";
 import { LibAdapter } from "./libs/LibAdapter.sol";
 
-contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl {
+contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     enum JoinKind {
@@ -40,7 +41,7 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl {
         bytes userData;
     }
 
-    struct ExtraParams {
+    struct BalancerExtraParams {
         bytes32 poolId;
         IERC20[] tokens;
     }
@@ -53,33 +54,44 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl {
         vault = _vault;
     }
 
-    function addLiquidity(uint256[] calldata amounts, uint256 minLpMintAmount, bytes calldata _extraParams) external {
-        (ExtraParams memory extraParams) = abi.decode(_extraParams, (ExtraParams));
-        if (extraParams.tokens.length != amounts.length) {
+    function addLiquidity(
+        uint256[] calldata amounts,
+        uint256 minLpMintAmount,
+        bytes calldata extraParams
+    )
+        external
+        nonReentrant
+    {
+        (BalancerExtraParams memory balancerExtraParams) = abi.decode(extraParams, (BalancerExtraParams));
+        if (balancerExtraParams.tokens.length != amounts.length) {
             revert("Array length mismatch");
         }
-        if (extraParams.tokens.length == 0 || minLpMintAmount == 0) {
+        if (balancerExtraParams.tokens.length == 0 || minLpMintAmount == 0) {
             revert("Must not be 0");
         }
 
         // get bpt address of the pool (for later balance checks)
-        (address poolAddress,) = vault.getPool(extraParams.poolId);
+        (address poolAddress,) = vault.getPool(balancerExtraParams.poolId);
 
-        uint256[] memory assetBalancesBefore = new uint256[](extraParams.tokens.length);
+        uint256[] memory assetBalancesBefore = new uint256[](balancerExtraParams.tokens.length);
 
         // verify that we're passing correct pool tokens
         _ensureTokenOrderAndApprovals(
-            extraParams.tokens.length, amounts, extraParams.tokens, extraParams.poolId, assetBalancesBefore
+            balancerExtraParams.tokens.length,
+            amounts,
+            balancerExtraParams.tokens,
+            balancerExtraParams.poolId,
+            assetBalancesBefore
         );
 
         // record balances before deposit
         uint256 bptBalanceBefore = IERC20(poolAddress).balanceOf(address(this));
 
         vault.joinPool(
-            extraParams.poolId,
+            balancerExtraParams.poolId,
             address(this), // sender
             address(this), // recipient of BPT token
-            _getJoinPoolRequest(extraParams.tokens, amounts, minLpMintAmount)
+            _getJoinPoolRequest(balancerExtraParams.tokens, amounts, minLpMintAmount)
         );
 
         // make sure we received bpt
@@ -88,8 +100,9 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl {
             revert("LP balance must increase");
         }
         // make sure assets were taken out
-        for (uint256 i = 0; i < extraParams.tokens.length; ++i) {
-            uint256 currentBalance = extraParams.tokens[i].balanceOf(address(this));
+        for (uint256 i = 0; i < balancerExtraParams.tokens.length; ++i) {
+            //slither-disable-next-line calls-loop
+            uint256 currentBalance = balancerExtraParams.tokens[i].balanceOf(address(this));
             if (currentBalance != assetBalancesBefore[i] - amounts[i]) {
                 revert("Token balance must increase");
             }
@@ -97,29 +110,30 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl {
 
         _emitDepositEvent(
             amounts,
-            _convertERC20sToAddresses(extraParams.tokens),
+            _convertERC20sToAddresses(balancerExtraParams.tokens),
             [bptBalanceAfter - bptBalanceBefore, bptBalanceAfter, IERC20(poolAddress).totalSupply()],
             poolAddress,
-            extraParams.poolId
+            balancerExtraParams.poolId
         );
     }
 
     function removeLiquidity(
         uint256[] calldata amounts,
         uint256 maxLpBurnAmount,
-        bytes calldata _extraParams
+        bytes calldata extraParams
     )
         external
+        nonReentrant
     {
-        (ExtraParams memory extraParams) = abi.decode(_extraParams, (ExtraParams));
+        (BalancerExtraParams memory balancerExtraParams) = abi.decode(extraParams, (BalancerExtraParams));
         // encode withdraw request
         bytes memory userData = abi.encode(ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amounts, maxLpBurnAmount);
 
         _withdraw(
             WithdrawParams({
-                poolId: extraParams.poolId,
+                poolId: balancerExtraParams.poolId,
                 bptAmount: maxLpBurnAmount,
-                tokens: extraParams.tokens,
+                tokens: balancerExtraParams.tokens,
                 amountsOut: amounts,
                 userData: userData
             })
@@ -138,6 +152,7 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl {
         uint256[] calldata minAmountsOut
     )
         external
+        nonReentrant
     {
         // encode withdraw request
         bytes memory userData = abi.encode(ExitKind.EXACT_BPT_IN_FOR_TOKENS_OUT, poolAmountIn);
@@ -153,7 +168,7 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl {
         );
     }
 
-    function _withdraw(WithdrawParams memory params) internal {
+    function _withdraw(WithdrawParams memory params) private {
         uint256[] memory amountsOut = params.amountsOut;
         bytes32 poolId = params.poolId;
 
@@ -231,10 +246,12 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl {
      * @dev This helper function is a fast and cheap way to convert between IERC20[] and IAsset[] types
      */
     function _convertERC20sToAssets(IERC20[] memory tokens) internal pure returns (IAsset[] memory assets) {
-        // solhint-disable-next-line no-inline-assembly
+        //slither-disable-start assembly
+        //solhint-disable-next-line no-inline-assembly
         assembly {
             assets := tokens
         }
+        //slither-disable-end assembly
     }
 
     function _convertERC20sToAddresses(IERC20[] memory tokens)
@@ -257,14 +274,14 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl {
         private
         pure
     {
-        bool hasNonZeroAmount;
+        bool hasNonZeroAmount = false;
         for (uint256 i = 0; i < tokens.length; ++i) {
             IERC20 currentToken = tokens[i];
             // _validateToken(currentToken); TODO: Call to Token Registry
             if (currentToken != poolTokens[i]) {
                 revert("Token pool asset mismatch");
             }
-            if (amountsOut[i] > 0) {
+            if (!hasNonZeroAmount && amountsOut[i] > 0) {
                 hasNonZeroAmount = true;
             }
         }
