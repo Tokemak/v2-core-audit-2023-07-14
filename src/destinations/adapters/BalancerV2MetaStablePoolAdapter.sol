@@ -190,7 +190,7 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl {
             minAmountsOut: amountsOut,
             userData: params.userData,
             toInternalBalance: false // send tokens back to us vs keeping inside vault for later use
-        });
+         });
 
         vault.exitPool(
             poolId,
@@ -330,7 +330,7 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl {
                 poolAmountOut
                 ),
             fromInternalBalance: false // vault will pull the tokens from diamond instead of internal balances
-        });
+         });
     }
 
     /// @dev Separate function to avoid stack-too-deep errors
