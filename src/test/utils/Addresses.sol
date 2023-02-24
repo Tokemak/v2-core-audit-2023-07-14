@@ -1,0 +1,5 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.17;
+
+address constant HEVM_ADDRESS = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
+address constant PRANK_ADDRESS = 0x00000000000000000000000000746F6B656D616b;
