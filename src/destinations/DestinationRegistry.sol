@@ -7,16 +7,20 @@ import { IDestinationRegistry } from "../interfaces/destinations/IDestinationReg
 import { IDestinationAdapter } from "../interfaces/destinations/IDestinationAdapter.sol";
 
 contract DestinationRegistry is IDestinationRegistry, AccessControl {
-    mapping(DestinationType => IDestinationAdapter) private destinations;
+    mapping(bytes32 => IDestinationAdapter) private destinations;
 
     error ZeroAddress(string param);
     error DestinationAlreadySet();
     error DestinationNotPresent();
 
-    function register(DestinationType destination, address target) public override {
+    modifier targetNotZero(address target) {
         if (target == address(0)) {
             revert ZeroAddress("target");
         }
+        _;
+    }
+
+    function register(bytes32 destination, address target) public override targetNotZero(target) {
         if (address(destinations[destination]) != address(0)) {
             revert DestinationAlreadySet();
         }
@@ -25,9 +29,7 @@ contract DestinationRegistry is IDestinationRegistry, AccessControl {
         emit Register(destination, target);
     }
 
-    function replace(DestinationType destination, address target) public override {
-        if (target == address(0)) revert ZeroAddress("target");
-
+    function replace(bytes32 destination, address target) public override targetNotZero(target) {
         IDestinationAdapter existingDestination = destinations[destination];
         if (address(existingDestination) == address(0)) {
             revert DestinationNotPresent();
@@ -40,7 +42,7 @@ contract DestinationRegistry is IDestinationRegistry, AccessControl {
         emit Replace(destination, target);
     }
 
-    function unregister(DestinationType destination) public override {
+    function unregister(bytes32 destination) public override {
         IDestinationAdapter target = destinations[destination];
         if (address(target) == address(0)) {
             revert DestinationNotPresent();
@@ -50,7 +52,7 @@ contract DestinationRegistry is IDestinationRegistry, AccessControl {
         emit Unregister(destination, address(target));
     }
 
-    function getAdapter(DestinationType destination) public view override returns (IDestinationAdapter target) {
+    function getAdapter(bytes32 destination) public view override returns (IDestinationAdapter target) {
         target = destinations[destination];
         if (address(target) == address(0)) {
             revert DestinationNotPresent();

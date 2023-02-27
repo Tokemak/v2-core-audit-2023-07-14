@@ -13,9 +13,9 @@ contract DestinationRegistryTest is DSTest {
 
     DestinationRegistry public registry;
 
-    event Register(IDestinationRegistry.DestinationType indexed destination, address indexed target);
-    event Replace(IDestinationRegistry.DestinationType indexed destination, address indexed target);
-    event Unregister(IDestinationRegistry.DestinationType indexed destination, address indexed target);
+    event Register(bytes32 indexed destination, address indexed target);
+    event Replace(bytes32 indexed destination, address indexed target);
+    event Unregister(bytes32 indexed destination, address indexed target);
 
     function setUp() public {
         registry = new DestinationRegistry();
@@ -24,77 +24,76 @@ contract DestinationRegistryTest is DSTest {
     // Register
     function testRevertOnRegisteringZeroAddress() public {
         vm.expectRevert(abi.encodeWithSelector(DestinationRegistry.ZeroAddress.selector, bytes("target")));
-        registry.register((IDestinationRegistry.DestinationType.BalancerV2MetaStablePoolAdapter), address(0));
+        registry.register(keccak256("BalancerV2MetaStablePoolAdapter"), address(0));
     }
 
     function testRevertOnRegisteringExistingDestination() public {
-        registry.register((IDestinationRegistry.DestinationType.BalancerV2MetaStablePoolAdapter), PRANK_ADDRESS);
+        registry.register(keccak256("BalancerV2MetaStablePoolAdapter"), PRANK_ADDRESS);
 
         vm.expectRevert(abi.encodeWithSelector(DestinationRegistry.DestinationAlreadySet.selector));
-        registry.register((IDestinationRegistry.DestinationType.BalancerV2MetaStablePoolAdapter), PRANK_ADDRESS);
+        registry.register(keccak256("BalancerV2MetaStablePoolAdapter"), PRANK_ADDRESS);
     }
 
     function testRegisterNewDestination() public {
         vm.expectEmit(true, true, false, true);
-        emit Register(IDestinationRegistry.DestinationType.BalancerV2MetaStablePoolAdapter, PRANK_ADDRESS);
-        registry.register(IDestinationRegistry.DestinationType.BalancerV2MetaStablePoolAdapter, PRANK_ADDRESS);
+        emit Register(keccak256("BalancerV2MetaStablePoolAdapter"), PRANK_ADDRESS);
+        registry.register(keccak256("BalancerV2MetaStablePoolAdapter"), PRANK_ADDRESS);
     }
 
     // Replace
     function testRevertOnReplacingToZeroAddress() public {
-        registry.register(IDestinationRegistry.DestinationType.BalancerV2MetaStablePoolAdapter, PRANK_ADDRESS);
+        registry.register(keccak256("BalancerV2MetaStablePoolAdapter"), PRANK_ADDRESS);
 
         vm.expectRevert(abi.encodeWithSelector(DestinationRegistry.ZeroAddress.selector, bytes("target")));
-        registry.replace((IDestinationRegistry.DestinationType.BalancerV2MetaStablePoolAdapter), address(0));
+        registry.replace(keccak256("BalancerV2MetaStablePoolAdapter"), address(0));
     }
 
     function testRevertOnReplacingNonExistingDestination() public {
         vm.expectRevert(abi.encodeWithSelector(DestinationRegistry.DestinationNotPresent.selector));
-        registry.replace(IDestinationRegistry.DestinationType.BalancerV2MetaStablePoolAdapter, PRANK_ADDRESS);
+        registry.replace(keccak256("BalancerV2MetaStablePoolAdapter"), PRANK_ADDRESS);
     }
 
     function testRevertOnReplacingToSameTarget() public {
-        registry.register(IDestinationRegistry.DestinationType.BalancerV2MetaStablePoolAdapter, PRANK_ADDRESS);
+        registry.register(keccak256("BalancerV2MetaStablePoolAdapter"), PRANK_ADDRESS);
 
         vm.expectRevert(abi.encodeWithSelector(DestinationRegistry.DestinationAlreadySet.selector));
-        registry.replace(IDestinationRegistry.DestinationType.BalancerV2MetaStablePoolAdapter, PRANK_ADDRESS);
+        registry.replace(keccak256("BalancerV2MetaStablePoolAdapter"), PRANK_ADDRESS);
     }
 
     function testReplaceExistingDestination() public {
-        registry.register(IDestinationRegistry.DestinationType.BalancerV2MetaStablePoolAdapter, PRANK_ADDRESS);
+        registry.register(keccak256("BalancerV2MetaStablePoolAdapter"), PRANK_ADDRESS);
 
         vm.expectEmit(true, true, false, true);
-        emit Replace(IDestinationRegistry.DestinationType.BalancerV2MetaStablePoolAdapter, RANDOM);
+        emit Replace(keccak256("BalancerV2MetaStablePoolAdapter"), RANDOM);
 
-        registry.replace(IDestinationRegistry.DestinationType.BalancerV2MetaStablePoolAdapter, RANDOM);
+        registry.replace(keccak256("BalancerV2MetaStablePoolAdapter"), RANDOM);
     }
 
     // Unregister
     function testRevertOnUnregisteringNonExistingDestination() public {
         vm.expectRevert(abi.encodeWithSelector(DestinationRegistry.DestinationNotPresent.selector));
-        registry.unregister(IDestinationRegistry.DestinationType.BalancerV2MetaStablePoolAdapter);
+        registry.unregister(keccak256("BalancerV2MetaStablePoolAdapter"));
     }
 
     function testUnregisterExistingDestination() public {
-        registry.register(IDestinationRegistry.DestinationType.BalancerV2MetaStablePoolAdapter, PRANK_ADDRESS);
+        registry.register(keccak256("BalancerV2MetaStablePoolAdapter"), PRANK_ADDRESS);
 
         vm.expectEmit(true, true, false, true);
-        emit Unregister(IDestinationRegistry.DestinationType.BalancerV2MetaStablePoolAdapter, PRANK_ADDRESS);
+        emit Unregister(keccak256("BalancerV2MetaStablePoolAdapter"), PRANK_ADDRESS);
 
-        registry.unregister(IDestinationRegistry.DestinationType.BalancerV2MetaStablePoolAdapter);
+        registry.unregister(keccak256("BalancerV2MetaStablePoolAdapter"));
     }
 
     // Get adapter
     function testRevertOnGettingTargetForNonExistingDestination() public {
         vm.expectRevert(abi.encodeWithSelector(DestinationRegistry.DestinationNotPresent.selector));
-        registry.getAdapter(IDestinationRegistry.DestinationType.BalancerV2MetaStablePoolAdapter);
+        registry.getAdapter(keccak256("BalancerV2MetaStablePoolAdapter"));
     }
 
     function testGetAdapterTargetForExistingDestination() public {
-        registry.register(IDestinationRegistry.DestinationType.BalancerV2MetaStablePoolAdapter, PRANK_ADDRESS);
+        registry.register(keccak256("BalancerV2MetaStablePoolAdapter"), PRANK_ADDRESS);
 
-        IDestinationAdapter result =
-            registry.getAdapter(IDestinationRegistry.DestinationType.BalancerV2MetaStablePoolAdapter);
+        IDestinationAdapter result = registry.getAdapter(keccak256("BalancerV2MetaStablePoolAdapter"));
 
         assertEq(address(result), PRANK_ADDRESS);
     }

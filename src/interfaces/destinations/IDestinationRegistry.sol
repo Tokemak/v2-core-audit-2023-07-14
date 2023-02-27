@@ -4,32 +4,27 @@ pragma solidity 0.8.17;
 import { IDestinationAdapter } from "./IDestinationAdapter.sol";
 
 interface IDestinationRegistry {
-    event Register(DestinationType indexed destination, address indexed target);
-    event Replace(DestinationType indexed destination, address indexed target);
-    event Unregister(DestinationType indexed destination, address indexed target);
+    event Register(bytes32 indexed destination, address indexed target);
+    event Replace(bytes32 indexed destination, address indexed target);
+    event Unregister(bytes32 indexed destination, address indexed target);
 
-    enum DestinationType {
-        BalancerV2MetaStablePoolAdapter,
-        CurveV2FactoryCryptoAdapter
-    }
-
-    ///@notice Adds a new address of the given DestinationType
-    ///@dev Fails if trying to overwrite previous value of the same DestinationType
-    ///@param destination One from the DestinationType whitelist
+    ///@notice Adds a new address of the given destination type
+    ///@dev Fails if trying to overwrite previous value of the same destination type
+    ///@param destination One from the destination type whitelist
     ///@param target address of the deployed DestinationAdapter
-    function register(DestinationType destination, address target) external;
+    function register(bytes32 destination, address target) external;
 
-    ///@notice Replaces an address of the given DestinationType
-    ///@dev Fails if given DestinationType was not set previously
-    ///@param destination One from the DestinationType whitelist
+    ///@notice Replaces an address of the given destination type
+    ///@dev Fails if given destination type was not set previously
+    ///@param destination One from the destination type whitelist
     ///@param target address of the deployed DestinationAdapter
-    function replace(DestinationType destination, address target) external;
+    function replace(bytes32 destination, address target) external;
 
-    ///@notice Removes an address of the given DestinationType
-    ///@param destination One from the DestinationType whitelist
-    function unregister(DestinationType destination) external;
+    ///@notice Removes an address of the given destination type
+    ///@param destination One from the destination type whitelist
+    function unregister(bytes32 destination) external;
 
-    ///@notice Gives an address of the given DestinationType
-    ///@param destination One from the DestinationType whitelist
-    function getAdapter(DestinationType destination) external returns (IDestinationAdapter);
+    ///@notice Gives an address of the given destination type
+    ///@param destination One from the destination type whitelist
+    function getAdapter(bytes32 destination) external returns (IDestinationAdapter);
 }
