@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
 import "openzeppelin-contracts/access/AccessControl.sol";
@@ -100,11 +100,14 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
             revert("LP balance must increase");
         }
         // make sure assets were taken out
-        for (uint256 i = 0; i < balancerExtraParams.tokens.length; ++i) {
+        for (uint256 i = 0; i < balancerExtraParams.tokens.length;) {
             //slither-disable-next-line calls-loop
             uint256 currentBalance = balancerExtraParams.tokens[i].balanceOf(address(this));
             if (currentBalance != assetBalancesBefore[i] - amounts[i]) {
                 revert("Token balance must increase");
+            }
+            unchecked {
+                ++i;
             }
         }
 
@@ -195,8 +198,11 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
         // record balance before withdraw
         uint256 bptBalanceBefore = IERC20(poolAddress).balanceOf(address(this));
         uint256[] memory assetBalancesBefore = new uint256[](poolTokens.length);
-        for (uint256 i = 0; i < numTokens; ++i) {
+        for (uint256 i = 0; i < numTokens;) {
             assetBalancesBefore[i] = poolTokens[i].balanceOf(address(this));
+            unchecked {
+                ++i;
+            }
         }
 
         // As we're exiting the pool we need to make an ExitPoolRequest instead
@@ -220,7 +226,7 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
             revert("Balancer must decrease");
         }
 
-        for (uint256 i = 0; i < numTokens; ++i) {
+        for (uint256 i = 0; i < numTokens;) {
             uint256 currentAmount = amountsOut[i];
             uint256 currentAssetBalanceBefore = assetBalancesBefore[i];
 
@@ -231,6 +237,9 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
             }
             // Get actual amount returned for event, reuse amountsOut array
             currentAmount = currentTokenCurrentBalance - currentAssetBalanceBefore;
+            unchecked {
+                ++i;
+            }
         }
 
         _emitWithdrawEvent(
@@ -260,8 +269,11 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
         returns (address[] memory tokenAddresses)
     {
         tokenAddresses = new address[](tokens.length);
-        for (uint256 i = 0; i < tokens.length; ++i) {
+        for (uint256 i = 0; i < tokens.length;) {
             tokenAddresses[i] = address(tokens[i]);
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -275,7 +287,7 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
         pure
     {
         bool hasNonZeroAmount = false;
-        for (uint256 i = 0; i < tokens.length; ++i) {
+        for (uint256 i = 0; i < tokens.length;) {
             IERC20 currentToken = tokens[i];
             // _validateToken(currentToken); TODO: Call to Token Registry
             if (currentToken != poolTokens[i]) {
@@ -283,6 +295,9 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
             }
             if (!hasNonZeroAmount && amountsOut[i] > 0) {
                 hasNonZeroAmount = true;
+            }
+            unchecked {
+                ++i;
             }
         }
         if (!hasNonZeroAmount) revert("No non-zero amount provided");
@@ -306,7 +321,7 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
         }
 
         // run through tokens and make sure we have approvals (and correct token order)
-        for (uint256 i = 0; i < nTokens; ++i) {
+        for (uint256 i = 0; i < nTokens;) {
             uint256 currentAmount = amounts[i];
             IERC20 currentToken = tokens[i];
 
@@ -326,6 +341,10 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
 
             // grant spending approval to balancer's Vault
             LibAdapter._approve(IERC20(currentToken), address(vault), currentAmount);
+
+            unchecked {
+                ++i;
+            }
         }
     }
 

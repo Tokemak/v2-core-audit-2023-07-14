@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
 import "openzeppelin-contracts/access/AccessControl.sol";
@@ -30,13 +30,16 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
         if (minLpMintAmount == 0) revert("minLpMintAmount must be > 0");
 
         address[] memory tokens = new address[](amounts.length);
-        for (uint256 i = 0; i < amounts.length; ++i) {
+        for (uint256 i = 0; i < amounts.length;) {
             uint256 amount = amounts[i];
             //slither-disable-next-line calls-loop
             address coin = ICryptoSwapPool(curveExtraParams.poolAddress).coins(i);
             tokens[i] = coin;
             if (amount > 0) {
                 LibAdapter._validateAndApprove(coin, curveExtraParams.poolAddress, amount);
+            }
+            unchecked {
+                ++i;
             }
         }
         uint256 lpTokenBalanceBefore = IERC20(curveExtraParams.poolAddress).balanceOf(address(this));
@@ -76,7 +79,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
 
         uint256[] memory coinsBalancesBefore = new uint256[](amounts.length);
         address[] memory tokens = new address[](amounts.length);
-        for (uint256 i = 0; i < amounts.length; ++i) {
+        for (uint256 i = 0; i < amounts.length;) {
             //slither-disable-next-line calls-loop
             address coin = IPool(curveExtraParams.poolAddress).coins(i);
             coinsBalancesBefore[i] = coin == CURVE_REGISTRY_ETH_ADDRESS_POINTER
@@ -84,6 +87,9 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
                 : IERC20(coin).balanceOf(address(this));
 
             tokens[i] = coin;
+            unchecked {
+                ++i;
+            }
         }
 
         // In Curve V2 Factory Pools LP token address = pool address
@@ -158,10 +164,13 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
     /// @dev Validate to have at least one `amount` > 0 provided
     function _validateAmounts(uint256[] memory amounts) internal pure {
         bool nonZeroAmountPresent = false;
-        for (uint256 i = 0; i < amounts.length; ++i) {
+        for (uint256 i = 0; i < amounts.length;) {
             if (amounts[i] != 0) {
                 nonZeroAmountPresent = true;
                 break;
+            }
+            unchecked {
+                ++i;
             }
         }
         if (!nonZeroAmountPresent) revert("No non-zero amount provided");
@@ -176,11 +185,14 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
         view
         returns (uint256[] memory coinsBalances)
     {
-        for (uint256 i = 0; i < nCoins; ++i) {
+        for (uint256 i = 0; i < nCoins;) {
             address coin = IPool(poolAddress).coins(i);
             coinsBalances[i] = coin == CURVE_REGISTRY_ETH_ADDRESS_POINTER
                 ? address(this).balance
                 : IERC20(coin).balanceOf(address(this));
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -195,13 +207,16 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
         pure
         returns (uint256[] memory balanceChange)
     {
-        for (uint256 i = 0; i < amounts.length; ++i) {
+        for (uint256 i = 0; i < amounts.length;) {
             uint256 balanceDiff =
                 isLiqDeployment ? balancesBefore[i] - balancesAfter[i] : balancesAfter[i] - balancesBefore[i];
             if (balanceDiff < amounts[i]) {
                 revert("Invalid balance change");
             }
             balanceChange[i] = balanceDiff;
+            unchecked {
+                ++i;
+            }
         }
     }
 
