@@ -395,6 +395,6 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
     {
         emit WithdrawLiquidity(
             amounts, tokens, lpAmounts[0], lpAmounts[1], lpAmounts[2], abi.encode(poolAddress, poolId)
-            );
+        );
     }
 }
