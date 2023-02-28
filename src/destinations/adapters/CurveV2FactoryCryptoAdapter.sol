@@ -5,9 +5,9 @@ import "openzeppelin-contracts/access/AccessControl.sol";
 import "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
-import { IDestinationAdapter } from "../../interfaces/destinations/IDestinationAdapter.sol";
+import "../../interfaces/destinations/IDestinationAdapter.sol";
+import "./libs/LibAdapter.sol";
 import { ICryptoSwapPool, IPool } from "../../interfaces/external/curve/ICryptoSwapPool.sol";
-import { LibAdapter } from "./libs/LibAdapter.sol";
 
 contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, ReentrancyGuard {
     address public constant CURVE_REGISTRY_ETH_ADDRESS_POINTER = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;

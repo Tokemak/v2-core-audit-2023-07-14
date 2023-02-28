@@ -1,61 +1,147 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "openzeppelin-contracts/access/AccessControl.sol";
+import "openzeppelin-contracts/access/Ownable.sol";
 
-import { IDestinationRegistry } from "../interfaces/destinations/IDestinationRegistry.sol";
-import { IDestinationAdapter } from "../interfaces/destinations/IDestinationAdapter.sol";
+import "../interfaces/destinations/IDestinationRegistry.sol";
+import "../interfaces/destinations/IDestinationAdapter.sol";
 
-contract DestinationRegistry is IDestinationRegistry, AccessControl {
-    mapping(bytes32 => IDestinationAdapter) private destinations;
+contract DestinationRegistry is IDestinationRegistry, Ownable {
+    mapping(bytes32 => IDestinationAdapter) public destinations;
+    mapping(bytes32 => bool) public allowedTypes;
 
+    error ArraysLengthMismatch();
     error ZeroAddress(string param);
+    error NotAllowedDestination();
     error DestinationAlreadySet();
     error DestinationNotPresent();
 
-    modifier targetNotZero(address target) {
-        if (target == address(0)) {
-            revert ZeroAddress("target");
+    modifier arrayLengthMatch(bytes32[] calldata destinationTypes, address[] calldata targets) {
+        if (destinationTypes.length != targets.length) {
+            revert ArraysLengthMismatch();
         }
         _;
     }
 
-    function register(bytes32 destination, address target) public override targetNotZero(target) {
-        if (address(destinations[destination]) != address(0)) {
-            revert DestinationAlreadySet();
+    function ensureTargetNotZero(address target) private pure {
+        if (target == address(0)) {
+            revert ZeroAddress("target");
         }
-        destinations[destination] = IDestinationAdapter(target);
-
-        emit Register(destination, target);
     }
 
-    function replace(bytes32 destination, address target) public override targetNotZero(target) {
-        IDestinationAdapter existingDestination = destinations[destination];
-        if (address(existingDestination) == address(0)) {
+    function ensureDestinationIsPresent(IDestinationAdapter destination) private pure {
+        if (address(destination) == address(0)) {
             revert DestinationNotPresent();
         }
-        if (address(destinations[destination]) == target) {
-            revert DestinationAlreadySet();
-        }
-        destinations[destination] = IDestinationAdapter(target);
-
-        emit Replace(destination, target);
     }
 
-    function unregister(bytes32 destination) public override {
-        IDestinationAdapter target = destinations[destination];
-        if (address(target) == address(0)) {
-            revert DestinationNotPresent();
-        }
-        delete destinations[destination];
+    function register(
+        bytes32[] calldata destinationTypes,
+        address[] calldata targets
+    )
+        public
+        override
+        onlyOwner
+        arrayLengthMatch(destinationTypes, targets)
+    {
+        for (uint256 i = 0; i < destinationTypes.length;) {
+            bytes32 destination = destinationTypes[i];
+            if (!isWhitelistedDestination(destination)) {
+                revert NotAllowedDestination();
+            }
+            address target = targets[i];
+            ensureTargetNotZero(target);
 
-        emit Unregister(destination, address(target));
+            if (address(destinations[destination]) != address(0)) {
+                revert DestinationAlreadySet();
+            }
+            destinations[destination] = IDestinationAdapter(target);
+            unchecked {
+                ++i;
+            }
+        }
+        emit Register(destinationTypes, targets);
     }
 
-    function getAdapter(bytes32 destination) public view override returns (IDestinationAdapter target) {
-        target = destinations[destination];
-        if (address(target) == address(0)) {
-            revert DestinationNotPresent();
+    function replace(
+        bytes32[] calldata destinationTypes,
+        address[] calldata targets
+    )
+        public
+        override
+        onlyOwner
+        arrayLengthMatch(destinationTypes, targets)
+    {
+        for (uint256 i = 0; i < destinationTypes.length;) {
+            address target = targets[i];
+            ensureTargetNotZero(target);
+
+            bytes32 destination = destinationTypes[i];
+            IDestinationAdapter existingDestination = destinations[destination];
+            ensureDestinationIsPresent(existingDestination);
+
+            if (address(existingDestination) == target) {
+                revert DestinationAlreadySet();
+            }
+            destinations[destination] = IDestinationAdapter(target);
+            unchecked {
+                ++i;
+            }
         }
+        emit Replace(destinationTypes, targets);
+    }
+
+    function unregister(bytes32[] calldata destinationTypes) public override onlyOwner {
+        for (uint256 i = 0; i < destinationTypes.length;) {
+            bytes32 destination = destinationTypes[i];
+            ensureDestinationIsPresent(destinations[destination]);
+            //slither-disable-next-line costly-loop
+            delete destinations[destination];
+            unchecked {
+                ++i;
+            }
+        }
+        emit Unregister(destinationTypes);
+    }
+
+    function getAdapter(bytes32 destinationType) public view override returns (IDestinationAdapter target) {
+        target = destinations[destinationType];
+        ensureDestinationIsPresent(target);
+    }
+
+    function addToWhitelist(bytes32[] calldata destinationTypes) external override onlyOwner {
+        for (uint256 i = 0; i < destinationTypes.length;) {
+            if (allowedTypes[destinationTypes[i]]) {
+                revert DestinationAlreadySet();
+            }
+            allowedTypes[destinationTypes[i]] = true;
+            unchecked {
+                ++i;
+            }
+        }
+        emit Whitelist(destinationTypes);
+    }
+
+    function removeFromWhitelist(bytes32[] calldata destinationTypes) external override onlyOwner {
+        for (uint256 i = 0; i < destinationTypes.length;) {
+            bytes32 destination = destinationTypes[i];
+            if (!allowedTypes[destination]) {
+                revert DestinationNotPresent();
+            }
+            if (address(destinations[destination]) != address(0)) {
+                // cannot remove from whitelist already registered type – must unregister first
+                revert DestinationAlreadySet();
+            }
+            //slither-disable-next-line costly-loop
+            delete allowedTypes[destination];
+            unchecked {
+                ++i;
+            }
+        }
+        emit RemoveFromWhitelist(destinationTypes);
+    }
+
+    function isWhitelistedDestination(bytes32 destinationType) public view override returns (bool) {
+        return allowedTypes[destinationType];
     }
 }
