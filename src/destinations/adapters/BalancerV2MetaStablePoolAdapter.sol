@@ -58,10 +58,7 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
         uint256[] calldata amounts,
         uint256 minLpMintAmount,
         bytes calldata extraParams
-    )
-        external
-        nonReentrant
-    {
+    ) external nonReentrant {
         (BalancerExtraParams memory balancerExtraParams) = abi.decode(extraParams, (BalancerExtraParams));
         if (balancerExtraParams.tokens.length != amounts.length) {
             revert("Array length mismatch");
@@ -124,10 +121,7 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
         uint256[] calldata amounts,
         uint256 maxLpBurnAmount,
         bytes calldata extraParams
-    )
-        external
-        nonReentrant
-    {
+    ) external nonReentrant {
         (BalancerExtraParams memory balancerExtraParams) = abi.decode(extraParams, (BalancerExtraParams));
         // encode withdraw request
         bytes memory userData = abi.encode(ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amounts, maxLpBurnAmount);
@@ -153,10 +147,7 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
         uint256 poolAmountIn,
         IERC20[] calldata tokens,
         uint256[] calldata minAmountsOut
-    )
-        external
-        nonReentrant
-    {
+    ) external nonReentrant {
         // encode withdraw request
         bytes memory userData = abi.encode(ExitKind.EXACT_BPT_IN_FOR_TOKENS_OUT, poolAmountIn);
 
@@ -210,8 +201,8 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
             assets: _convertERC20sToAssets(poolTokens),
             minAmountsOut: amountsOut,
             userData: params.userData,
-            toInternalBalance: false // send tokens back to us vs keeping inside vault for later use
-         });
+            toInternalBalance: false
+        });
 
         vault.exitPool(
             poolId,
@@ -282,10 +273,7 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
         IERC20[] memory tokens,
         IERC20[] memory poolTokens,
         uint256[] memory amountsOut
-    )
-        private
-        pure
-    {
+    ) private pure {
         bool hasNonZeroAmount = false;
         for (uint256 i = 0; i < tokens.length;) {
             IERC20 currentToken = tokens[i];
@@ -310,9 +298,7 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
         IERC20[] memory tokens,
         bytes32 poolId,
         uint256[] memory assetBalancesBefore
-    )
-        private
-    {
+    ) private {
         // (two part verification: total number checked here, and individual match check below)
         (IERC20[] memory poolAssets,,) = vault.getPoolTokens(poolId);
 
@@ -352,11 +338,7 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
         IERC20[] memory tokens,
         uint256[] calldata amounts,
         uint256 poolAmountOut
-    )
-        private
-        pure
-        returns (IVault.JoinPoolRequest memory joinRequest)
-    {
+    ) private pure returns (IVault.JoinPoolRequest memory joinRequest) {
         joinRequest = IVault.JoinPoolRequest({
             assets: _convertERC20sToAssets(tokens),
             maxAmountsIn: amounts, // maxAmountsIn,
@@ -365,8 +347,8 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
                 amounts, //maxAmountsIn,
                 poolAmountOut
                 ),
-            fromInternalBalance: false // vault will pull the tokens from diamond instead of internal balances
-         });
+            fromInternalBalance: false
+        });
     }
 
     /// @dev Separate function to avoid stack-too-deep errors
@@ -376,9 +358,7 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
         uint256[3] memory lpAmounts,
         address poolAddress,
         bytes32 poolId
-    )
-        private
-    {
+    ) private {
         bytes memory extraData = abi.encode(poolAddress, poolId);
         emit DeployLiquidity(amounts, tokens, lpAmounts[0], lpAmounts[1], lpAmounts[2], extraData);
     }
@@ -390,11 +370,8 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
         uint256[3] memory lpAmounts,
         address poolAddress,
         bytes32 poolId
-    )
-        private
-    {
-        emit WithdrawLiquidity(
-            amounts, tokens, lpAmounts[0], lpAmounts[1], lpAmounts[2], abi.encode(poolAddress, poolId)
-        );
+    ) private {
+        bytes memory data = abi.encode(poolAddress, poolId);
+        emit WithdrawLiquidity(amounts, tokens, lpAmounts[0], lpAmounts[1], lpAmounts[2], data);
     }
 }

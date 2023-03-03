@@ -36,6 +36,5 @@ interface IDestinationAdapter {
         uint256[] calldata amounts,
         uint256 maxLpBurnAmount,
         bytes calldata extraParams
-    )
-        external;
+    ) external;
 }

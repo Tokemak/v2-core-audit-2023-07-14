@@ -37,7 +37,7 @@ contract PlasmaVaultBaseTest is BaseTest, ERC4626Test {
 
         // create mock asset
         MockERC20 mockAsset = new MockERC20();
-        deal({token: address(mockAsset), to: msg.sender, give: uint256(1_000_000_000_000_000_000_000_000)});
+        deal(address(mockAsset), msg.sender, uint256(1_000_000_000_000_000_000_000_000));
         poolAsset = mockAsset;
 
         factory = new PlasmaPoolFactory(address(registry));

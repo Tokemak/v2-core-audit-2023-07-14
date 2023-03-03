@@ -94,9 +94,7 @@ interface IVault {
         address sender,
         address recipient,
         JoinPoolRequest memory request
-    )
-        external
-        payable;
+    ) external payable;
 
     struct JoinPoolRequest {
         IAsset[] assets;
@@ -145,8 +143,7 @@ interface IVault {
         address sender,
         address payable recipient,
         ExitPoolRequest memory request
-    )
-        external;
+    ) external;
 
     struct ExitPoolRequest {
         IAsset[] assets;

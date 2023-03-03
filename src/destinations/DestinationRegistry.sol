@@ -38,12 +38,7 @@ contract DestinationRegistry is IDestinationRegistry, Ownable2Step {
     function register(
         bytes32[] calldata destinationTypes,
         address[] calldata targets
-    )
-        public
-        override
-        onlyOwner
-        arrayLengthMatch(destinationTypes, targets)
-    {
+    ) public override onlyOwner arrayLengthMatch(destinationTypes, targets) {
         for (uint256 i = 0; i < destinationTypes.length;) {
             bytes32 destination = destinationTypes[i];
             if (!isWhitelistedDestination(destination)) {
@@ -66,12 +61,7 @@ contract DestinationRegistry is IDestinationRegistry, Ownable2Step {
     function replace(
         bytes32[] calldata destinationTypes,
         address[] calldata targets
-    )
-        public
-        override
-        onlyOwner
-        arrayLengthMatch(destinationTypes, targets)
-    {
+    ) public override onlyOwner arrayLengthMatch(destinationTypes, targets) {
         for (uint256 i = 0; i < destinationTypes.length;) {
             address target = targets[i];
             ensureTargetNotZero(target);

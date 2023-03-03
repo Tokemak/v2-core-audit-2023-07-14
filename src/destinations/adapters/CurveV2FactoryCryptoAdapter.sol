@@ -20,10 +20,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
         uint256[] calldata amounts,
         uint256 minLpMintAmount,
         bytes calldata extraParams
-    )
-        external
-        nonReentrant
-    {
+    ) external nonReentrant {
         (CurveExtraParams memory curveExtraParams) = abi.decode(extraParams, (CurveExtraParams));
 
         _validateAmounts(amounts);
@@ -68,10 +65,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
         uint256[] calldata amounts,
         uint256 maxLpBurnAmount,
         bytes calldata extraParams
-    )
-        external
-        nonReentrant
-    {
+    ) external nonReentrant {
         (CurveExtraParams memory curveExtraParams) = abi.decode(extraParams, (CurveExtraParams));
 
         _validateAmounts(amounts);
@@ -126,10 +120,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
         uint256 lpBurnAmount,
         uint256 coinIndex,
         uint256 minAmount
-    )
-        external
-        nonReentrant
-    {
+    ) external nonReentrant {
         if (lpBurnAmount == 0 || minAmount == 0) {
             revert("Must not be 0");
         }
@@ -180,11 +171,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
     function _getCoinsBalances(
         address poolAddress,
         uint256 nCoins
-    )
-        private
-        view
-        returns (uint256[] memory coinsBalances)
-    {
+    ) private view returns (uint256[] memory coinsBalances) {
         for (uint256 i = 0; i < nCoins;) {
             address coin = IPool(poolAddress).coins(i);
             coinsBalances[i] = coin == CURVE_REGISTRY_ETH_ADDRESS_POINTER
@@ -202,11 +189,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
         uint256[] memory balancesAfter,
         uint256[] memory amounts,
         bool isLiqDeployment
-    )
-        private
-        pure
-        returns (uint256[] memory balanceChange)
-    {
+    ) private pure returns (uint256[] memory balanceChange) {
         for (uint256 i = 0; i < amounts.length;) {
             uint256 balanceDiff =
                 isLiqDeployment ? balancesBefore[i] - balancesAfter[i] : balancesAfter[i] - balancesBefore[i];
@@ -226,9 +209,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
         address[] memory tokens,
         uint256[3] memory lpAmounts,
         address poolAddress
-    )
-        private
-    {
+    ) private {
         emit DeployLiquidity(amounts, tokens, lpAmounts[0], lpAmounts[1], lpAmounts[2], abi.encode(poolAddress));
     }
 
@@ -238,9 +219,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
         address[] memory tokens,
         uint256[3] memory lpAmounts,
         address poolAddress
-    )
-        private
-    {
+    ) private {
         emit WithdrawLiquidity(amounts, tokens, lpAmounts[0], lpAmounts[1], lpAmounts[2], abi.encode(poolAddress));
     }
 }
