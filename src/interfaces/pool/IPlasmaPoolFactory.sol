@@ -35,4 +35,11 @@ interface IPlasmaPoolFactory {
      * @param _poolType Pool type to remove implementation reference of
      */
     function removePoolType(bytes32 _poolType) external;
+
+    /**
+     * @notice Replace a PlasmaPool prototype from the whitelist
+     * @param poolType Pool type to remove implementation reference of
+     * @param _plasmaPoolPrototype Address of deployed PlasmaPool prototype
+     */
+    function replacePoolType(bytes32 poolType, address _plasmaPoolPrototype) external;
 }

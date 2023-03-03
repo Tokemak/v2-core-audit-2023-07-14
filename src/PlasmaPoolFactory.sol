@@ -15,7 +15,7 @@ contract PlasmaPoolFactory is IPlasmaPoolFactory, AccessControl {
     mapping(bytes32 => address) public poolTypeToPrototype;
     EnumerableSet.Bytes32Set private _poolTypes;
 
-    IPlasmaPoolRegistry public poolRegistry;
+    IPlasmaPoolRegistry public immutable poolRegistry;
 
     // solhint-disable-next-line var-name-mixedcase
     bytes32 public immutable CREATE_POOL_ROLE = keccak256("CREATE_POOL_ROLE");
@@ -65,13 +65,18 @@ contract PlasmaPoolFactory is IPlasmaPoolFactory, AccessControl {
         return _poolTypes.values();
     }
 
-    function addPoolType(bytes32 poolType, address /*_plasmaPoolPrototype*/ ) external onlyAdmin {
+    function addPoolType(bytes32 poolType, address /*_plasmaPoolPrototype*/ ) public onlyAdmin {
         // add prototype
-        _poolTypes.add(poolType);
+        require(_poolTypes.add(poolType), "");
     }
 
-    function removePoolType(bytes32 poolType) external onlyAdmin {
+    function removePoolType(bytes32 poolType) public onlyAdmin {
         // remove actual prototype
-        _poolTypes.remove(poolType);
+        require(_poolTypes.remove(poolType), "");
+    }
+
+    function replacePoolType(bytes32 poolType, address plasmaPoolPrototype) external onlyAdmin {
+        removePoolType(poolType);
+        addPoolType(poolType, plasmaPoolPrototype);
     }
 }

@@ -10,5 +10,6 @@
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
 	"solidity.formatter": "forge",
-	"solidity.defaultCompiler": "remote"
+	"solidity.defaultCompiler": "remote",
+	"solidity.compileUsingRemoteVersion": "0.8.17"
 }

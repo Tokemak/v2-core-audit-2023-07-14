@@ -42,9 +42,9 @@ contract PlasmaPoolRegistry is IPlasmaPoolRegistry, AccessControl {
 
         address asset = IPlasmaPool(poolAddress).asset();
 
-        _pools.add(poolAddress);
-        _assets.add(asset);
-        _poolsByAsset[asset].add(poolAddress);
+        require(_pools.add(poolAddress), "");
+        require(_assets.add(asset), "");
+        require(_poolsByAsset[asset].add(poolAddress), "");
 
         emit PoolAdded(asset, poolAddress);
     }
@@ -56,13 +56,13 @@ contract PlasmaPoolRegistry is IPlasmaPoolRegistry, AccessControl {
         address asset = IPlasmaPool(poolAddress).asset();
 
         // remove from pools list
-        _pools.remove(poolAddress);
+        require(_pools.remove(poolAddress), "");
         // remove from assets list if this was the last pool for that asset
         if (_poolsByAsset[asset].length() == 1) {
-            _assets.remove(asset);
+            require(_assets.remove(asset), "");
         }
         // remove from poolsByAsset mapping
-        _poolsByAsset[asset].remove(poolAddress);
+        require(_poolsByAsset[asset].remove(poolAddress), "");
 
         emit PoolRemoved(asset, poolAddress);
     }

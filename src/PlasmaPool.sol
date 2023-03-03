@@ -15,7 +15,7 @@ contract PlasmaPool is IPlasmaPool, ERC20Permit, Pausable {
     using SafeERC20 for ERC20;
     using SafeERC20 for IERC20;
 
-    IERC20 internal _asset;
+    IERC20 internal immutable _asset;
 
     constructor(address _poolAsset)
         ERC20(
@@ -215,7 +215,7 @@ contract PlasmaPool is IPlasmaPool, ERC20Permit, Pausable {
         bool fromRedeem
     ) internal virtual {
         // If caller is not the owner of the shares
-        uint256 allowed = this.allowance(owner, msg.sender);
+        uint256 allowed = allowance(owner, msg.sender);
         if (msg.sender != owner && allowed != type(uint256).max) {
             require(shares <= allowed, "Amount exceeds allowance");
             _approve(owner, msg.sender, allowed - shares);
@@ -224,9 +224,9 @@ contract PlasmaPool is IPlasmaPool, ERC20Permit, Pausable {
 
         _burn(owner, shares);
 
-        _asset.safeTransfer(receiver, assets);
-
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
+
+        _asset.safeTransfer(receiver, assets);
     }
 
     ///@dev Checks if vault is "healthy" in the sense of having assets backing the circulating shares.
@@ -240,7 +240,7 @@ contract PlasmaPool is IPlasmaPool, ERC20Permit, Pausable {
         address, /*owner*/
         bool /*fromRedeem*/
     ) internal virtual {
-        this;
+        // Do Nothing
     }
 
     function _afterDepositHook(
@@ -249,6 +249,6 @@ contract PlasmaPool is IPlasmaPool, ERC20Permit, Pausable {
         address, /*receiver*/
         bool /*fromDeposit*/
     ) internal virtual {
-        this;
+        // Do Nothing
     }
 }
