@@ -17,7 +17,7 @@ import { MockERC20 } from "./mocks/MockERC20.sol";
 import { BaseTest } from "./BaseTest.t.sol";
 import { console } from "forge-std/console.sol";
 
-contract PlasmaVaultBaseTest is BaseTest, ERC4626Test {
+contract PlasmaVaultBaseTest is BaseTest {
     PlasmaPoolRegistry public registry;
     PlasmaPoolFactory public factory;
     PlasmaPoolRouter public router;
@@ -25,7 +25,7 @@ contract PlasmaVaultBaseTest is BaseTest, ERC4626Test {
     ERC20 public poolAsset;
     address internal _mockPoolPrototypeAddress;
 
-    function setUp() public virtual override(BaseTest, ERC4626Test) {
+    function setUp() public virtual override(BaseTest) {
         BaseTest.setUp();
 
         // create registry
@@ -56,11 +56,11 @@ contract PlasmaVaultBaseTest is BaseTest, ERC4626Test {
         // create sample pool
         pool = IPlasmaPool(factory.createPool(factory.POOLTYPE_PLASMAPOOL(), address(mockAsset), ""));
 
-        // erc426-tests setup
-        _underlying_ = address(mockAsset);
-        _vault_ = address(pool);
-        _delta_ = 0;
-        _vaultMayBeEmpty = false;
-        _unlimitedAmount = false;
+        // // erc426-tests setup
+        // _underlying_ = address(mockAsset);
+        // _vault_ = address(pool);
+        // _delta_ = 0;
+        // _vaultMayBeEmpty = false;
+        // _unlimitedAmount = false;
     }
 }

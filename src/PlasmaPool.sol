@@ -234,13 +234,21 @@ contract PlasmaPool is IPlasmaPool, ERC20Permit, Pausable {
         return totalAssets() > 0 || totalSupply() == 0;
     }
 
-    // solhint-disable-next-line no-unused-vars
-    function _beforeWithdrawHook(uint256 assets, uint256 shares, address owner, bool fromRedeem) internal virtual {
+    function _beforeWithdrawHook(
+        uint256, /*assets*/
+        uint256, /*shares*/
+        address, /*owner*/
+        bool /*fromRedeem*/
+    ) internal virtual {
         this;
     }
 
-    // solhint-disable-next-line no-unused-vars
-    function _afterDepositHook(uint256 assets, uint256 shares, address receiver, bool fromDeposit) internal virtual {
+    function _afterDepositHook(
+        uint256, /*assets*/
+        uint256, /*shares*/
+        address, /*receiver*/
+        bool /*fromDeposit*/
+    ) internal virtual {
         this;
     }
 }

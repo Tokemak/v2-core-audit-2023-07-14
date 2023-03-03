@@ -38,7 +38,7 @@ contract PlasmaPoolFactory is IPlasmaPoolFactory, AccessControl {
     function createPool(
         bytes32 _poolType,
         address _poolAsset,
-        bytes calldata extraParams // solhint-disable-line no-unused-vars
+        bytes calldata /*extraParams*/
     ) external returns (address newPoolAddress) {
         if (!hasRole(CREATE_POOL_ROLE, _msgSender()) && !hasRole(DEFAULT_ADMIN_ROLE, _msgSender())) {
             revert PermissionDenied();
@@ -65,8 +65,7 @@ contract PlasmaPoolFactory is IPlasmaPoolFactory, AccessControl {
         return _poolTypes.values();
     }
 
-    // solhint-disable-next-line no-unused-vars
-    function addPoolType(bytes32 poolType, address _plasmaPoolPrototype) external onlyAdmin {
+    function addPoolType(bytes32 poolType, address /*_plasmaPoolPrototype*/ ) external onlyAdmin {
         // add prototype
         _poolTypes.add(poolType);
     }
