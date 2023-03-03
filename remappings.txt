@@ -2,3 +2,5 @@ forge-std/=lib/forge-std/src/
 ds-test/=lib/forge-std/lib/ds-test/src/
 src/=src/
 openzeppelin-contracts/=lib/openzeppelin-contracts/contracts/
+@openzeppelin-upgradeable/=lib/openzeppelin-contracts-upgradeable/
+erc4626-tests/=lib/erc4626-tests/
