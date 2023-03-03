@@ -1,19 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "ds-test/test.sol";
+import "forge-std/Test.sol";
 
 import { HardCodedStrategy } from "../../strategy/HardCodedStrategy.sol";
 import { BaseStrategy } from "../../strategy/BaseStrategy.sol";
-import { Hevm } from "../interfaces/Hevm.sol";
-import { PRANK_ADDRESS, HEVM_ADDRESS } from "../utils/Addresses.sol";
+import { PRANK_ADDRESS } from "../utils/Addresses.sol";
 
-contract HardCodedStrategyTest is DSTest {
+contract HardCodedStrategyTest is Test {
     HardCodedStrategy private strategy;
     address[] private destinations;
     uint32[] private percentages;
-
-    Hevm private vm = Hevm(HEVM_ADDRESS);
 
     uint256 private constant MAX_DESTINATIONS = 16;
 
