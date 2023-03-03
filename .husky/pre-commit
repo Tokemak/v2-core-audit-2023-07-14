@@ -2,11 +2,11 @@
 . "$(dirname -- "$0")/_/husky.sh"
 
 echo "\n====================\nContract format\n====================\n"
-forge fmt
+forge fmt --check
 echo "Complete"
 
 echo "\n====================\nOther format\n====================\n"
-npx --no -- pretty-quick --staged
+npx --no -- pretty-quick --staged --bail
 
 echo "\n====================\nLint\n====================\n"
 npm run lint

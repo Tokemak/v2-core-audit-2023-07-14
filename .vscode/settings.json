@@ -1,14 +1,14 @@
 {
-  "editor.formatOnSave": true,
-  "[solidity]": {
-    "editor.defaultFormatter": "JuanBlanco.solidity"
-  },
-  "[toml]": {
-    "editor.defaultFormatter": "tamasfe.even-better-toml"
-  },
-  "[json]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "solidity.formatter": "forge",
-  "solidity.defaultCompiler": "remote"
+	"editor.formatOnSave": true,
+	"[solidity]": {
+		"editor.defaultFormatter": "JuanBlanco.solidity"
+	},
+	"[toml]": {
+		"editor.defaultFormatter": "tamasfe.even-better-toml"
+	},
+	"[json]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	},
+	"solidity.formatter": "forge",
+	"solidity.defaultCompiler": "remote"
 }

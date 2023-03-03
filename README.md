@@ -17,26 +17,26 @@ A fairly strict and opinionated Foundry-based template for developing Solidity s
 
 ## What are you getting
 
-- Forge + Forge Std library
-- Solhint
-- Prettier
-- ESLint
-- Conventional Commits
-- Semantic Versioning
-- GitHub CI
-- Gitleaks
-- Slither
+-   Forge + Forge Std library
+-   Solhint
+-   Prettier
+-   ESLint
+-   Conventional Commits
+-   Semantic Versioning
+-   GitHub CI
+-   Gitleaks
+-   Slither
 
 ## Getting Started
 
 You can use the `Use this template` button in GitHub to create a new repository. We will not go over setting up Foundry here.
 You should update the following based on your repo/project:
 
-- `package.json`
-  - `name`
-  - `repository.url`
-- `LICENSE`
-  - `Copyright`
+-   `package.json`
+    -   `name`
+    -   `repository.url`
+-   `LICENSE`
+    -   `Copyright`
 
 To get going from there:
 

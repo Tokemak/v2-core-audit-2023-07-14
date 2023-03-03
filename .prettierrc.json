@@ -1,25 +1,31 @@
 {
-  "bracketSpacing": true,
-  "printWidth": 120,
-  "singleQuote": false,
-  "tabWidth": 2,
-  "trailingComma": "all",
-  "useTabs": false,
-  "overrides": [
-    {
-      "files": "*.sol",
-      "options": {
-        "printWidth": 120,
-        "tabWidth": 4,
-        "singleQuote": false,
-        "useTabs": false
-      }
-    },
-    {
-      "files": "*.md",
-      "options": {
-        "semi": false
-      }
-    }
-  ]
+	"bracketSpacing": true,
+	"printWidth": 120,
+	"singleQuote": false,
+	"tabWidth": 4,
+	"trailingComma": "all",
+	"useTabs": true,
+	"overrides": [
+		{
+			"files": "*.sol",
+			"options": {
+				"printWidth": 120,
+				"tabWidth": 4,
+				"singleQuote": false,
+				"useTabs": false
+			}
+		},
+		{
+			"files": "*.md",
+			"options": {
+				"semi": false
+			}
+		},
+		{
+			"files": "*.yml",
+			"options": {
+				"tabWidth": 2
+			}
+		}
+	]
 }

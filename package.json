@@ -1,123 +1,124 @@
 {
-  "name": "v2-core",
-  "version": "0.0.1",
-  "description": "",
-  "main": "index.js",
-  "directories": {
-    "lib": "lib",
-    "test": "test"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Tokemak/v2-core.git"
-  },
-  "engines": {
-    "node": ">=18"
-  },
-  "scripts": {
-    "build": "forge build",
-    "clean": "forge clean",
-    "test": "forge test -vvv",
-    "coverage": "forge coverage",
-    "gitleaks": "gitleaks detect --no-git --config ./.gitleaks.toml --verbose",
-    "lint": "concurrently --group --names lint:els,lint:sol --prefix name --prefix-colors magenta,blue \"npm run lint:els\" \"npm run lint:sol\"",
-    "lint:els": "eslint --no-error-on-unmatched-pattern --max-warnings=0 .",
-    "lint:sol": "solhint --max-warnings=0 'src/**/*.sol' 'test/**/*.sol' 'script/**/*.sol'",
-    "format": "concurrently --group --names fmt:els,fmt:sol --prefix name --prefix-colors magenta,blue \"npm run format:els\" \"npm run format:sol\"",
-    "format:els": "prettier . --write",
-    "format:sol": "forge fmt",
-    "format:verify": "concurrently --group --names fmt:els,fmt:sol --prefix name --prefix-colors magenta,blue \"prettier . --check\" \"forge fmt --check\"",
-    "postinstall": "husky install",
-    "scan:slither": "slither ."
-  },
-  "author": "",
-  "license": "MIT",
-  "devDependencies": {
-    "@chainlink/contracts": "^0.6.1",
-    "@commitlint/cli": "^17.4.2",
-    "@commitlint/config-conventional": "^17.4.2",
-    "@semantic-release/commit-analyzer": "^9.0.2",
-    "@semantic-release/git": "^10.0.1",
-    "@semantic-release/npm": "^9.0.2",
-    "@semantic-release/release-notes-generator": "^10.0.3",
-    "@typescript-eslint/eslint-plugin": "^5.50.0",
-    "@typescript-eslint/parser": "^5.50.0",
-    "concurrently": "^7.6.0",
-    "conventional-changelog-conventionalcommits": "^5.0.0",
-    "eslint": "^8.33.0",
-    "eslint-config-prettier": "8.6.0",
-    "eslint-plugin-json": "^3.1.0",
-    "eslint-plugin-markdown": "^3.0.0",
-    "eslint-plugin-yml": "^1.4.0",
-    "husky": "^8.0.3",
-    "prettier": "2.8.3",
-    "pretty-quick": "^3.1.3",
-    "solhint": "^3.3.8",
-    "typescript": "^4.9.5"
-  },
-  "commitlint": {
-    "extends": [
-      "@commitlint/config-conventional"
-    ],
-    "rules": {
-      "subject-case": [
-        0,
-        "never",
-        "lower-case"
-      ]
-    }
-  },
-  "release": {
-    "branches": [
-      "main"
-    ],
-    "plugins": [
-      [
-        "@semantic-release/commit-analyzer",
-        {
-          "preset": "conventionalcommits",
-          "releaseRules": [
-            {
-              "type": "docs",
-              "release": "patch"
-            },
-            {
-              "type": "refactor",
-              "release": "patch"
-            },
-            {
-              "type": "style",
-              "release": "patch"
-            },
-            {
-              "type": "chore",
-              "release": "patch"
-            }
-          ],
-          "parserOpts": {
-            "noteKeywords": [
-              "BREAKING CHANGE",
-              "BREAKING CHANGES",
-              "BREAKING"
-            ]
-          }
-        }
-      ],
-      [
-        "@semantic-release/release-notes-generator",
-        {
-          "preset": "conventionalcommits",
-          "parserOpts": {
-            "noteKeywords": [
-              "BREAKING CHANGE",
-              "BREAKING CHANGES",
-              "BREAKING"
-            ]
-          }
-        }
-      ],
-      "@semantic-release/github",
-      "@semantic-release/git"
-    ]
-  }
+	"name": "v2-core",
+	"version": "0.0.1",
+	"description": "",
+	"main": "index.js",
+	"directories": {
+		"lib": "lib",
+		"test": "test"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Tokemak/v2-core.git"
+	},
+	"engines": {
+		"node": ">=18"
+	},
+	"scripts": {
+		"build": "forge build",
+		"clean": "forge clean",
+		"test": "forge test -vvv",
+		"coverage": "forge coverage",
+		"gitleaks": "gitleaks detect --no-git --config ./.gitleaks.toml --verbose",
+		"lint": "concurrently --group --names lint:els,lint:sol --prefix name --prefix-colors magenta,blue \"npm run lint:els\" \"npm run lint:sol\"",
+		"lint:els": "eslint --no-error-on-unmatched-pattern --max-warnings=0 .",
+		"lint:sol": "solhint --max-warnings=0 'src/**/*.sol' 'test/**/*.sol' 'script/**/*.sol'",
+		"format": "concurrently --group --names fmt:els,fmt:sol --prefix name --prefix-colors magenta,blue \"npm run format:els\" \"npm run format:sol\"",
+		"format:els": "prettier . --write",
+		"format:sol": "forge fmt",
+		"format:verify": "concurrently --group --names fmt:els,fmt:sol --prefix name --prefix-colors magenta,blue \"prettier . --check\" \"forge fmt --check\"",
+		"postinstall": "husky install",
+		"scan:slither": "slither .",
+		"reset": "rm -r cache node_modules out && npm install && forge clean && forge build"
+	},
+	"author": "",
+	"license": "MIT",
+	"devDependencies": {
+		"@chainlink/contracts": "^0.6.1",
+		"@commitlint/cli": "^17.4.2",
+		"@commitlint/config-conventional": "^17.4.2",
+		"@semantic-release/commit-analyzer": "^9.0.2",
+		"@semantic-release/git": "^10.0.1",
+		"@semantic-release/npm": "^9.0.2",
+		"@semantic-release/release-notes-generator": "^10.0.3",
+		"@typescript-eslint/eslint-plugin": "^5.50.0",
+		"@typescript-eslint/parser": "^5.50.0",
+		"concurrently": "^7.6.0",
+		"conventional-changelog-conventionalcommits": "^5.0.0",
+		"eslint": "^8.33.0",
+		"eslint-config-prettier": "8.6.0",
+		"eslint-plugin-json": "^3.1.0",
+		"eslint-plugin-markdown": "^3.0.0",
+		"eslint-plugin-yml": "^1.4.0",
+		"husky": "^8.0.3",
+		"prettier": "2.8.3",
+		"pretty-quick": "^3.1.3",
+		"solhint": "^3.3.8",
+		"typescript": "^4.9.5"
+	},
+	"commitlint": {
+		"extends": [
+			"@commitlint/config-conventional"
+		],
+		"rules": {
+			"subject-case": [
+				0,
+				"never",
+				"lower-case"
+			]
+		}
+	},
+	"release": {
+		"branches": [
+			"main"
+		],
+		"plugins": [
+			[
+				"@semantic-release/commit-analyzer",
+				{
+					"preset": "conventionalcommits",
+					"releaseRules": [
+						{
+							"type": "docs",
+							"release": "patch"
+						},
+						{
+							"type": "refactor",
+							"release": "patch"
+						},
+						{
+							"type": "style",
+							"release": "patch"
+						},
+						{
+							"type": "chore",
+							"release": "patch"
+						}
+					],
+					"parserOpts": {
+						"noteKeywords": [
+							"BREAKING CHANGE",
+							"BREAKING CHANGES",
+							"BREAKING"
+						]
+					}
+				}
+			],
+			[
+				"@semantic-release/release-notes-generator",
+				{
+					"preset": "conventionalcommits",
+					"parserOpts": {
+						"noteKeywords": [
+							"BREAKING CHANGE",
+							"BREAKING CHANGES",
+							"BREAKING"
+						]
+					}
+				}
+			],
+			"@semantic-release/github",
+			"@semantic-release/git"
+		]
+	}
 }
