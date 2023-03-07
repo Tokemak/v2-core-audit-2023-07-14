@@ -25,7 +25,7 @@ contract PlasmaVaultBaseTest is BaseTest {
     ERC20 public poolAsset;
     address internal _mockPoolPrototypeAddress;
 
-    function setUp() public virtual override(BaseTest) {
+    function setUp() public virtual override (BaseTest) {
         BaseTest.setUp();
 
         // create registry

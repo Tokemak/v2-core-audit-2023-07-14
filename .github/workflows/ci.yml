@@ -7,9 +7,6 @@ on:
   pull_request:
     branches:
       - "*"
-  push:
-    branches:
-      - "!main"
 
 jobs:
   ci:
@@ -25,7 +22,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly
+          version: nightly-a44159a5c23d2699d3a390e6d4889b89a0e5a5e0
 
       - name: Install NodeJS
         uses: actions/setup-node@v3
@@ -56,16 +53,16 @@ jobs:
       - name: Run tests
         run: npm run test
 
-      - name: "Check that the contracts are each under 24kB"
-        run: |
-          forge --version
-          forge build --sizes
-
       - name: Scan for secrets
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE}} # Only required for Organizations, not personal accounts.
+
+      - name: "Check that the contracts are each under 24kB"
+        run: |
+          forge --version
+          forge build --sizes
 
       - name: Security scan - Slither
         run: |
@@ -74,3 +71,9 @@ jobs:
           solc-select install 0.8.17
           solc-select use 0.8.17
           slither .
+
+      - name: Publish Release
+        run: npx semantic-release
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
