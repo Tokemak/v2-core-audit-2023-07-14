@@ -2,9 +2,9 @@
 pragma solidity 0.8.17;
 
 import "forge-std/Test.sol";
-import "../../destinations/DestinationRegistry.sol";
-import "../../interfaces/destinations/IDestinationRegistry.sol";
-import "../../interfaces/destinations/IDestinationAdapter.sol";
+import "../../src/destinations/DestinationRegistry.sol";
+import "../../src/interfaces/destinations/IDestinationRegistry.sol";
+import "../../src/interfaces/destinations/IDestinationAdapter.sol";
 import { PRANK_ADDRESS, RANDOM } from "../utils/Addresses.sol";
 
 contract DestinationRegistryTest is Test {

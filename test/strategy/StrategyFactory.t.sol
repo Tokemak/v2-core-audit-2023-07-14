@@ -3,8 +3,8 @@ pragma solidity 0.8.17;
 
 import "forge-std/Test.sol";
 
-import { HardCodedStrategy } from "../../strategy/HardCodedStrategy.sol";
-import { StrategyFactory } from "../../strategy/StrategyFactory.sol";
+import { HardCodedStrategy } from "../../src/strategy/HardCodedStrategy.sol";
+import { StrategyFactory } from "../../src/strategy/StrategyFactory.sol";
 import { PRANK_ADDRESS } from "../utils/Addresses.sol";
 
 contract StrategyFactoryTest is Test {
