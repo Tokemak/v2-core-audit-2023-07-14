@@ -29,7 +29,8 @@
 		"format:verify": "concurrently --group --names fmt:els,fmt:sol --prefix name --prefix-colors magenta,blue \"prettier . --check\" \"forge fmt --check\"",
 		"postinstall": "husky install",
 		"scan:slither": "slither .",
-		"reset": "rm -r cache node_modules out && npm install && forge clean && forge build"
+		"reset": "rm -r cache node_modules out && forge clean && npm install && forge build",
+		"test:pools": "forge test -vvv --match-path \"./test/pool/*\""
 	},
 	"author": "",
 	"license": "MIT",

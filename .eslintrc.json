@@ -16,5 +16,5 @@
 			"parser": "yaml-eslint-parser"
 		}
 	],
-	"ignorePatterns": ["lib", "node_modules", "!**/*.json", "!**/*.yml"]
+	"ignorePatterns": ["lib", "node_modules", "!**/*.json", "!**/*.yml", "lib/"]
 }
