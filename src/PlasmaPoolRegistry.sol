@@ -1,18 +1,16 @@
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "openzeppelin-contracts/access/AccessControl.sol";
-import "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
+import { AccessControl } from "openzeppelin-contracts/access/AccessControl.sol";
+import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 
-import "./interfaces/pool/IPlasmaPoolRegistry.sol";
-import "./interfaces/pool/IPlasmaPool.sol";
+import { IPlasmaPoolRegistry } from "./interfaces/pool/IPlasmaPoolRegistry.sol";
+import { IPlasmaPool } from "./interfaces/pool/IPlasmaPool.sol";
+
+import { Errors } from "./utils/errors.sol";
 
 contract PlasmaPoolRegistry is IPlasmaPoolRegistry, AccessControl {
     using EnumerableSet for EnumerableSet.AddressSet;
-
-    error ZeroAddress();
-    error PoolNotFound(address poolAddress);
-    error PermissionDenied();
 
     EnumerableSet.AddressSet private _pools;
     EnumerableSet.AddressSet private _assets;
@@ -42,27 +40,30 @@ contract PlasmaPoolRegistry is IPlasmaPoolRegistry, AccessControl {
 
         address asset = IPlasmaPool(poolAddress).asset();
 
-        require(_pools.add(poolAddress), "");
-        require(_assets.add(asset), "");
-        require(_poolsByAsset[asset].add(poolAddress), "");
+        if (!_pools.add(poolAddress)) revert PoolAlreadyExists(poolAddress);
+        //slither-disable-next-line unused-return
+        if (!_assets.contains(asset)) _assets.add(asset);
+        if (!_poolsByAsset[asset].add(poolAddress)) revert PoolAlreadyExists(poolAddress);
 
         emit PoolAdded(asset, poolAddress);
     }
 
     function removePool(address poolAddress) external onlyUpdater {
         if (poolAddress == address(0)) revert ZeroAddress();
-        if (!_pools.contains(poolAddress)) revert PoolNotFound(poolAddress);
+
+        // remove from pools list
+        if (!_pools.remove(poolAddress)) revert PoolNotFound(poolAddress);
 
         address asset = IPlasmaPool(poolAddress).asset();
 
-        // remove from pools list
-        require(_pools.remove(poolAddress), "");
         // remove from assets list if this was the last pool for that asset
         if (_poolsByAsset[asset].length() == 1) {
-            require(_assets.remove(asset), "");
+            //slither-disable-next-line unused-return
+            _assets.remove(asset);
         }
+
         // remove from poolsByAsset mapping
-        require(_poolsByAsset[asset].remove(poolAddress), "");
+        if (!_poolsByAsset[asset].remove(poolAddress)) revert PoolNotFound(poolAddress);
 
         emit PoolRemoved(asset, poolAddress);
     }
@@ -72,6 +73,10 @@ contract PlasmaPoolRegistry is IPlasmaPoolRegistry, AccessControl {
     //                        Enumeration Methods
     //
     ///////////////////////////////////////////////////////////////////
+
+    function isPool(address poolAddress) external view override returns (bool) {
+        return _pools.contains(poolAddress);
+    }
 
     function listPools() external view returns (address[] memory) {
         return _pools.values();

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity >=0.8.7;
 
-import "./IPlasmaPool.sol";
+import { IPlasmaPool } from "./IPlasmaPool.sol";
 
 /**
  * @title PlasmaPool Router Base Interface
@@ -69,6 +69,7 @@ interface IPlasmaPoolRouterBase {
      * @param to The destination of assets.
      * @param amount The amount of assets to withdraw from vault.
      * @param minSharesOut The min amount of shares received by `to`.
+     * @param unwrapWETH If true, unwrap WETH9 to ETH before sending to `to`.
      * @return sharesOut the amount of shares received by `to`.
      * @dev throws MaxSharesError
      */
@@ -76,7 +77,8 @@ interface IPlasmaPoolRouterBase {
         IPlasmaPool pool,
         address to,
         uint256 amount,
-        uint256 minSharesOut
+        uint256 minSharesOut,
+        bool unwrapWETH
     ) external payable returns (uint256 sharesOut);
 
     /**
@@ -85,6 +87,7 @@ interface IPlasmaPoolRouterBase {
      * @param to The destination of assets.
      * @param shares The amount of shares to redeem from vault.
      * @param minAmountOut The min amount of assets received by `to`.
+     * @param unwrapWETH If true, unwrap WETH9 to ETH before sending to `to`.
      * @return amountOut the amount of assets received by `to`.
      * @dev throws MinAmountError
      */
@@ -92,6 +95,7 @@ interface IPlasmaPoolRouterBase {
         IPlasmaPool pool,
         address to,
         uint256 shares,
-        uint256 minAmountOut
+        uint256 minAmountOut,
+        bool unwrapWETH
     ) external payable returns (uint256 amountOut);
 }

@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "./interfaces/pool/IPlasmaPool.sol";
+import { IPlasmaPool } from "./interfaces/pool/IPlasmaPool.sol";
 import { IERC4626 } from "openzeppelin-contracts/interfaces/IERC4626.sol";
 import { ERC20Permit } from "openzeppelin-contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import { Pausable } from "openzeppelin-contracts/security/Pausable.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
-import "openzeppelin-contracts/utils/math/Math.sol";
+import { Math } from "openzeppelin-contracts/utils/math/Math.sol";
+
+// import { console2 as console } from "forge-std/console2.sol";
 
 contract PlasmaPool is IPlasmaPool, ERC20Permit, Pausable {
     using Math for uint256;
@@ -64,7 +66,9 @@ contract PlasmaPool is IPlasmaPool, ERC20Permit, Pausable {
 
     /// @dev See {IERC4626-deposit}.
     function deposit(uint256 assets, address receiver) public virtual override whenNotPaused returns (uint256 shares) {
-        require(assets <= maxDeposit(receiver), "ERC4626: deposit more than max");
+        if (assets > maxDeposit(receiver)) {
+            revert ERC4626DepositExceedsMax(assets, maxDeposit(receiver));
+        }
 
         shares = previewDeposit(assets);
 
@@ -109,7 +113,9 @@ contract PlasmaPool is IPlasmaPool, ERC20Permit, Pausable {
      * In this case, the shares will be minted without requiring any assets to be deposited.
      */
     function mint(uint256 shares, address receiver) public virtual override whenNotPaused returns (uint256 assets) {
-        require(shares <= maxMint(receiver), "ERC4626: mint more than max");
+        if (shares > maxMint(receiver)) {
+            revert ERC4626MintExceedsMax(shares, maxMint(receiver));
+        }
         // OZ: // TODO: compare
         //         require(shares <= maxMint(receiver), "ERC4626: mint more than max");
         //
@@ -165,7 +171,7 @@ contract PlasmaPool is IPlasmaPool, ERC20Permit, Pausable {
      */
     function _convertToShares(uint256 assets, Math.Rounding rounding) internal view virtual returns (uint256 shares) {
         uint256 supply = totalSupply();
-        shares = !_isVaultCollateralized() ? assets : assets.mulDiv(supply, totalAssets(), rounding);
+        shares = (assets == 0 || supply == 0) ? assets : assets.mulDiv(supply, totalAssets(), rounding);
     }
 
     /// @dev Internal conversion function (from shares to assets) with support for rounding direction.
@@ -217,7 +223,10 @@ contract PlasmaPool is IPlasmaPool, ERC20Permit, Pausable {
         // If caller is not the owner of the shares
         uint256 allowed = allowance(owner, msg.sender);
         if (msg.sender != owner && allowed != type(uint256).max) {
-            require(shares <= allowed, "Amount exceeds allowance");
+            if (shares > allowed) {
+                revert AmountExceedsAllowance(shares, allowed);
+            }
+
             _approve(owner, msg.sender, allowed - shares);
         }
         _beforeWithdrawHook(assets, shares, owner, fromRedeem);

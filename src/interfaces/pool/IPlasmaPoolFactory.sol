@@ -2,9 +2,25 @@
 pragma solidity 0.8.17;
 
 interface IPlasmaPoolFactory {
+    ///////////////////////////////////////////////////////////////////
+    //                        Errors
+    ///////////////////////////////////////////////////////////////////
+
     error ZeroAddress();
     error PermissionDenied();
     error PoolTypeNotFound();
+    error PoolTypeAlreadyExists();
+
+    ///////////////////////////////////////////////////////////////////
+    //                        Events
+    ///////////////////////////////////////////////////////////////////
+
+    event PoolTypeAdded(bytes32 poolType, address poolPrototype);
+    event PoolTypeRemoved(bytes32 poolType);
+
+    ///////////////////////////////////////////////////////////////////
+    //                        Pool Creation
+    ///////////////////////////////////////////////////////////////////
 
     /**
      * @notice Spin up a new PlasmaPool
@@ -17,6 +33,10 @@ interface IPlasmaPoolFactory {
         address _poolAsset,
         bytes calldata extraParams
     ) external returns (address newPoolAddress);
+
+    ///////////////////////////////////////////////////////////////////
+    //                        Pool Types Management
+    ///////////////////////////////////////////////////////////////////
 
     /**
      * @notice List all PlasmaPool prototypes

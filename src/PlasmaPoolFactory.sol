@@ -65,14 +65,22 @@ contract PlasmaPoolFactory is IPlasmaPoolFactory, AccessControl {
         return _poolTypes.values();
     }
 
-    function addPoolType(bytes32 poolType, address /*_plasmaPoolPrototype*/ ) public onlyAdmin {
+    function addPoolType(bytes32 poolType, address _plasmaPoolPrototype) public onlyAdmin {
         // add prototype
-        require(_poolTypes.add(poolType), "");
+        if (!_poolTypes.add(poolType)) {
+            revert PoolTypeAlreadyExists();
+        }
+
+        emit PoolTypeAdded(poolType, _plasmaPoolPrototype);
     }
 
     function removePoolType(bytes32 poolType) public onlyAdmin {
         // remove actual prototype
-        require(_poolTypes.remove(poolType), "");
+        if (!_poolTypes.remove(poolType)) {
+            revert PoolTypeNotFound();
+        }
+
+        emit PoolTypeRemoved(poolType);
     }
 
     function replacePoolType(bytes32 poolType, address plasmaPoolPrototype) external onlyAdmin {

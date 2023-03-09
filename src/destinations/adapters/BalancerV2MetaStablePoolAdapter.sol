@@ -14,6 +14,8 @@ import "./libs/LibAdapter.sol";
 contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
+    error InvalidAddress(address addr);
+
     enum JoinKind {
         INIT,
         EXACT_TOKENS_IN_FOR_BPT_OUT,
@@ -49,7 +51,7 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
     IVault public immutable vault;
 
     constructor(IVault _vault) {
-        require(address(_vault) != address(0), "!vault");
+        if (address(_vault) == address(0)) revert InvalidAddress(address(_vault));
 
         vault = _vault;
     }
