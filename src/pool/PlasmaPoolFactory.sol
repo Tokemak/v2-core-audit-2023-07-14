@@ -5,8 +5,8 @@ pragma solidity 0.8.17;
 import { AccessControl } from "openzeppelin-contracts/access/AccessControl.sol";
 import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 
-import { IPlasmaPoolFactory } from "./interfaces/pool/IPlasmaPoolFactory.sol";
-import { IPlasmaPoolRegistry } from "./interfaces/pool/IPlasmaPoolRegistry.sol";
+import { IPlasmaPoolFactory } from "src/interfaces/pool/IPlasmaPoolFactory.sol";
+import { IPlasmaPoolRegistry } from "src/interfaces/pool/IPlasmaPoolRegistry.sol";
 import { PlasmaPool } from "./PlasmaPool.sol";
 
 contract PlasmaPoolFactory is IPlasmaPoolFactory, AccessControl {

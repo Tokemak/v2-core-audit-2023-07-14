@@ -57,7 +57,7 @@ abstract contract PeripheryPayments {
 
     function sweepToken(IERC20 token, uint256 amountMinimum, address recipient) public payable {
         uint256 balanceToken = token.balanceOf(address(this));
-        require(balanceToken >= amountMinimum, "Insufficient token");
+        if (balanceToken < amountMinimum) revert InsufficientToken();
 
         if (balanceToken > 0) {
             token.safeTransfer(recipient, balanceToken);

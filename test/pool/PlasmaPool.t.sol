@@ -3,7 +3,7 @@ pragma solidity >=0.8.7;
 
 import { ERC4626Test } from "erc4626-tests/ERC4626.test.sol";
 
-import { IPlasmaPool, PlasmaPool } from "src/PlasmaPool.sol";
+import { IPlasmaPool, PlasmaPool } from "src/pool/PlasmaPool.sol";
 import { ERC20Mock } from "openzeppelin-contracts/mocks/ERC20Mock.sol";
 import { ERC4626Mock, IERC20Metadata } from "openzeppelin-contracts/mocks/ERC4626Mock.sol";
 

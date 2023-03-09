@@ -3,13 +3,12 @@
 pragma solidity 0.8.17;
 
 import { IERC20, SafeERC20, Address } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
-import { IPlasmaPool, IPlasmaPoolRouterBase } from "./interfaces/pool/IPlasmaPoolRouterBase.sol";
+import { IPlasmaPool, IPlasmaPoolRouterBase } from "src/interfaces/pool/IPlasmaPoolRouterBase.sol";
 
-import { SelfPermit } from "./utils/SelfPermit.sol";
-import { Multicall } from "./utils/Multicall.sol";
-// import { PeripheryPayments, IWETH9 } from "./external/PeripheryPayments.sol";
+import { SelfPermit } from "src/utils/SelfPermit.sol";
+import { Multicall } from "src/utils/Multicall.sol";
 
-import { IWETH9 } from "./interfaces/utils/IWETH9.sol";
+import { IWETH9 } from "src/interfaces/utils/IWETH9.sol";
 
 /// @title PlasmaPool Router Base Contract
 abstract contract PlasmaPoolRouterBase is IPlasmaPoolRouterBase, SelfPermit, Multicall /*, PeripheryPayments */ {
@@ -60,7 +59,7 @@ abstract contract PlasmaPoolRouterBase is IPlasmaPoolRouterBase, SelfPermit, Mul
         uint256 amount,
         uint256 maxSharesOut,
         bool unwrapWETH
-    ) public payable virtual override returns (uint256 sharesOut) {
+    ) public virtual override returns (uint256 sharesOut) {
         address destination = unwrapWETH ? address(this) : to;
 
         if ((sharesOut = pool.withdraw(amount, destination, msg.sender)) > maxSharesOut) {
@@ -79,7 +78,7 @@ abstract contract PlasmaPoolRouterBase is IPlasmaPoolRouterBase, SelfPermit, Mul
         uint256 shares,
         uint256 minAmountOut,
         bool unwrapWETH
-    ) public payable virtual override returns (uint256 amountOut) {
+    ) public virtual override returns (uint256 amountOut) {
         address destination = unwrapWETH ? address(this) : to;
 
         if ((amountOut = pool.redeem(shares, destination, msg.sender)) < minAmountOut) {

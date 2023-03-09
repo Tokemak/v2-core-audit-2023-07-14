@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { IPlasmaPool } from "./interfaces/pool/IPlasmaPool.sol";
+import { IPlasmaPool } from "src/interfaces/pool/IPlasmaPool.sol";
 import { IERC4626 } from "openzeppelin-contracts/interfaces/IERC4626.sol";
 import { ERC20Permit } from "openzeppelin-contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
@@ -9,8 +9,6 @@ import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import { Pausable } from "openzeppelin-contracts/security/Pausable.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "openzeppelin-contracts/utils/math/Math.sol";
-
-// import { console2 as console } from "forge-std/console2.sol";
 
 contract PlasmaPool is IPlasmaPool, ERC20Permit, Pausable {
     using Math for uint256;

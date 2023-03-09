@@ -4,16 +4,14 @@ pragma solidity 0.8.17;
 
 import { IPlasmaPoolRouterBase, PlasmaPoolRouterBase } from "./PlasmaPoolRouterBase.sol";
 
-// import {ENSReverseRecord} from "./utils/ENSReverseRecord.sol";
-import { IPlasmaPool, IPlasmaPoolRouter } from "./interfaces/pool/IPlasmaPoolRouter.sol";
+import { IPlasmaPool, IPlasmaPoolRouter } from "src/interfaces/pool/IPlasmaPoolRouter.sol";
 
-// import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IERC20, SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 
-import { IWETH9 } from "./interfaces/utils/IWETH9.sol";
+import { IWETH9 } from "src/interfaces/utils/IWETH9.sol";
 
 /// @title ERC4626Router contract
-contract PlasmaPoolRouter is IPlasmaPoolRouter, PlasmaPoolRouterBase /*, ENSReverseRecord */ {
+contract PlasmaPoolRouter is IPlasmaPoolRouter, PlasmaPoolRouterBase {
     using SafeERC20 for IERC20;
 
     constructor(address _weth9) PlasmaPoolRouterBase(_weth9) { }

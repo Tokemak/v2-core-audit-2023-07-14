@@ -6,10 +6,10 @@ pragma solidity 0.8.17;
 
 // import "erc4626-tests/ERC4626.test.sol";
 
-import { IPlasmaPoolRegistry, PlasmaPoolRegistry } from "src/PlasmaPoolRegistry.sol";
-import { IPlasmaPoolFactory, PlasmaPoolFactory } from "src/PlasmaPoolFactory.sol";
-import { IPlasmaPoolRouter, PlasmaPoolRouter } from "src/PlasmaPoolRouter.sol";
-import { IPlasmaPool, PlasmaPool } from "src/PlasmaPool.sol";
+import { IPlasmaPoolRegistry, PlasmaPoolRegistry } from "src/pool/PlasmaPoolRegistry.sol";
+import { IPlasmaPoolFactory, PlasmaPoolFactory } from "src/pool/PlasmaPoolFactory.sol";
+import { IPlasmaPoolRouter, PlasmaPoolRouter } from "src/pool/PlasmaPoolRouter.sol";
+import { IPlasmaPool, PlasmaPool } from "src/pool/PlasmaPool.sol";
 import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 // import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { MockERC20 } from "test/mocks/MockERC20.sol";

@@ -79,7 +79,7 @@ interface IPlasmaPoolRouterBase {
         uint256 amount,
         uint256 minSharesOut,
         bool unwrapWETH
-    ) external payable returns (uint256 sharesOut);
+    ) external returns (uint256 sharesOut);
 
     /**
      * @notice redeem `shares` shares from a PlasmaPool
@@ -97,5 +97,5 @@ interface IPlasmaPoolRouterBase {
         uint256 shares,
         uint256 minAmountOut,
         bool unwrapWETH
-    ) external payable returns (uint256 amountOut);
+    ) external returns (uint256 amountOut);
 }
