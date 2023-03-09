@@ -1,23 +1,24 @@
+/* solhint-disable func-name-mixedcase */
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "forge-std/Test.sol";
+// import "forge-std/Test.sol";
 
-import "erc4626-tests/ERC4626.test.sol";
+// import "erc4626-tests/ERC4626.test.sol";
 
-import { console } from "forge-std/console.sol";
 import { IPlasmaPoolRegistry, PlasmaPoolRegistry } from "src/PlasmaPoolRegistry.sol";
 import { IPlasmaPoolFactory, PlasmaPoolFactory } from "src/PlasmaPoolFactory.sol";
 import { IPlasmaPoolRouter, PlasmaPoolRouter } from "src/PlasmaPoolRouter.sol";
 import { IPlasmaPool, PlasmaPool } from "src/PlasmaPool.sol";
 import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 // import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import { MockERC20 } from "./mocks/MockERC20.sol";
+import { MockERC20 } from "test/mocks/MockERC20.sol";
 
-import { BaseTest } from "./BaseTest.t.sol";
-import { console } from "forge-std/console.sol";
+import { BaseTest } from "test/BaseTest.t.sol";
 
-contract PlasmaVaultBaseTest is BaseTest {
+import { WETH9_ADDRESS } from "test/utils/Addresses.sol";
+
+contract PlasmaPoolBaseTest is BaseTest {
     PlasmaPoolRegistry public registry;
     PlasmaPoolFactory public factory;
     PlasmaPoolRouter public router;
@@ -51,16 +52,25 @@ contract PlasmaVaultBaseTest is BaseTest {
         registry.grantRole(registry.REGISTRY_UPDATER(), address(factory));
 
         // create router
-        router = new PlasmaPoolRouter();
+        router = new PlasmaPoolRouter(WETH9_ADDRESS);
 
         // create sample pool
         pool = IPlasmaPool(factory.createPool(factory.POOLTYPE_PLASMAPOOL(), address(mockAsset), ""));
+    }
 
-        // // erc426-tests setup
-        // _underlying_ = address(mockAsset);
-        // _vault_ = address(pool);
-        // _delta_ = 0;
-        // _vaultMayBeEmpty = false;
-        // _unlimitedAmount = false;
+    function test_registryCreated() public view {
+        assert(address(registry) != address(0));
+    }
+
+    function test_routerCreated() public view {
+        assert(address(router) != address(0));
+    }
+
+    function test_poolCreated() public view {
+        assert(address(pool) != address(0));
+    }
+
+    function test_poolRegistered() public view {
+        assert(registry.isPool(address(pool)));
     }
 }
