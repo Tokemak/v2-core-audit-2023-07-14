@@ -14,6 +14,12 @@ import "./libs/LibAdapter.sol";
 contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
+    error ArraysLengthMismatch();
+    error MustNotBeZero();
+    error BalanceMustIncrease();
+    error MustBeMoreThanZero();
+    error TokenPoolAssetMismatch();
+    error NoNonZeroAmountProvided();
     error InvalidAddress(address addr);
 
     enum JoinKind {
@@ -63,10 +69,10 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
     ) external nonReentrant {
         (BalancerExtraParams memory balancerExtraParams) = abi.decode(extraParams, (BalancerExtraParams));
         if (balancerExtraParams.tokens.length != amounts.length) {
-            revert("Array length mismatch");
+            revert ArraysLengthMismatch();
         }
         if (balancerExtraParams.tokens.length == 0 || minLpMintAmount == 0) {
-            revert("Must not be 0");
+            revert MustNotBeZero();
         }
 
         // get bpt address of the pool (for later balance checks)
@@ -96,14 +102,14 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
         // make sure we received bpt
         uint256 bptBalanceAfter = IERC20(poolAddress).balanceOf(address(this));
         if (bptBalanceAfter < bptBalanceBefore + minLpMintAmount) {
-            revert("LP balance must increase");
+            revert BalanceMustIncrease();
         }
         // make sure assets were taken out
         for (uint256 i = 0; i < balancerExtraParams.tokens.length;) {
             //slither-disable-next-line calls-loop
             uint256 currentBalance = balancerExtraParams.tokens[i].balanceOf(address(this));
             if (currentBalance != assetBalancesBefore[i] - amounts[i]) {
-                revert("Token balance must increase");
+                revert BalanceMustIncrease();
             }
             unchecked {
                 ++i;
@@ -171,15 +177,15 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
         uint256 nTokens = params.tokens.length;
         uint256 amountsOutLen = amountsOut.length;
         if (nTokens != amountsOutLen) {
-            revert("Array length mismatch");
+            revert ArraysLengthMismatch();
         }
-        if (nTokens == 0) revert("nTokens must be > 0");
+        if (nTokens == 0) revert MustBeMoreThanZero();
 
         (IERC20[] memory poolTokens,,) = vault.getPoolTokens(poolId);
         uint256 numTokens = poolTokens.length;
 
         if (numTokens != amountsOutLen) {
-            revert("Array length mismatch");
+            revert ArraysLengthMismatch();
         }
 
         checkZeroBalancesWithdrawal(params.tokens, poolTokens, amountsOut);
@@ -216,7 +222,7 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
         // make sure we burned bpt, and assets were received
         uint256 bptBalanceAfter = IERC20(poolAddress).balanceOf(address(this));
         if (bptBalanceAfter >= bptBalanceBefore) {
-            revert("Balancer must decrease");
+            revert BalanceMustIncrease();
         }
 
         for (uint256 i = 0; i < numTokens;) {
@@ -226,7 +232,7 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
             uint256 currentTokenCurrentBalance = poolTokens[i].balanceOf(address(this));
 
             if (currentTokenCurrentBalance < currentAssetBalanceBefore + currentAmount) {
-                revert("Balance must increase");
+                revert BalanceMustIncrease();
             }
             // Get actual amount returned for event, reuse amountsOut array
             currentAmount = currentTokenCurrentBalance - currentAssetBalanceBefore;
@@ -281,7 +287,7 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
             IERC20 currentToken = tokens[i];
             // _validateToken(currentToken); TODO: Call to Token Registry
             if (currentToken != poolTokens[i]) {
-                revert("Token pool asset mismatch");
+                revert TokenPoolAssetMismatch();
             }
             if (!hasNonZeroAmount && amountsOut[i] > 0) {
                 hasNonZeroAmount = true;
@@ -290,7 +296,7 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
                 ++i;
             }
         }
-        if (!hasNonZeroAmount) revert("No non-zero amount provided");
+        if (!hasNonZeroAmount) revert NoNonZeroAmountProvided();
     }
 
     /// @dev Separate function to avoid stack-too-deep errors
@@ -305,7 +311,7 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
         (IERC20[] memory poolAssets,,) = vault.getPoolTokens(poolId);
 
         if (poolAssets.length != nTokens) {
-            revert("Array length mismatch");
+            revert ArraysLengthMismatch();
         }
 
         // run through tokens and make sure we have approvals (and correct token order)
@@ -315,13 +321,13 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
 
             // as per new requirements, 0 amounts are not allowed even though balancer supports it
             if (currentAmount == 0) {
-                revert("currentAmount must be > 0");
+                revert MustBeMoreThanZero();
             }
             // make sure asset is supported (and matches the pool's assets)
             // _validateToken(currentToken); TODO: Call to Token Registry
 
             if (currentToken != poolAssets[i]) {
-                revert("Token pool asset mismatch");
+                revert TokenPoolAssetMismatch();
             }
 
             // record previous balance for this asset
