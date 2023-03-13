@@ -12,6 +12,14 @@ import { ICryptoSwapPool, IPool } from "../../interfaces/external/curve/ICryptoS
 contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, ReentrancyGuard {
     address public constant CURVE_REGISTRY_ETH_ADDRESS_POINTER = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
+    error MustBeMoreThanZero();
+    error MinLpAmountNotReached();
+    error MinAmountNotReached();
+    error LpTokenAmountMismatch();
+    error MustNotBeZero();
+    error NoNonZeroAmountProvided();
+    error InvalidBalanceChange();
+
     struct CurveExtraParams {
         address poolAddress;
         address lpTokenAddress;
@@ -26,7 +34,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
         (CurveExtraParams memory curveExtraParams) = abi.decode(extraParams, (CurveExtraParams));
 
         _validateAmounts(amounts);
-        if (minLpMintAmount == 0) revert("minLpMintAmount must be > 0");
+        if (minLpMintAmount == 0) revert MustBeMoreThanZero();
 
         address[] memory tokens = new address[](amounts.length);
         for (uint256 i = 0; i < amounts.length;) {
@@ -53,7 +61,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
                 ICryptoSwapPool(curveExtraParams.poolAddress).add_liquidity([amounts[0], amounts[1]], minLpMintAmount);
         }
         if (deployed < minLpMintAmount) {
-            revert("minLpMintAmount was not reached");
+            revert MinLpAmountNotReached();
         }
 
         uint256[] memory coinsBalancesAfter = _getCoinsBalances(curveExtraParams.poolAddress, amounts.length);
@@ -75,7 +83,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
         (CurveExtraParams memory curveExtraParams) = abi.decode(extraParams, (CurveExtraParams));
 
         _validateAmounts(amounts);
-        if (maxLpBurnAmount == 0) revert("lpBurnAmount must be > 0");
+        if (maxLpBurnAmount == 0) revert MustBeMoreThanZero();
 
         uint256[] memory coinsBalancesBefore = new uint256[](amounts.length);
         address[] memory tokens = new address[](amounts.length);
@@ -101,7 +109,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
         uint256 lpTokenBalanceAfter = IERC20(curveExtraParams.poolAddress).balanceOf(address(this));
         uint256 lpTokenAmount = lpTokenBalanceBefore - lpTokenBalanceAfter;
         if (lpTokenAmount != maxLpBurnAmount) {
-            revert("LP token amount mismatch");
+            revert LpTokenAmountMismatch();
         }
 
         uint256[] memory coinsBalancesAfter = _getCoinsBalances(curveExtraParams.poolAddress, amounts.length);
@@ -129,7 +137,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
         uint256 minAmount
     ) external nonReentrant {
         if (lpBurnAmount == 0 || minAmount == 0) {
-            revert("Must not be 0");
+            revert MustNotBeZero();
         }
 
         address coin = ICryptoSwapPool(poolAddress).coins(coinIndex);
@@ -145,11 +153,11 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
         uint256 lpTokenBalanceAfter = lpTokenErc.balanceOf(address(this));
         uint256 lpTokenAmount = lpTokenBalanceBefore - lpTokenBalanceAfter;
         if (lpTokenAmount != lpBurnAmount) {
-            revert("LP token amount mismatch");
+            revert LpTokenAmountMismatch();
         }
 
         uint256 coinAmount = coinErc.balanceOf(address(this)) - coinBalanceBefore;
-        if (coinAmount < minAmount) revert("Balance must reach minAmount");
+        if (coinAmount < minAmount) revert MinAmountNotReached();
 
         _emitWithdrawEvent(
             LibAdapter._toDynamicArray(coinAmount),
@@ -171,7 +179,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
                 ++i;
             }
         }
-        if (!nonZeroAmountPresent) revert("No non-zero amount provided");
+        if (!nonZeroAmountPresent) revert NoNonZeroAmountProvided();
     }
 
     /// @dev Gets balances of pool's ERC-20 tokens or ETH
@@ -203,7 +211,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
                 isLiqDeployment ? balancesBefore[i] - balancesAfter[i] : balancesAfter[i] - balancesBefore[i];
 
             if (balanceDiff != 0) {
-                revert("Invalid balance change");
+                revert InvalidBalanceChange();
             }
             balanceChange[i] = balanceDiff;
             unchecked {
