@@ -227,15 +227,15 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
 
         for (uint256 i = 0; i < numTokens;) {
             uint256 currentAmount = amountsOut[i];
-            uint256 currentAssetBalanceBefore = assetBalancesBefore[i];
+            uint256 assetBalanceBefore = assetBalancesBefore[i];
 
-            uint256 currentTokenCurrentBalance = poolTokens[i].balanceOf(address(this));
+            uint256 currentBalance = poolTokens[i].balanceOf(address(this));
 
-            if (currentTokenCurrentBalance < currentAssetBalanceBefore + currentAmount) {
+            if (currentBalance < assetBalanceBefore + currentAmount) {
                 revert BalanceMustIncrease();
             }
             // Get actual amount returned for event, reuse amountsOut array
-            currentAmount = currentTokenCurrentBalance - currentAssetBalanceBefore;
+            currentAmount = currentBalance - assetBalanceBefore;
             unchecked {
                 ++i;
             }
