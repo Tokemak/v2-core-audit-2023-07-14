@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "./IPool.sol";
+import { IPool } from "./IPool.sol";
 
 /* solhint-disable func-name-mixedcase, var-name-mixedcase */
 interface ICryptoSwapPool is IPool {
