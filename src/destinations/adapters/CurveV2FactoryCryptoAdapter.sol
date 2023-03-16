@@ -55,6 +55,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
 
         uint256 deployed;
         if (curveExtraParams.useEth) {
+            // slither-disable-next-line arbitrary-send-eth
             deployed = ICryptoSwapPool(curveExtraParams.poolAddress).add_liquidity{value: amounts[0]}(
                 [amounts[0], amounts[1]], minLpMintAmount
             );
