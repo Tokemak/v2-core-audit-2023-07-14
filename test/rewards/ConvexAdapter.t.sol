@@ -7,7 +7,7 @@ import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import { CRV_MAINNET, LDO_MAINNET, CONVEX_BOOSTER } from "../utils/Addresses.sol";
 import { ConvexAdapter } from "../../src/rewards/ConvexAdapter.sol";
-import { IClaimableRewards } from "../../src/rewards/IClaimableRewards.sol";
+import { IAdapter } from "../../src/interfaces/rewards/IAdapter.sol";
 import { IConvexBooster } from "../../src/interfaces/external/convex/IConvexBooster.sol";
 import { IBaseRewardPool } from "../../src/interfaces/external/convex/IBaseRewardPool.sol";
 
@@ -49,7 +49,7 @@ contract ConvexAdapterTest is Test {
     }
 
     function test_Revert_IfAddressZero() public {
-        vm.expectRevert(IClaimableRewards.TokenAddressZero.selector);
+        vm.expectRevert(IAdapter.TokenAddressZero.selector);
         adapter.claimRewards(address(0));
     }
 
@@ -59,7 +59,7 @@ contract ConvexAdapterTest is Test {
 
         bytes4 selector = bytes4(keccak256(bytes("getReward(address,bool)")));
         vm.mockCall(gauge, abi.encodeWithSelector(selector, address(adapter), true), abi.encode(false));
-        vm.expectRevert(IClaimableRewards.ClaimRewardsFailed.selector);
+        vm.expectRevert(IAdapter.ClaimRewardsFailed.selector);
         adapter.claimRewards(gauge);
     }
 

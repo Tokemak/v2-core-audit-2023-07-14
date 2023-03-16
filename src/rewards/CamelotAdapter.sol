@@ -6,9 +6,10 @@ import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard
 
 import { INFTPool } from "../interfaces/external/camelot/INFTPool.sol";
 import { INFTHandler } from "../interfaces/external/camelot/INFTHandler.sol";
-import { IClaimableRewards } from "./IClaimableRewards.sol";
+import { IClaimableRewards } from "../interfaces/rewards/IClaimableRewards.sol";
+import { IAdapter } from "../interfaces/rewards/IAdapter.sol";
 
-contract CamelotAdapter is IClaimableRewards, INFTHandler, ReentrancyGuard {
+contract CamelotAdapter is IClaimableRewards, IAdapter, INFTHandler, ReentrancyGuard {
     error WrongOperator(address expected, address actual);
     error WrongTo(address expected, address actual);
 

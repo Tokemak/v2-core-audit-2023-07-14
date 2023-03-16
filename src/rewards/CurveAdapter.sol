@@ -5,9 +5,10 @@ import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
 import { ILiquidityGaugeV2 } from "../interfaces/external/curve/ILiquidityGaugeV2.sol";
-import { IClaimableRewards } from "./IClaimableRewards.sol";
+import { IClaimableRewards } from "../interfaces/rewards/IClaimableRewards.sol";
+import { IAdapter } from "../interfaces/rewards/IAdapter.sol";
 
-contract CurveAdapter is IClaimableRewards, ReentrancyGuard {
+contract CurveAdapter is IClaimableRewards, IAdapter, ReentrancyGuard {
     // solhint-disable-next-line var-name-mixedcase
     uint256 private constant MAX_REWARDS = 8;
 
@@ -38,20 +39,13 @@ contract CurveAdapter is IClaimableRewards, ReentrancyGuard {
             ++rewardsLength;
         }
 
-        // resize the tokens array to the correct size
-        IERC20[] memory rewardTokens = new IERC20[](rewardsLength);
-        for (uint256 i = 0; i < rewardsLength;) {
-            rewardTokens[i] = tempRewardTokens[i];
-            unchecked {
-                ++i;
-            }
-        }
-
         uint256[] memory balancesBefore = new uint256[](rewardsLength);
         uint256[] memory amountsClaimed = new uint256[](rewardsLength);
+        IERC20[] memory rewardTokens = new IERC20[](rewardsLength);
 
         // get balances before
         for (uint256 i = 0; i < rewardsLength; ++i) {
+            rewardTokens[i] = tempRewardTokens[i];
             balancesBefore[i] = rewardTokens[i].balanceOf(account);
         }
 

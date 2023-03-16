@@ -6,7 +6,7 @@ import { Test } from "forge-std/Test.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import { BeethovenAdapter } from "../../src/rewards/BeethovenAdapter.sol";
-import { IClaimableRewards } from "../../src/rewards/IClaimableRewards.sol";
+import { IAdapter } from "../../src/interfaces/rewards/IAdapter.sol";
 import { IChildChainGaugeRewardHelper } from "../../src/interfaces/external/beethoven/IChildChainGaugeRewardHelper.sol";
 
 // solhint-disable func-name-mixedcase
@@ -25,7 +25,7 @@ contract BeethovenAdapterTest is Test {
     }
 
     function test_Revert_IfAddressZero() public {
-        vm.expectRevert(IClaimableRewards.TokenAddressZero.selector);
+        vm.expectRevert(IAdapter.TokenAddressZero.selector);
         adapter.claimRewards(address(0));
     }
 

@@ -6,7 +6,7 @@ import { Test } from "forge-std/Test.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import { CamelotAdapter } from "../../src/rewards/CamelotAdapter.sol";
-import { IClaimableRewards } from "../../src/rewards/IClaimableRewards.sol";
+import { IAdapter } from "../../src/interfaces/rewards/IAdapter.sol";
 import { INFTPool } from "../../src/interfaces/external/camelot/INFTPool.sol";
 import { XGRAIL_ARBITRUM, GRAIL_ARBITRUM } from "../utils/Addresses.sol";
 import { CamelotBase } from "../base/CamelotBase.sol";
@@ -27,7 +27,7 @@ contract CamelotAdapterTest is CamelotBase {
     }
 
     function test_Revert_IfAddressZero() public {
-        vm.expectRevert(IClaimableRewards.TokenAddressZero.selector);
+        vm.expectRevert(IAdapter.TokenAddressZero.selector);
         adapter.claimRewards(address(0));
     }
 

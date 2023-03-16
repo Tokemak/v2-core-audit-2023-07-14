@@ -7,9 +7,10 @@ import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard
 import { IRewardsOnlyGauge } from "../interfaces/external/beethoven/IRewardsOnlyGauge.sol";
 import { IChildChainStreamer } from "../interfaces/external/beethoven/IChildChainStreamer.sol";
 import { IChildChainGaugeRewardHelper } from "../interfaces/external/beethoven/IChildChainGaugeRewardHelper.sol";
-import { IClaimableRewards } from "./IClaimableRewards.sol";
+import { IClaimableRewards } from "../interfaces/rewards/IClaimableRewards.sol";
+import { IAdapter } from "../interfaces/rewards/IAdapter.sol";
 
-contract BeethovenAdapter is IClaimableRewards, ReentrancyGuard {
+contract BeethovenAdapter is IAdapter, IClaimableRewards, ReentrancyGuard {
     // slither-disable-start naming-convention
     // solhint-disable-next-line var-name-mixedcase
     IChildChainGaugeRewardHelper public immutable GAUGE_REWARD_HELPER;
@@ -49,13 +50,11 @@ contract BeethovenAdapter is IClaimableRewards, ReentrancyGuard {
         GAUGE_REWARD_HELPER.claimRewards(gaugeContract, account);
 
         // get balances after and calculate amounts claimed
-        uint256 sum = 0;
         for (uint256 i = 0; i < count; ++i) {
             uint256 balance = rewardTokens[i].balanceOf(account);
 
             uint256 claimed = balance - balancesBefore[i];
             amountsClaimed[i] = claimed;
-            sum += claimed;
         }
 
         emit RewardsClaimed(rewardTokens, amountsClaimed);

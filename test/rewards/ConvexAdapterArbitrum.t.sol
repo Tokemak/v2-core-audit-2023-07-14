@@ -6,7 +6,7 @@ import { Test } from "forge-std/Test.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import { ConvexArbitrumAdapter } from "../../src/rewards/ConvexArbitrumAdapter.sol";
-import { IClaimableRewards } from "../../src/rewards/IClaimableRewards.sol";
+import { IAdapter } from "../../src/interfaces/rewards/IAdapter.sol";
 import { CRV_ARBITRUM, CVX_ARBITRUM, CONVEX_BOOSTER } from "../utils/Addresses.sol";
 import { IConvexBoosterArbitrum } from "../../src/interfaces/external/convex/IConvexBoosterArbitrum.sol";
 import { IConvexRewardPool } from "../../src/interfaces/external/convex/IConvexRewardPool.sol";
@@ -26,7 +26,7 @@ contract ConvexAdapterArbitrumTest is Test {
     }
 
     function test_Revert_IfAddressZero() public {
-        vm.expectRevert(IClaimableRewards.TokenAddressZero.selector);
+        vm.expectRevert(IAdapter.TokenAddressZero.selector);
         adapter.claimRewards(address(0));
     }
 

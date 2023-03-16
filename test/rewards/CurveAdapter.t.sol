@@ -8,7 +8,7 @@ import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { ICurveStableSwap } from "../../src/interfaces/external/curve/ICurveStableSwap.sol";
 import { ILiquidityGaugeV2 } from "../../src/interfaces/external/curve/ILiquidityGaugeV2.sol";
 import { CurveAdapter } from "../../src/rewards/CurveAdapter.sol";
-import { IClaimableRewards } from "../../src/rewards/IClaimableRewards.sol";
+import { IAdapter } from "../../src/interfaces/rewards/IAdapter.sol";
 import { LDO_MAINNET, RETH_MAINNET, WSTETH_MAINNET, STETH_MAINNET } from "../utils/Addresses.sol";
 
 // solhint-disable func-name-mixedcase
@@ -62,7 +62,7 @@ contract CurveAdapterTest is Test {
     }
 
     function test_Revert_IfAddressZero() public {
-        vm.expectRevert(IClaimableRewards.TokenAddressZero.selector);
+        vm.expectRevert(IAdapter.TokenAddressZero.selector);
         adapter.claimRewards(address(0));
     }
 

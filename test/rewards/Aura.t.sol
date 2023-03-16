@@ -8,7 +8,7 @@ import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IBaseRewardPool } from "../../src/interfaces/external/convex/IBaseRewardPool.sol";
 import { IConvexBooster } from "../../src/interfaces/external/convex/IConvexBooster.sol";
 import { ConvexAdapter } from "../../src/rewards/ConvexAdapter.sol";
-import { IClaimableRewards } from "../../src/rewards/IClaimableRewards.sol";
+import { IAdapter } from "../../src/interfaces/rewards/IAdapter.sol";
 import { AURA_BOOSTER, BAL_MAINNET } from "../utils/Addresses.sol";
 
 // solhint-disable func-name-mixedcase
@@ -49,7 +49,7 @@ contract AuraBalancerAdapterTest is Test {
     }
 
     function test_Revert_IfAddressZero() public {
-        vm.expectRevert(IClaimableRewards.TokenAddressZero.selector);
+        vm.expectRevert(IAdapter.TokenAddressZero.selector);
         adapter.claimRewards(address(0));
     }
 

@@ -3,7 +3,8 @@ pragma solidity 0.8.17;
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
-import { IClaimableRewards } from "./IClaimableRewards.sol";
+import { IClaimableRewards } from "../interfaces/rewards/IClaimableRewards.sol";
+import { IAdapter } from "../interfaces/rewards/IAdapter.sol";
 
 import { IVoter } from "../interfaces/external/velodrome/IVoter.sol";
 import { IVotingEscrow } from "../interfaces/external/velodrome/IVotingEscrow.sol";
@@ -27,7 +28,7 @@ import { IPair } from "../interfaces/external/velodrome/IPair.sol";
  *      - _rebase() is used to claim these rewards.
  *      - 🚨This contract does not use rebases yet.🚨
  */
-contract VelodromeAdapter is IClaimableRewards, ReentrancyGuard {
+contract VelodromeAdapter is IClaimableRewards, IAdapter, ReentrancyGuard {
     enum ClaimType {
         Bribes,
         Fees
@@ -61,6 +62,8 @@ contract VelodromeAdapter is IClaimableRewards, ReentrancyGuard {
      * @param pool The pool to claim rewards from
      */
     function claimRewards(address pool) public nonReentrant returns (uint256[] memory, IERC20[] memory) {
+        if (pool == address(0)) revert TokenAddressZero();
+
         address gaugeAddress = VOTER.gauges(pool);
 
         uint256[] memory tokensIds = _getAccountTokenIds(_getContractAddress());

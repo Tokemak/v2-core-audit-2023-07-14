@@ -6,7 +6,7 @@ import { Test } from "forge-std/Test.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import { VelodromeAdapter } from "../../src/rewards/VelodromeAdapter.sol";
-import { IClaimableRewards } from "../../src/rewards/IClaimableRewards.sol";
+import { IAdapter } from "../../src/interfaces/rewards/IAdapter.sol";
 import { IChildChainGaugeRewardHelper } from "../../src/interfaces/external/beethoven/IChildChainGaugeRewardHelper.sol";
 import {
     USDC_OPTIMISM,
@@ -67,7 +67,7 @@ contract VelodromeAdapterTest is Test {
     }
 
     function test_Revert_IfAddressZero() public {
-        vm.expectRevert(IClaimableRewards.TokenAddressZero.selector);
+        vm.expectRevert(IAdapter.TokenAddressZero.selector);
         new VelodromeAdapter(
             address(0), 
             0xFC1AA395EBd27664B11fC093C07E10FF00f0122C, 
@@ -75,7 +75,7 @@ contract VelodromeAdapterTest is Test {
             0x5d5Bea9f0Fc13d967511668a60a3369fD53F784F
         );
 
-        vm.expectRevert(IClaimableRewards.TokenAddressZero.selector);
+        vm.expectRevert(IAdapter.TokenAddressZero.selector);
         new VelodromeAdapter(
             0x09236cfF45047DBee6B921e00704bed6D6B8Cf7e,
             address(0),
@@ -83,7 +83,7 @@ contract VelodromeAdapterTest is Test {
             0x5d5Bea9f0Fc13d967511668a60a3369fD53F784F
         );
 
-        vm.expectRevert(IClaimableRewards.TokenAddressZero.selector);
+        vm.expectRevert(IAdapter.TokenAddressZero.selector);
         new VelodromeAdapter(
             0x09236cfF45047DBee6B921e00704bed6D6B8Cf7e,
             0xFC1AA395EBd27664B11fC093C07E10FF00f0122C, 
@@ -91,7 +91,7 @@ contract VelodromeAdapterTest is Test {
             0x5d5Bea9f0Fc13d967511668a60a3369fD53F784F
         );
 
-        vm.expectRevert(IClaimableRewards.TokenAddressZero.selector);
+        vm.expectRevert(IAdapter.TokenAddressZero.selector);
         new VelodromeAdapter(
             0x09236cfF45047DBee6B921e00704bed6D6B8Cf7e,
             0xFC1AA395EBd27664B11fC093C07E10FF00f0122C, 

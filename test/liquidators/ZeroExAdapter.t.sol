@@ -6,7 +6,7 @@ import { Test } from "forge-std/Test.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import { BaseSwapperAdapter } from "../../src/liquidators/BaseSwapperAdapter.sol";
-import { ISwapper } from "../../src/liquidators/ISwapper.sol";
+import { ISwapper } from "../../src/interfaces/liquidators/ISwapper.sol";
 import { ZERO_EX_MAINNET, PRANK_ADDRESS, CVX_MAINNET, WETH_MAINNET } from "../utils/Addresses.sol";
 import { ERC20Utils } from "../utils/ERC20Utils.sol";
 

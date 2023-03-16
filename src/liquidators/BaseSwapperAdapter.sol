@@ -4,7 +4,7 @@ pragma solidity 0.8.17;
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 import { ERC20Utils } from "../libs/ERC20Utils.sol";
-import { ISwapper } from "./ISwapper.sol";
+import { ISwapper } from "../interfaces/liquidators/ISwapper.sol";
 
 contract BaseSwapperAdapter is ISwapper, ReentrancyGuard {
     // slither-disable-start naming-convention
