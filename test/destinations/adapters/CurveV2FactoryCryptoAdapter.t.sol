@@ -165,7 +165,7 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         vm.deal(address(adapter), 3 ether);
 
         // Using whale for funding since storage slot overwrite is not working for proxy ERC-20s
-        address sethWhale = 0x362387d90160eD07480d9dB70d074806aa76F802;
+        address sethWhale = 0xc5424B857f758E906013F3555Dad202e4bdB4567;
         vm.prank(sethWhale);
         IERC20(SETH).approve(address(adapter), 2 * 1e18);
         vm.prank(sethWhale);
@@ -200,7 +200,7 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         vm.deal(address(adapter), 3 ether);
 
         // Using whale for funding since storage slot overwrite is not working for proxy ERC-20s
-        address sethWhale = 0x362387d90160eD07480d9dB70d074806aa76F802;
+        address sethWhale = 0xc5424B857f758E906013F3555Dad202e4bdB4567;
         vm.prank(sethWhale);
         IERC20(SETH).approve(address(adapter), 2 * 1e18);
         vm.prank(sethWhale);
