@@ -10,7 +10,7 @@ import { IAdapter } from "../../src/interfaces/rewards/IAdapter.sol";
 import { IChildChainGaugeRewardHelper } from "../../src/interfaces/external/beethoven/IChildChainGaugeRewardHelper.sol";
 
 // solhint-disable func-name-mixedcase
-contract BeethovenAdapterTest is Test {
+contract BeethovenAdapterOptimismTest is Test {
     IChildChainGaugeRewardHelper private gaugeRewardHelper =
         IChildChainGaugeRewardHelper(0x299dcDF14350999496204c141A0c20A29d71AF3E);
 
