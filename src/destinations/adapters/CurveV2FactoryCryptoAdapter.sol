@@ -17,6 +17,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
     error MinAmountNotReached();
     error LpTokenAmountMismatch();
     error MustNotBeZero();
+    error TooManyAmountsProvided();
     error NoNonZeroAmountProvided();
     error InvalidBalanceChange();
 
@@ -53,19 +54,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
         }
         uint256[] memory coinsBalancesBefore = _getCoinsBalances(curveExtraParams.poolAddress, amounts.length);
 
-        uint256 deployed;
-        if (curveExtraParams.useEth) {
-            // slither-disable-next-line arbitrary-send-eth
-            deployed = ICryptoSwapPool(curveExtraParams.poolAddress).add_liquidity{value: amounts[0]}(
-                [amounts[0], amounts[1]], minLpMintAmount
-            );
-        } else {
-            deployed =
-                ICryptoSwapPool(curveExtraParams.poolAddress).add_liquidity([amounts[0], amounts[1]], minLpMintAmount);
-        }
-        if (deployed < minLpMintAmount) {
-            revert MinLpAmountNotReached();
-        }
+        uint256 deployed = _runDeposit(amounts, minLpMintAmount, curveExtraParams);
 
         uint256[] memory coinsBalancesAfter = _getCoinsBalances(curveExtraParams.poolAddress, amounts.length);
         uint256 lpTokenBalanceAfter = IERC20(curveExtraParams.lpTokenAddress).balanceOf(address(this));
@@ -105,7 +94,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
         }
         uint256 lpTokenBalanceBefore = IERC20(curveExtraParams.lpTokenAddress).balanceOf(address(this));
 
-        ICryptoSwapPool(curveExtraParams.poolAddress).remove_liquidity(maxLpBurnAmount, [amounts[0], amounts[1]]);
+        _runWithdrawal(curveExtraParams.poolAddress, amounts, maxLpBurnAmount);
 
         uint256 lpTokenBalanceAfter = IERC20(curveExtraParams.lpTokenAddress).balanceOf(address(this));
         uint256 lpTokenAmount = lpTokenBalanceBefore - lpTokenBalanceAfter;
@@ -168,8 +157,11 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
         );
     }
 
-    /// @dev Validate to have at least one `amount` > 0 provided
+    /// @dev Validate to have at least one `amount` > 0 provided and `amount` is <=4
     function _validateAmounts(uint256[] memory amounts) internal pure {
+        if (amounts.length > 4) {
+            revert TooManyAmountsProvided();
+        }
         bool nonZeroAmountPresent = false;
         for (uint256 i = 0; i < amounts.length;) {
             if (amounts[i] != 0) {
@@ -221,6 +213,59 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
             unchecked {
                 ++i;
             }
+        }
+    }
+
+    function _runDeposit(
+        uint256[] memory amounts,
+        uint256 minLpMintAmount,
+        CurveExtraParams memory curveExtraParams
+    ) private returns (uint256 deployed) {
+        if (curveExtraParams.useEth) {
+            // slither-disable-start arbitrary-send-eth
+            if (amounts.length == 2) {
+                deployed = ICryptoSwapPool(curveExtraParams.poolAddress).add_liquidity{value: amounts[0]}(
+                    [amounts[0], amounts[1]], minLpMintAmount
+                );
+            } else if (amounts.length == 3) {
+                deployed = ICryptoSwapPool(curveExtraParams.poolAddress).add_liquidity{value: amounts[0]}(
+                    [amounts[0], amounts[1], amounts[2]], minLpMintAmount
+                );
+            } else if (amounts.length == 4) {
+                deployed = ICryptoSwapPool(curveExtraParams.poolAddress).add_liquidity{value: amounts[0]}(
+                    [amounts[0], amounts[1], amounts[2], amounts[3]], minLpMintAmount
+                );
+            }
+            // slither-disable-end arbitrary-send-eth
+        } else {
+            if (amounts.length == 2) {
+                deployed = ICryptoSwapPool(curveExtraParams.poolAddress).add_liquidity(
+                    [amounts[0], amounts[1]], minLpMintAmount
+                );
+            } else if (amounts.length == 3) {
+                deployed = ICryptoSwapPool(curveExtraParams.poolAddress).add_liquidity(
+                    [amounts[0], amounts[1], amounts[2]], minLpMintAmount
+                );
+            } else if (amounts.length == 4) {
+                deployed = ICryptoSwapPool(curveExtraParams.poolAddress).add_liquidity(
+                    [amounts[0], amounts[1], amounts[2], amounts[3]], minLpMintAmount
+                );
+            }
+        }
+        if (deployed < minLpMintAmount) {
+            revert MinLpAmountNotReached();
+        }
+    }
+
+    function _runWithdrawal(address poolAddress, uint256[] memory amounts, uint256 maxLpBurnAmount) private {
+        if (amounts.length == 2) {
+            ICryptoSwapPool(poolAddress).remove_liquidity(maxLpBurnAmount, [amounts[0], amounts[1]]);
+        } else if (amounts.length == 3) {
+            ICryptoSwapPool(poolAddress).remove_liquidity(maxLpBurnAmount, [amounts[0], amounts[1], amounts[2]]);
+        } else if (amounts.length == 4) {
+            ICryptoSwapPool(poolAddress).remove_liquidity(
+                maxLpBurnAmount, [amounts[0], amounts[1], amounts[2], amounts[3]]
+            );
         }
     }
 
