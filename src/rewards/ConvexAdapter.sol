@@ -5,10 +5,9 @@ import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
 import { IBaseRewardPool } from "../interfaces/external/convex/IBaseRewardPool.sol";
-import { IClaimableRewards } from "../interfaces/rewards/IClaimableRewards.sol";
 import { IAdapter } from "../interfaces/rewards/IAdapter.sol";
 
-contract ConvexAdapter is IClaimableRewards, IAdapter, ReentrancyGuard {
+contract ConvexAdapter is IAdapter, ReentrancyGuard {
     // slither-disable-start calls-loop
     /**
      * @param gauge The gauge to claim rewards from

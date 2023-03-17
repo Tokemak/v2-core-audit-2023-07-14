@@ -7,10 +7,9 @@ import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard
 import { IRewardsOnlyGauge } from "../interfaces/external/beethoven/IRewardsOnlyGauge.sol";
 import { IChildChainStreamer } from "../interfaces/external/beethoven/IChildChainStreamer.sol";
 import { IChildChainGaugeRewardHelper } from "../interfaces/external/beethoven/IChildChainGaugeRewardHelper.sol";
-import { IClaimableRewards } from "../interfaces/rewards/IClaimableRewards.sol";
 import { IAdapter } from "../interfaces/rewards/IAdapter.sol";
 
-contract BeethovenAdapter is IAdapter, IClaimableRewards, ReentrancyGuard {
+contract BeethovenAdapter is IAdapter, ReentrancyGuard {
     // slither-disable-start naming-convention
     // solhint-disable-next-line var-name-mixedcase
     IChildChainGaugeRewardHelper public immutable GAUGE_REWARD_HELPER;

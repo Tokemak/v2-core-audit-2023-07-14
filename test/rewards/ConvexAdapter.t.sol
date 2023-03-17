@@ -7,7 +7,7 @@ import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import { CRV_MAINNET, LDO_MAINNET, CONVEX_BOOSTER } from "../utils/Addresses.sol";
 import { ConvexAdapter } from "../../src/rewards/ConvexAdapter.sol";
-import { IAdapter } from "../../src/interfaces/rewards/IAdapter.sol";
+import { IClaimableRewards } from "../../src/interfaces/rewards/IClaimableRewards.sol";
 import { IConvexBooster } from "../../src/interfaces/external/convex/IConvexBooster.sol";
 import { IBaseRewardPool } from "../../src/interfaces/external/convex/IBaseRewardPool.sol";
 
@@ -49,7 +49,7 @@ contract ConvexAdapterTest is Test {
     }
 
     function test_Revert_IfAddressZero() public {
-        vm.expectRevert(IAdapter.TokenAddressZero.selector);
+        vm.expectRevert(IClaimableRewards.TokenAddressZero.selector);
         adapter.claimRewards(address(0));
     }
 
@@ -59,7 +59,7 @@ contract ConvexAdapterTest is Test {
 
         bytes4 selector = bytes4(keccak256(bytes("getReward(address,bool)")));
         vm.mockCall(gauge, abi.encodeWithSelector(selector, address(adapter), true), abi.encode(false));
-        vm.expectRevert(IAdapter.ClaimRewardsFailed.selector);
+        vm.expectRevert(IClaimableRewards.ClaimRewardsFailed.selector);
         adapter.claimRewards(gauge);
     }
 
@@ -77,7 +77,7 @@ contract ConvexAdapterTest is Test {
         assertEq(amountsClaimed.length, rewardsToken.length);
         assertEq(rewardsToken.length, 1);
         assertEq(address(rewardsToken[0]), CRV_MAINNET);
-        assertEq(amountsClaimed[0] > 0, true);
+        assertTrue(amountsClaimed[0] > 0);
     }
 
     // Pool rETH-wstETH
@@ -94,7 +94,7 @@ contract ConvexAdapterTest is Test {
         assertEq(amountsClaimed.length, rewardsToken.length);
         assertEq(rewardsToken.length, 1);
         assertEq(address(rewardsToken[0]), CRV_MAINNET);
-        assertEq(amountsClaimed[0] > 0, true);
+        assertTrue(amountsClaimed[0] > 0);
     }
 
     // Pool stETH-ETH
@@ -111,9 +111,9 @@ contract ConvexAdapterTest is Test {
         assertEq(amountsClaimed.length, rewardsToken.length);
         assertEq(rewardsToken.length, 2);
         assertEq(address(rewardsToken[0]), LDO_MAINNET);
-        assertEq(amountsClaimed[0] > 0, true);
+        assertTrue(amountsClaimed[0] > 0);
         assertEq(address(rewardsToken[1]), CRV_MAINNET);
-        assertEq(amountsClaimed[0] > 0, true);
+        assertTrue(amountsClaimed[1] > 0);
     }
 
     // Pool sETH-ETH
@@ -130,6 +130,6 @@ contract ConvexAdapterTest is Test {
         assertEq(amountsClaimed.length, rewardsToken.length);
         assertEq(rewardsToken.length, 1);
         assertEq(address(rewardsToken[0]), CRV_MAINNET);
-        assertEq(amountsClaimed[0] > 0, true);
+        assertTrue(amountsClaimed[0] > 0);
     }
 }

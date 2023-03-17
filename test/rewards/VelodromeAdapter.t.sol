@@ -6,7 +6,7 @@ import { Test } from "forge-std/Test.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import { VelodromeAdapter } from "../../src/rewards/VelodromeAdapter.sol";
-import { IAdapter } from "../../src/interfaces/rewards/IAdapter.sol";
+import { IClaimableRewards } from "../../src/interfaces/rewards/IClaimableRewards.sol";
 import { IChildChainGaugeRewardHelper } from "../../src/interfaces/external/beethoven/IChildChainGaugeRewardHelper.sol";
 import {
     USDC_OPTIMISM,
@@ -67,7 +67,7 @@ contract VelodromeAdapterTest is Test {
     }
 
     function test_Revert_IfAddressZero() public {
-        vm.expectRevert(IAdapter.TokenAddressZero.selector);
+        vm.expectRevert(IClaimableRewards.TokenAddressZero.selector);
         new VelodromeAdapter(
             address(0), 
             0xFC1AA395EBd27664B11fC093C07E10FF00f0122C, 
@@ -75,7 +75,7 @@ contract VelodromeAdapterTest is Test {
             0x5d5Bea9f0Fc13d967511668a60a3369fD53F784F
         );
 
-        vm.expectRevert(IAdapter.TokenAddressZero.selector);
+        vm.expectRevert(IClaimableRewards.TokenAddressZero.selector);
         new VelodromeAdapter(
             0x09236cfF45047DBee6B921e00704bed6D6B8Cf7e,
             address(0),
@@ -83,7 +83,7 @@ contract VelodromeAdapterTest is Test {
             0x5d5Bea9f0Fc13d967511668a60a3369fD53F784F
         );
 
-        vm.expectRevert(IAdapter.TokenAddressZero.selector);
+        vm.expectRevert(IClaimableRewards.TokenAddressZero.selector);
         new VelodromeAdapter(
             0x09236cfF45047DBee6B921e00704bed6D6B8Cf7e,
             0xFC1AA395EBd27664B11fC093C07E10FF00f0122C, 
@@ -91,7 +91,7 @@ contract VelodromeAdapterTest is Test {
             0x5d5Bea9f0Fc13d967511668a60a3369fD53F784F
         );
 
-        vm.expectRevert(IAdapter.TokenAddressZero.selector);
+        vm.expectRevert(IClaimableRewards.TokenAddressZero.selector);
         new VelodromeAdapter(
             0x09236cfF45047DBee6B921e00704bed6D6B8Cf7e,
             0xFC1AA395EBd27664B11fC093C07E10FF00f0122C, 
@@ -126,10 +126,10 @@ contract VelodromeAdapterTest is Test {
         assertEq(address(rewardsToken[7]), SONNE_OPTIMISM);
 
         assertEq(amountsClaimed[0], 0);
-        assertEq(amountsClaimed[1] > 0, true);
-        assertEq(amountsClaimed[2] > 0, true);
-        assertEq(amountsClaimed[3] > 0, true);
-        assertEq(amountsClaimed[4] > 0, true);
+        assertTrue(amountsClaimed[1] > 0);
+        assertTrue(amountsClaimed[2] > 0);
+        assertTrue(amountsClaimed[3] > 0);
+        assertTrue(amountsClaimed[4] > 0);
         assertEq(amountsClaimed[5], 0);
         assertEq(amountsClaimed[6], 0);
         assertEq(amountsClaimed[7], 0);
@@ -159,7 +159,7 @@ contract VelodromeAdapterTest is Test {
 
         assertEq(amountsClaimed[0], 0);
         assertEq(amountsClaimed[1], 0);
-        assertEq(amountsClaimed[2] > 0, true);
+        assertTrue(amountsClaimed[2] > 0);
         assertEq(amountsClaimed[3], 0);
     }
 }

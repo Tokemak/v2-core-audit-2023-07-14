@@ -8,7 +8,7 @@ import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IBaseRewardPool } from "../../src/interfaces/external/convex/IBaseRewardPool.sol";
 import { IConvexBooster } from "../../src/interfaces/external/convex/IConvexBooster.sol";
 import { ConvexAdapter } from "../../src/rewards/ConvexAdapter.sol";
-import { IAdapter } from "../../src/interfaces/rewards/IAdapter.sol";
+import { IClaimableRewards } from "../../src/interfaces/rewards/IClaimableRewards.sol";
 import { AURA_BOOSTER, BAL_MAINNET } from "../utils/Addresses.sol";
 
 // solhint-disable func-name-mixedcase
@@ -49,7 +49,7 @@ contract AuraBalancerAdapterTest is Test {
     }
 
     function test_Revert_IfAddressZero() public {
-        vm.expectRevert(IAdapter.TokenAddressZero.selector);
+        vm.expectRevert(IClaimableRewards.TokenAddressZero.selector);
         adapter.claimRewards(address(0));
     }
 
@@ -68,7 +68,7 @@ contract AuraBalancerAdapterTest is Test {
         assertEq(amountsClaimed.length, rewardsToken.length);
         assertEq(rewardsToken.length, 1);
         assertEq(address(rewardsToken[0]), BAL_MAINNET);
-        assertEq(amountsClaimed[0] > 0, true);
+        assertTrue(amountsClaimed[0] > 0);
     }
 
     // Pool wstETH-cbETH
@@ -86,7 +86,7 @@ contract AuraBalancerAdapterTest is Test {
         assertEq(amountsClaimed.length, rewardsToken.length);
         assertEq(rewardsToken.length, 1);
         assertEq(address(rewardsToken[0]), BAL_MAINNET);
-        assertEq(amountsClaimed[0] > 0, true);
+        assertTrue(amountsClaimed[0] > 0);
     }
 
     // Pool wstETH-srfxETH-rETH
@@ -104,6 +104,6 @@ contract AuraBalancerAdapterTest is Test {
         assertEq(amountsClaimed.length, rewardsToken.length);
         assertEq(rewardsToken.length, 1);
         assertEq(address(rewardsToken[0]), BAL_MAINNET);
-        assertEq(amountsClaimed[0] > 0, true);
+        assertTrue(amountsClaimed[0] > 0);
     }
 }

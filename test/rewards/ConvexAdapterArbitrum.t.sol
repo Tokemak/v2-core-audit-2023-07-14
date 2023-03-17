@@ -6,7 +6,7 @@ import { Test } from "forge-std/Test.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import { ConvexArbitrumAdapter } from "../../src/rewards/ConvexArbitrumAdapter.sol";
-import { IAdapter } from "../../src/interfaces/rewards/IAdapter.sol";
+import { IClaimableRewards } from "../../src/interfaces/rewards/IClaimableRewards.sol";
 import { CRV_ARBITRUM, CVX_ARBITRUM, CONVEX_BOOSTER } from "../utils/Addresses.sol";
 import { IConvexBoosterArbitrum } from "../../src/interfaces/external/convex/IConvexBoosterArbitrum.sol";
 import { IConvexRewardPool } from "../../src/interfaces/external/convex/IConvexRewardPool.sol";
@@ -26,7 +26,7 @@ contract ConvexAdapterArbitrumTest is Test {
     }
 
     function test_Revert_IfAddressZero() public {
-        vm.expectRevert(IAdapter.TokenAddressZero.selector);
+        vm.expectRevert(IClaimableRewards.TokenAddressZero.selector);
         adapter.claimRewards(address(0));
     }
 
@@ -67,7 +67,7 @@ contract ConvexAdapterArbitrumTest is Test {
         assertEq(rewardsToken.length, 2);
         assertEq(address(rewardsToken[0]), CRV_ARBITRUM);
         assertEq(address(rewardsToken[1]), CVX_ARBITRUM);
-        assertEq(amountsClaimed[0] > 0, true);
+        assertTrue(amountsClaimed[0] > 0);
         assertEq(amountsClaimed[1], 0);
     }
 
@@ -85,7 +85,7 @@ contract ConvexAdapterArbitrumTest is Test {
         assertEq(rewardsToken.length, 2);
         assertEq(address(rewardsToken[0]), CRV_ARBITRUM);
         assertEq(address(rewardsToken[1]), CVX_ARBITRUM);
-        assertEq(amountsClaimed[0] > 0, true);
+        assertTrue(amountsClaimed[0] > 0);
         assertEq(amountsClaimed[1], 0);
     }
 }

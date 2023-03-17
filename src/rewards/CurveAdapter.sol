@@ -5,10 +5,9 @@ import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
 import { ILiquidityGaugeV2 } from "../interfaces/external/curve/ILiquidityGaugeV2.sol";
-import { IClaimableRewards } from "../interfaces/rewards/IClaimableRewards.sol";
 import { IAdapter } from "../interfaces/rewards/IAdapter.sol";
 
-contract CurveAdapter is IClaimableRewards, IAdapter, ReentrancyGuard {
+contract CurveAdapter is IAdapter, ReentrancyGuard {
     // solhint-disable-next-line var-name-mixedcase
     uint256 private constant MAX_REWARDS = 8;
 
