@@ -4,7 +4,7 @@ pragma solidity 0.8.17;
 import { IERC4626 } from "openzeppelin-contracts/interfaces/IERC4626.sol";
 import { IERC20Permit } from "openzeppelin-contracts/token/ERC20/extensions/draft-IERC20Permit.sol";
 
-interface IPlasmaPool is IERC4626, IERC20Permit {
+interface IPlasmaVault is IERC4626, IERC20Permit {
     ///////////////////////////////////////////////////////////////////
     //                        Errors
     ///////////////////////////////////////////////////////////////////

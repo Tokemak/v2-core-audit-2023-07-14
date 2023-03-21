@@ -6,10 +6,10 @@ pragma solidity 0.8.17;
 
 // import "erc4626-tests/ERC4626.test.sol";
 
-import { IPlasmaPoolRegistry, PlasmaPoolRegistry } from "src/pool/PlasmaPoolRegistry.sol";
-import { IPlasmaPoolFactory, PlasmaPoolFactory } from "src/pool/PlasmaPoolFactory.sol";
-import { IPlasmaPoolRouter, PlasmaPoolRouter } from "src/pool/PlasmaPoolRouter.sol";
-import { IPlasmaPool, PlasmaPool } from "src/pool/PlasmaPool.sol";
+import { IPlasmaVaultRegistry, PlasmaVaultRegistry } from "src/vault/PlasmaVaultRegistry.sol";
+import { IPlasmaVaultFactory, PlasmaVaultFactory } from "src/vault/PlasmaVaultFactory.sol";
+import { IPlasmaVaultRouter, PlasmaVaultRouter } from "src/vault/PlasmaVaultRouter.sol";
+import { IPlasmaVault, PlasmaVault } from "src/vault/PlasmaVault.sol";
 import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 // import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { MockERC20 } from "test/mocks/MockERC20.sol";
@@ -18,11 +18,11 @@ import { BaseTest } from "test/BaseTest.t.sol";
 
 import { WETH9_ADDRESS } from "test/utils/Addresses.sol";
 
-contract PlasmaPoolBaseTest is BaseTest {
-    PlasmaPoolRegistry public registry;
-    PlasmaPoolFactory public factory;
-    PlasmaPoolRouter public router;
-    IPlasmaPool public pool;
+contract PlasmaVaultBaseTest is BaseTest {
+    PlasmaVaultRegistry public registry;
+    PlasmaVaultFactory public factory;
+    PlasmaVaultRouter public router;
+    IPlasmaVault public vault;
     ERC20 public poolAsset;
     address internal _mockPoolPrototypeAddress;
 
@@ -30,7 +30,7 @@ contract PlasmaPoolBaseTest is BaseTest {
         BaseTest.setUp();
 
         // create registry
-        registry = new PlasmaPoolRegistry();
+        registry = new PlasmaVaultRegistry();
 
         //
         // create and initialize factory
@@ -41,8 +41,8 @@ contract PlasmaPoolBaseTest is BaseTest {
         deal(address(mockAsset), msg.sender, uint256(1_000_000_000_000_000_000_000_000));
         poolAsset = mockAsset;
 
-        factory = new PlasmaPoolFactory(address(registry));
-        // _mockPoolPrototypeAddress = address(new PlasmaPool());
+        factory = new PlasmaVaultFactory(address(registry));
+        // _mockPoolPrototypeAddress = address(new PlasmaVault());
         // factory.addPrototype(_mockPoolPrototypeAddress);
         factory.addPoolType(factory.POOLTYPE_PLASMAPOOL(), address(0));
         // TODO check that it's in the list / added
@@ -52,10 +52,10 @@ contract PlasmaPoolBaseTest is BaseTest {
         registry.grantRole(registry.REGISTRY_UPDATER(), address(factory));
 
         // create router
-        router = new PlasmaPoolRouter(WETH9_ADDRESS);
+        router = new PlasmaVaultRouter(WETH9_ADDRESS);
 
-        // create sample pool
-        pool = IPlasmaPool(factory.createPool(factory.POOLTYPE_PLASMAPOOL(), address(mockAsset), ""));
+        // create sample vault
+        vault = IPlasmaVault(factory.createPool(factory.POOLTYPE_PLASMAPOOL(), address(mockAsset), ""));
     }
 
     function test_registryCreated() public view {
@@ -66,11 +66,11 @@ contract PlasmaPoolBaseTest is BaseTest {
         assert(address(router) != address(0));
     }
 
-    function test_poolCreated() public view {
-        assert(address(pool) != address(0));
+    function test_vaultCreated() public view {
+        assert(address(vault) != address(0));
     }
 
-    function test_poolRegistered() public view {
-        assert(registry.isPool(address(pool)));
+    function test_vaultRegistered() public view {
+        assert(registry.isPool(address(vault)));
     }
 }

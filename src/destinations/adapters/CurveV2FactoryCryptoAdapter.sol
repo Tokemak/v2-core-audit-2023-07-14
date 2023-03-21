@@ -76,6 +76,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
         for (uint256 i = 0; i < amounts.length;) {
             //slither-disable-next-line calls-loop
             address coin = IPool(curveExtraParams.poolAddress).coins(i);
+            //slither-disable-next-line calls-loop
             coinsBalancesBefore[i] = coin == CURVE_REGISTRY_ETH_ADDRESS_POINTER
                 ? address(this).balance
                 : IERC20(coin).balanceOf(address(this));

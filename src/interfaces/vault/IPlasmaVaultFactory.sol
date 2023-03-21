@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-interface IPlasmaPoolFactory {
+interface IPlasmaVaultFactory {
     ///////////////////////////////////////////////////////////////////
     //                        Errors
     ///////////////////////////////////////////////////////////////////
@@ -23,14 +23,14 @@ interface IPlasmaPoolFactory {
     ///////////////////////////////////////////////////////////////////
 
     /**
-     * @notice Spin up a new PlasmaPool
-     * @param _poolType Name of the type of pool to instantiate
-     * @param _poolAsset Underlyer asset
-     * @param extraParams Extra parameters for pool initialization
+     * @notice Spin up a new PlasmaVault
+     * @param _vaultType Name of the type of vault to instantiate
+     * @param _vaultAsset Underlyer asset
+     * @param extraParams Extra parameters for vault initialization
      */
     function createPool(
-        bytes32 _poolType,
-        address _poolAsset,
+        bytes32 _vaultType,
+        address _vaultAsset,
         bytes calldata extraParams
     ) external returns (address newPoolAddress);
 
@@ -39,27 +39,27 @@ interface IPlasmaPoolFactory {
     ///////////////////////////////////////////////////////////////////
 
     /**
-     * @notice List all PlasmaPool prototypes
+     * @notice List all PlasmaVault prototypes
      */
     function listPoolTypes() external view returns (bytes32[] memory poolTypes);
 
     /**
-     * @notice Add a PlasmaPool prototype to the whitelist
-     * @param _poolType Name of the type of pool to instantiate
-     * @param _plasmaPoolPrototype Address of deployed PlasmaPool prototype
+     * @notice Add a PlasmaVault prototype to the whitelist
+     * @param _vaultType Name of the type of vault to instantiate
+     * @param _plasmaVaultPrototype Address of deployed PlasmaVault prototype
      */
-    function addPoolType(bytes32 _poolType, address _plasmaPoolPrototype) external;
+    function addPoolType(bytes32 _vaultType, address _plasmaVaultPrototype) external;
 
     /**
-     * @notice Remove a PlasmaPool prototype from the whitelist
-     * @param _poolType Pool type to remove implementation reference of
+     * @notice Remove a PlasmaVault prototype from the whitelist
+     * @param _vaultType Pool type to remove implementation reference of
      */
-    function removePoolType(bytes32 _poolType) external;
+    function removePoolType(bytes32 _vaultType) external;
 
     /**
-     * @notice Replace a PlasmaPool prototype from the whitelist
+     * @notice Replace a PlasmaVault prototype from the whitelist
      * @param poolType Pool type to remove implementation reference of
-     * @param _plasmaPoolPrototype Address of deployed PlasmaPool prototype
+     * @param _plasmaVaultPrototype Address of deployed PlasmaVault prototype
      */
-    function replacePoolType(bytes32 poolType, address _plasmaPoolPrototype) external;
+    function replacePoolType(bytes32 poolType, address _plasmaVaultPrototype) external;
 }

@@ -109,4 +109,9 @@ contract BaseStrategy is IStrategy, Ownable2Step {
 
         return percentages;
     }
+
+    function getDepositBreakup(uint256 forAmount)
+        external
+        returns (address[] memory destinationVaults, uint256[] memory amounts)
+    { }
 }

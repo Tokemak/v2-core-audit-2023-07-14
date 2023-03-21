@@ -30,7 +30,7 @@
 		"postinstall": "husky install",
 		"scan:slither": "slither .",
 		"reset": "rm -r cache node_modules out && forge clean && npm install && forge build",
-		"test:pools": "forge test -vvv --match-path \"./test/pool/*\""
+		"test:vaults": "forge test -vvv --match-path \"./test/vault/*\""
 	},
 	"author": "",
 	"license": "MIT",

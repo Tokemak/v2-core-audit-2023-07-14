@@ -2,7 +2,7 @@
 pragma solidity 0.8.17;
 
 /// @title Keep track of Pools created through the Pool Factory
-interface IPlasmaPoolRegistry {
+interface IPlasmaVaultRegistry {
     ///////////////////////////////////////////////////////////////////
     //                        Errors
     ///////////////////////////////////////////////////////////////////
@@ -15,22 +15,22 @@ interface IPlasmaPoolRegistry {
     ///////////////////////////////////////////////////////////////////
     //                        Events
     ///////////////////////////////////////////////////////////////////
-    event PoolAdded(address indexed asset, address indexed pool);
-    event PoolRemoved(address indexed asset, address indexed pool);
+    event PoolAdded(address indexed asset, address indexed vault);
+    event PoolRemoved(address indexed asset, address indexed vault);
 
     ///////////////////////////////////////////////////////////////////
     //                        Functions
     ///////////////////////////////////////////////////////////////////
 
-    /// @notice Checks if an address is a valid pool
+    /// @notice Checks if an address is a valid vault
     /// @param poolAddress Pool address to be added
     function isPool(address poolAddress) external view returns (bool);
 
-    /// @notice Registers a pool
+    /// @notice Registers a vault
     /// @param poolAddress Pool address to be added
     function addPool(address poolAddress) external;
 
-    /// @notice Removes pool registration
+    /// @notice Removes vault registration
     /// @param poolAddress Pool address to be removed
     function removePool(address poolAddress) external;
 

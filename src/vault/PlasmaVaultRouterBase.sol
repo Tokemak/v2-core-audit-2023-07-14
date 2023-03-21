@@ -3,15 +3,15 @@
 pragma solidity 0.8.17;
 
 import { IERC20, SafeERC20, Address } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
-import { IPlasmaPool, IPlasmaPoolRouterBase } from "src/interfaces/pool/IPlasmaPoolRouterBase.sol";
+import { IPlasmaVault, IPlasmaVaultRouterBase } from "src/interfaces/vault/IPlasmaVaultRouterBase.sol";
 
 import { SelfPermit } from "src/utils/SelfPermit.sol";
 import { Multicall } from "src/utils/Multicall.sol";
 
 import { IWETH9 } from "src/interfaces/utils/IWETH9.sol";
 
-/// @title PlasmaPool Router Base Contract
-abstract contract PlasmaPoolRouterBase is IPlasmaPoolRouterBase, SelfPermit, Multicall /*, PeripheryPayments */ {
+/// @title PlasmaVault Router Base Contract
+abstract contract PlasmaVaultRouterBase is IPlasmaVaultRouterBase, SelfPermit, Multicall /*, PeripheryPayments */ {
     using SafeERC20 for IERC20;
 
     IWETH9 public immutable weth9;
@@ -22,39 +22,39 @@ abstract contract PlasmaPoolRouterBase is IPlasmaPoolRouterBase, SelfPermit, Mul
         weth9 = IWETH9(_weth9);
     }
 
-    /// @inheritdoc IPlasmaPoolRouterBase
+    /// @inheritdoc IPlasmaVaultRouterBase
     function mint(
-        IPlasmaPool pool,
+        IPlasmaVault vault,
         address to,
         uint256 shares,
         uint256 maxAmountIn
     ) public payable virtual override returns (uint256 amountIn) {
         // handle possible eth
-        _processEthIn(pool);
+        _processEthIn(vault);
 
-        if ((amountIn = pool.mint(shares, to)) > maxAmountIn) {
+        if ((amountIn = vault.mint(shares, to)) > maxAmountIn) {
             revert MaxAmountError();
         }
     }
 
-    /// @inheritdoc IPlasmaPoolRouterBase
+    /// @inheritdoc IPlasmaVaultRouterBase
     function deposit(
-        IPlasmaPool pool,
+        IPlasmaVault vault,
         address to,
         uint256 amount,
         uint256 minSharesOut
     ) public payable virtual override returns (uint256 sharesOut) {
         // handle possible eth
-        _processEthIn(pool);
+        _processEthIn(vault);
 
-        if ((sharesOut = pool.deposit(amount, to)) < minSharesOut) {
+        if ((sharesOut = vault.deposit(amount, to)) < minSharesOut) {
             revert MinSharesError();
         }
     }
 
-    /// @inheritdoc IPlasmaPoolRouterBase
+    /// @inheritdoc IPlasmaVaultRouterBase
     function withdraw(
-        IPlasmaPool pool,
+        IPlasmaVault vault,
         address to,
         uint256 amount,
         uint256 maxSharesOut,
@@ -62,7 +62,7 @@ abstract contract PlasmaPoolRouterBase is IPlasmaPoolRouterBase, SelfPermit, Mul
     ) public virtual override returns (uint256 sharesOut) {
         address destination = unwrapWETH ? address(this) : to;
 
-        if ((sharesOut = pool.withdraw(amount, destination, msg.sender)) > maxSharesOut) {
+        if ((sharesOut = vault.withdraw(amount, destination, msg.sender)) > maxSharesOut) {
             revert MaxSharesError();
         }
 
@@ -71,9 +71,9 @@ abstract contract PlasmaPoolRouterBase is IPlasmaPoolRouterBase, SelfPermit, Mul
         }
     }
 
-    /// @inheritdoc IPlasmaPoolRouterBase
+    /// @inheritdoc IPlasmaVaultRouterBase
     function redeem(
-        IPlasmaPool pool,
+        IPlasmaVault vault,
         address to,
         uint256 shares,
         uint256 minAmountOut,
@@ -81,7 +81,7 @@ abstract contract PlasmaPoolRouterBase is IPlasmaPoolRouterBase, SelfPermit, Mul
     ) public virtual override returns (uint256 amountOut) {
         address destination = unwrapWETH ? address(this) : to;
 
-        if ((amountOut = pool.redeem(shares, destination, msg.sender)) < minAmountOut) {
+        if ((amountOut = vault.redeem(shares, destination, msg.sender)) < minAmountOut) {
             revert MinAmountError();
         }
 
@@ -90,11 +90,11 @@ abstract contract PlasmaPoolRouterBase is IPlasmaPoolRouterBase, SelfPermit, Mul
         }
     }
 
-    function _processEthIn(IPlasmaPool pool) internal {
+    function _processEthIn(IPlasmaVault vault) internal {
         // if any eth sent, wrap it first
         if (msg.value > 0) {
             // if asset is not weth, revert
-            if (address(pool.asset()) != address(weth9)) {
+            if (address(vault.asset()) != address(weth9)) {
                 revert InvalidAsset();
             }
 

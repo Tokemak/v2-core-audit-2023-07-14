@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { IPlasmaPool } from "src/interfaces/pool/IPlasmaPool.sol";
+import { IPlasmaVault } from "src/interfaces/vault/IPlasmaVault.sol";
 import { IERC4626 } from "openzeppelin-contracts/interfaces/IERC4626.sol";
 import { ERC20Permit } from "openzeppelin-contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
@@ -9,23 +9,25 @@ import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import { Pausable } from "openzeppelin-contracts/security/Pausable.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "openzeppelin-contracts/utils/math/Math.sol";
+import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
-contract PlasmaPool is IPlasmaPool, ERC20Permit, Pausable {
+contract PlasmaVault is IPlasmaVault, ERC20Permit, Pausable, ReentrancyGuard {
     using Math for uint256;
     using SafeERC20 for ERC20;
     using SafeERC20 for IERC20;
 
     IERC20 internal immutable _asset;
+    uint256 internal _totalAssets;
 
-    constructor(address _poolAsset)
+    constructor(address _vaultAsset)
         ERC20(
-            string(abi.encodePacked(ERC20(_poolAsset).name(), " Pool Token")),
-            string(abi.encodePacked("zn", ERC20(_poolAsset).symbol()))
+            string(abi.encodePacked(ERC20(_vaultAsset).name(), " Pool Token")),
+            string(abi.encodePacked("zn", ERC20(_vaultAsset).symbol()))
         )
-        ERC20Permit(string(abi.encodePacked("zn", ERC20(_poolAsset).symbol())))
+        ERC20Permit(string(abi.encodePacked("zn", ERC20(_vaultAsset).symbol())))
     {
-        if (_poolAsset == address(0)) revert TokenAddressZero();
-        _asset = IERC20(_poolAsset);
+        if (_vaultAsset == address(0)) revert TokenAddressZero();
+        _asset = IERC20(_vaultAsset);
     }
 
     /// @dev See {IERC4626-asset}.
@@ -35,7 +37,7 @@ contract PlasmaPool is IPlasmaPool, ERC20Permit, Pausable {
 
     /// @dev See {IERC4626-totalAssets}.
     function totalAssets() public view virtual override returns (uint256 totalManagedAssets) {
-        totalManagedAssets = _asset.balanceOf(address(this));
+        totalManagedAssets = _totalAssets;
     }
 
     /// @dev See {IERC4626-convertToAssets}.
@@ -63,7 +65,10 @@ contract PlasmaPool is IPlasmaPool, ERC20Permit, Pausable {
     }
 
     /// @dev See {IERC4626-deposit}.
-    function deposit(uint256 assets, address receiver) public virtual override whenNotPaused returns (uint256 shares) {
+    function deposit(
+        uint256 assets,
+        address receiver
+    ) public virtual override whenNotPaused nonReentrant returns (uint256 shares) {
         if (assets > maxDeposit(receiver)) {
             revert ERC4626DepositExceedsMax(assets, maxDeposit(receiver));
         }
@@ -110,7 +115,10 @@ contract PlasmaPool is IPlasmaPool, ERC20Permit, Pausable {
      * As opposed to {deposit}, minting is allowed even if the vault is in a state where the price of a share is zero.
      * In this case, the shares will be minted without requiring any assets to be deposited.
      */
-    function mint(uint256 shares, address receiver) public virtual override whenNotPaused returns (uint256 assets) {
+    function mint(
+        uint256 shares,
+        address receiver
+    ) public virtual override whenNotPaused nonReentrant returns (uint256 assets) {
         if (shares > maxMint(receiver)) {
             revert ERC4626MintExceedsMax(shares, maxMint(receiver));
         }
@@ -129,7 +137,7 @@ contract PlasmaPool is IPlasmaPool, ERC20Permit, Pausable {
         uint256 assets,
         address receiver,
         address owner
-    ) public virtual override whenNotPaused returns (uint256 shares) {
+    ) public virtual override whenNotPaused nonReentrant returns (uint256 shares) {
         // OZ: // TODO: compare
         //         require(assets <= maxWithdraw(owner), "ERC4626: withdraw more than max");
         //
@@ -145,7 +153,7 @@ contract PlasmaPool is IPlasmaPool, ERC20Permit, Pausable {
         uint256 shares,
         address receiver,
         address owner
-    ) public virtual override whenNotPaused returns (uint256 assets) {
+    ) public virtual override whenNotPaused nonReentrant returns (uint256 assets) {
         // OZ: // TODO: compare
         //         require(shares <= maxRedeem(owner), "ERC4626: redeem more than max");
         //
@@ -205,6 +213,8 @@ contract PlasmaPool is IPlasmaPool, ERC20Permit, Pausable {
         // slither-disable-next-line reentrancy-no-eth
         _asset.safeTransferFrom(_msgSender(), address(this), assets);
 
+        _totalAssets += assets;
+
         _afterDepositHook(assets, shares, receiver, fromDeposit);
         _mint(receiver, shares);
 
@@ -233,6 +243,7 @@ contract PlasmaPool is IPlasmaPool, ERC20Permit, Pausable {
 
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
 
+        _totalAssets -= assets;
         _asset.safeTransfer(receiver, assets);
     }
 
