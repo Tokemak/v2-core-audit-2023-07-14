@@ -75,26 +75,33 @@ contract LMPVault is ILMPVault, PlasmaVault, Ownable {
             shares = super.withdraw(idleAssetsToWithdraw, receiver, owner);
         }
 
-        // if we still have outstanding funds to withdraw, only then go to strategies
-        uint256 assetsToWithdraw = assets;
-        if (assets > 0) {
-            // query strategy for destinations and amounts
-            (address[] memory destinationVaults, uint256[] memory amounts) = strategy.getDepositBreakup(assets);
+        // -----
+        // NOTE: STRATEGY WITHDRAWALS BELOW NOT USED OR IMPLEMENTED YET! (placeholder only)
+        // -----
 
-            // withdraw from destinations to here
-            // TODO: should we just send it all back in one shot?
-            for (uint256 i = 0; i < destinationVaults.length; ++i) {
-                // slither-disable-next-line calls-loop
-                assetsToWithdraw -=
-                    IDestinationVault(destinationVaults[i]).withdraw(amounts[i], address(this), address(this));
-            }
-
-            // process caller's withdraw / send back funds
-            shares += super.withdraw(assets, receiver, owner);
-        }
+        //        // if we still have outstanding funds to withdraw, only then go to strategies
+        //         uint256 assetsToWithdraw = assets;
+        //         if (assets > 0) {
+        //             // query strategy for destinations and amounts
+        //             (address[] memory destinationVaults, uint256[] memory amounts) =
+        // strategy.getDepositBreakup(assets);
+        //
+        //             // withdraw from destinations to here
+        //             // TODO: should we just send it all back in one shot?
+        //             for (uint256 i = 0; i < destinationVaults.length; ++i) {
+        //                 // slither-disable-next-line calls-loop
+        //                 assetsToWithdraw -=
+        //                     IDestinationVault(destinationVaults[i]).withdraw(amounts[i], address(this),
+        // address(this));
+        //             }
+        //
+        //             // process caller's withdraw / send back funds
+        //             shares += super.withdraw(assets, receiver, owner);
+        //         }
 
         // if after going round robin we still have outstanding funds to withdraw, then we failed
-        if (assetsToWithdraw > 0) revert WithdrawalIncomplete();
+        // if (assetsToWithdraw > 0) revert WithdrawalIncomplete(); // uncomment after putting strat section back in
+        if (assets > 0) revert WithdrawalIncomplete();
     }
 
     function redeem(
@@ -120,28 +127,36 @@ contract LMPVault is ILMPVault, PlasmaVault, Ownable {
             shares = super.withdraw(idleAssetsToWithdraw, receiver, owner);
         }
 
-        // if we still have outstanding funds to withdraw, only then go to strategies
-        uint256 assetsToWithdraw = assets;
-        if (assets > 0) {
-            // query strategy for destinations and amounts
-            (address[] memory destinationVaults, uint256[] memory amounts) = strategy.getDepositBreakup(assets);
+        // -----
+        // NOTE: STRATEGY WITHDRAWALS BELOW NOT USED OR IMPLEMENTED YET! (placeholder only)
+        // -----
 
-            // withdraw from destinations to here
-            // TODO: should we just send it all back in one shot?
-            for (uint256 i = 0; i < destinationVaults.length; ++i) {
-                // slither-disable-next-line calls-loop
-                assetsToWithdraw -=
-                    IDestinationVault(destinationVaults[i]).withdraw(amounts[i], address(this), address(this));
-            }
+        //         // if we still have outstanding funds to withdraw, only then go to strategies
+        //         uint256 assetsToWithdraw = assets;
+        //         if (assets > 0) {
+        //             // query strategy for destinations and amounts
+        //             (address[] memory destinationVaults, uint256[] memory amounts) =
+        // strategy.getDepositBreakup(assets);
+        //
+        //             // withdraw from destinations to here
+        //             // TODO: should we just send it all back in one shot?
+        //             for (uint256 i = 0; i < destinationVaults.length; ++i) {
+        //                 // slither-disable-next-line calls-loop
+        //                 assetsToWithdraw -=
+        //                     IDestinationVault(destinationVaults[i]).withdraw(amounts[i], address(this),
+        // address(this));
+        //             }
+        //
+        //             // process caller's withdraw / send back funds
+        //             shares += super.withdraw(assets, receiver, owner);
+        //         }
+        //
+        //         // if after going round robin we still have outstanding funds to withdraw, then we failed
+        //         if (assetsToWithdraw > 0) revert WithdrawalIncomplete();
+        //
+        //         _burnTransfer(assets, shares, receiver, owner, true);
 
-            // process caller's withdraw / send back funds
-            shares += super.withdraw(assets, receiver, owner);
-        }
-
-        // if after going round robin we still have outstanding funds to withdraw, then we failed
-        if (assetsToWithdraw > 0) revert WithdrawalIncomplete();
-
-        _burnTransfer(assets, shares, receiver, owner, true);
+        if (assets > 0) revert WithdrawalIncomplete();
     }
 
     function setStrategy(IStrategy _strategy) public onlyOwner {
