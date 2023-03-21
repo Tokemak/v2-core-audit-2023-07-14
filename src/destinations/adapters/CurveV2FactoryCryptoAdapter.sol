@@ -36,20 +36,17 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
     ) external nonReentrant {
         (CurveExtraParams memory curveExtraParams) = abi.decode(extraParams, (CurveExtraParams));
 
-        _validateAmounts(amounts);
         if (minLpMintAmount == 0) revert MustBeMoreThanZero();
+        _validateAmounts(amounts);
 
         address[] memory tokens = new address[](amounts.length);
-        for (uint256 i = 0; i < amounts.length;) {
+        for (uint256 i = 0; i < amounts.length; ++i) {
             uint256 amount = amounts[i];
             //slither-disable-next-line calls-loop
             address coin = ICryptoSwapPool(curveExtraParams.poolAddress).coins(i);
             tokens[i] = coin;
             if (amount > 0 && coin != CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
                 LibAdapter._validateAndApprove(coin, curveExtraParams.poolAddress, amount);
-            }
-            unchecked {
-                ++i;
             }
         }
         uint256[] memory coinsBalancesBefore = _getCoinsBalances(curveExtraParams.poolAddress, amounts.length);
@@ -74,12 +71,12 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
     ) external nonReentrant {
         (CurveExtraParams memory curveExtraParams) = abi.decode(extraParams, (CurveExtraParams));
 
-        _validateAmounts(amounts);
         if (maxLpBurnAmount == 0) revert MustBeMoreThanZero();
+        _validateAmounts(amounts);
 
         uint256[] memory coinsBalancesBefore = new uint256[](amounts.length);
         address[] memory tokens = new address[](amounts.length);
-        for (uint256 i = 0; i < amounts.length;) {
+        for (uint256 i = 0; i < amounts.length; ++i) {
             //slither-disable-next-line calls-loop
             address coin = IPool(curveExtraParams.poolAddress).coins(i);
             tokens[i] = coin;
@@ -87,10 +84,6 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
             coinsBalancesBefore[i] = coin == CURVE_REGISTRY_ETH_ADDRESS_POINTER
                 ? address(this).balance
                 : IERC20(coin).balanceOf(address(this));
-
-            unchecked {
-                ++i;
-            }
         }
         uint256 lpTokenBalanceBefore = IERC20(curveExtraParams.lpTokenAddress).balanceOf(address(this));
 
@@ -157,19 +150,16 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
         );
     }
 
-    /// @dev Validate to have at least one `amount` > 0 provided and `amount` is <=4
+    /// @dev Validate to have at least one `amount` > 0 provided and `amounts` is <=4
     function _validateAmounts(uint256[] memory amounts) internal pure {
         if (amounts.length > 4) {
             revert TooManyAmountsProvided();
         }
         bool nonZeroAmountPresent = false;
-        for (uint256 i = 0; i < amounts.length;) {
+        for (uint256 i = 0; i < amounts.length; ++i) {
             if (amounts[i] != 0) {
                 nonZeroAmountPresent = true;
                 break;
-            }
-            unchecked {
-                ++i;
             }
         }
         if (!nonZeroAmountPresent) revert NoNonZeroAmountProvided();
@@ -182,14 +172,11 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
     ) private view returns (uint256[] memory coinsBalances) {
         coinsBalances = new uint256[](nCoins);
 
-        for (uint256 i = 0; i < nCoins;) {
+        for (uint256 i = 0; i < nCoins; ++i) {
             address coin = IPool(poolAddress).coins(i);
             coinsBalances[i] = coin == CURVE_REGISTRY_ETH_ADDRESS_POINTER
                 ? address(this).balance
                 : IERC20(coin).balanceOf(address(this));
-            unchecked {
-                ++i;
-            }
         }
     }
 
@@ -202,7 +189,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
     ) private pure returns (uint256[] memory balanceChange) {
         balanceChange = new uint256[](amounts.length);
 
-        for (uint256 i = 0; i < amounts.length;) {
+        for (uint256 i = 0; i < amounts.length; ++i) {
             uint256 balanceDiff =
                 isLiqDeployment ? balancesBefore[i] - balancesAfter[i] : balancesAfter[i] - balancesBefore[i];
 
@@ -210,9 +197,6 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
                 revert InvalidBalanceChange();
             }
             balanceChange[i] = balanceDiff;
-            unchecked {
-                ++i;
-            }
         }
     }
 
