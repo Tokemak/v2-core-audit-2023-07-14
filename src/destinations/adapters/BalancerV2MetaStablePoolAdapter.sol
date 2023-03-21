@@ -113,13 +113,12 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
             }
         }
 
-        _emitDepositEvent(
+        emit DeployLiquidity(
             amounts,
             _convertERC20sToAddresses(balancerExtraParams.tokens),
             [bptBalanceAfter - bptBalanceBefore, bptBalanceAfter, IERC20(poolAddress).totalSupply()],
-            poolAddress,
-            balancerExtraParams.poolId
-        );
+            abi.encode(poolAddress, balancerExtraParams.poolId)
+            );
     }
 
     function removeLiquidity(
@@ -232,13 +231,12 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
             currentAmount = currentBalance - assetBalanceBefore;
         }
 
-        _emitWithdrawEvent(
+        emit WithdrawLiquidity(
             amountsOut,
             _convertERC20sToAddresses(params.tokens),
             [bptBalanceBefore - bptBalanceAfter, bptBalanceAfter, IERC20(poolAddress).totalSupply()],
-            poolAddress,
-            poolId
-        );
+            abi.encode(poolAddress, poolId)
+            );
     }
 
     /**
@@ -338,29 +336,5 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
                 ),
             fromInternalBalance: false
         });
-    }
-
-    /// @dev Separate function to avoid stack-too-deep errors
-    function _emitDepositEvent(
-        uint256[] memory amounts,
-        address[] memory tokens,
-        uint256[3] memory lpAmounts,
-        address poolAddress,
-        bytes32 poolId
-    ) private {
-        bytes memory extraData = abi.encode(poolAddress, poolId);
-        emit DeployLiquidity(amounts, tokens, lpAmounts[0], lpAmounts[1], lpAmounts[2], extraData);
-    }
-
-    /// @dev Separate function to avoid stack-too-deep errors
-    function _emitWithdrawEvent(
-        uint256[] memory amounts,
-        address[] memory tokens,
-        uint256[3] memory lpAmounts,
-        address poolAddress,
-        bytes32 poolId
-    ) private {
-        bytes memory data = abi.encode(poolAddress, poolId);
-        emit WithdrawLiquidity(amounts, tokens, lpAmounts[0], lpAmounts[1], lpAmounts[2], data);
     }
 }

@@ -5,18 +5,20 @@ interface IDestinationAdapter {
     event DeployLiquidity(
         uint256[] amountsDeposited,
         address[] tokens,
-        uint256 lpMintAmount,
-        uint256 lpShare,
-        uint256 lpTotalSupply,
+        // 0 - lpMintAmount
+        // 1 - lpShare
+        // 2 - lpTotalSupply
+        uint256[3] lpAmounts,
         bytes extraData
     ); // extraData: contains extra params for each controller (may be empty)
 
     event WithdrawLiquidity(
         uint256[] amountsWithdrawn,
         address[] tokens,
-        uint256 lpBurnAmount,
-        uint256 lpShare,
-        uint256 lpTotalSupply,
+        // 0 - lpBurnAmount
+        // 1 - lpShare
+        // 2 - lpTotalSupply
+        uint256[3] lpAmounts,
         bytes extraData
     ); // extraData: contains extra params for each controller (may be empty)
 
