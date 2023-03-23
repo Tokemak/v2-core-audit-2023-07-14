@@ -102,7 +102,7 @@ abstract contract AbstractRewardVault is IBaseReward, ReentrancyGuard {
     }
 
     function queueNewRewards(uint256 newRewards) external operatorOnly {
-        newRewards = newRewards + queuedRewards;
+        newRewards += queuedRewards;
 
         if (block.number >= periodInBlockFinish) {
             notifyRewardAmount(newRewards);
@@ -123,16 +123,15 @@ abstract contract AbstractRewardVault is IBaseReward, ReentrancyGuard {
     }
 
     function notifyRewardAmount(uint256 reward) internal updateReward(address(0)) {
-        historicalRewards = historicalRewards + reward;
-        if (block.number >= periodInBlockFinish) {
-            rewardRate = reward / durationInBlock;
-        } else {
+        historicalRewards += reward;
+
+        if (block.number < periodInBlockFinish) {
             uint256 remaining = periodInBlockFinish - block.number;
             uint256 leftover = remaining * rewardRate;
-            reward = reward + leftover;
-            rewardRate = reward / durationInBlock;
+            reward += leftover;
         }
 
+        rewardRate = reward / durationInBlock;
         currentRewards = reward;
         lastUpdateBlock = block.number;
         periodInBlockFinish = block.number + durationInBlock;
