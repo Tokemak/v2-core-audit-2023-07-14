@@ -16,6 +16,7 @@ contract Liquidator is ILiquidator, ReentrancyGuard {
         for (uint256 i = 0; i < vaults.length; i++) {
             if (address(vaults[i]) == address(0)) revert ZeroAddress();
             IPlasmaPoolClaimableRewards vault = vaults[i];
+            // slither-disable-next-line unused-return,calls-loop
             vault.claimRewards();
         }
     }
@@ -36,7 +37,7 @@ contract Liquidator is ILiquidator, ReentrancyGuard {
 
             ILiquidable vault = vaults[i];
             SwapperParams memory swapperParams = swapperParamsList[i];
-
+            //slither-disable-next-line calls-loop
             vault.liquidate(swapperParams);
         }
     }

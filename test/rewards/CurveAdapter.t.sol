@@ -25,7 +25,8 @@ contract CurveAdapterTest is Test {
 
     function addLiquidityETH(address curvePool, uint256 amountEth, address tokenAddress, uint256 tokenAmount) private {
         IERC20(tokenAddress).approve(curvePool, tokenAmount);
-        ICurveStableSwap(curvePool).add_liquidity{value: amountEth}([amountEth, tokenAmount], 1);
+        uint256[2] memory amounts = [amountEth, tokenAmount];
+        ICurveStableSwap(curvePool).add_liquidity{value: amountEth}(amounts, 1);
     }
 
     function addLiquidity(
@@ -37,7 +38,8 @@ contract CurveAdapterTest is Test {
     ) private {
         IERC20(tokenAAddress).approve(curvePool, tokenAAmount);
         IERC20(tokenBAddress).approve(curvePool, tokenBAmount);
-        ICurveStableSwap(curvePool).add_liquidity([tokenAAmount, tokenBAmount], 1);
+        uint256[2] memory amounts = [tokenAAmount, tokenBAmount];
+        ICurveStableSwap(curvePool).add_liquidity(amounts, 1);
     }
 
     function deposit(address curveGauge, address curveLpToken) private {

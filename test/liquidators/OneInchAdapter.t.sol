@@ -8,12 +8,9 @@ import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { BaseSwapperAdapter } from "../../src/liquidators/BaseSwapperAdapter.sol";
 import { ISwapper } from "../../src/interfaces/liquidators/ISwapper.sol";
 import { ONE_INCH_MAINNET, PRANK_ADDRESS, CVX_MAINNET, WETH_MAINNET } from "../utils/Addresses.sol";
-import { ERC20Utils } from "../utils/ERC20Utils.sol";
 
 // solhint-disable func-name-mixedcase
 contract OneInchAdapterTest is Test {
-    using ERC20Utils for IERC20;
-
     BaseSwapperAdapter private adapter;
 
     function setUp() public {
@@ -51,7 +48,7 @@ contract OneInchAdapterTest is Test {
 
         address whale = 0xcba0074a77A3aD623A80492Bb1D8d932C62a8bab;
         vm.startPrank(whale);
-        IERC20(CVX_MAINNET).transferAll(whale, address(adapter));
+        transferAll(IERC20(CVX_MAINNET), whale, address(adapter));
         vm.stopPrank();
 
         uint256 balanceBefore = IERC20(WETH_MAINNET).balanceOf(address(adapter));
@@ -62,5 +59,10 @@ contract OneInchAdapterTest is Test {
         uint256 balanceDiff = balanceAfter - balanceBefore;
 
         assertTrue(balanceDiff >= 356_292_255_653_182_345_276);
+    }
+
+    function transferAll(IERC20 token, address from, address to) private {
+        uint256 balance = token.balanceOf(from);
+        token.transfer(to, balance);
     }
 }
