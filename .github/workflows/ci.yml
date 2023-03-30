@@ -56,8 +56,6 @@ jobs:
           OPTIMISM_MAINNET_RPC_URL: ${{ secrets.OPTIMISM_MAINNET_RPC_URL }}
           ARBITRUM_MAINNET_RPC_URL: ${{ secrets.ARBITRUM_MAINNET_RPC_URL }}
         run: npm run test
-        env:
-          MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
 
       - name: Scan for secrets
         uses: gitleaks/gitleaks-action@v2
