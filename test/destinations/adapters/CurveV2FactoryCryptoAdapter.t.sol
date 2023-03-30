@@ -8,7 +8,15 @@ import "../../../src/destinations/adapters/CurveV2FactoryCryptoAdapter.sol";
 import "../../../src/interfaces/destinations/IDestinationRegistry.sol";
 import "../../../src/interfaces/destinations/IDestinationAdapter.sol";
 import { ICryptoSwapPool, IPool } from "../../../src/interfaces/external/curve/ICryptoSwapPool.sol";
-import { PRANK_ADDRESS, RANDOM, WETH, RETH, SETH, FRXETH, STETH } from "../../utils/Addresses.sol";
+import {
+    PRANK_ADDRESS,
+    RANDOM,
+    WETH_MAINNET,
+    RETH_MAINNET,
+    SETH_MAINNET,
+    FRXETH_MAINNET,
+    STETH_MAINNET
+} from "../../utils/Addresses.sol";
 
 contract CurveV2FactoryCryptoAdapterTest is Test {
     using stdStorage for StdStorage;
@@ -51,9 +59,9 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         amounts[0] = 0.5 * 1e18;
         amounts[1] = 0;
 
-        deal(address(WETH), address(adapter), 2 * 1e18);
+        deal(address(WETH_MAINNET), address(adapter), 2 * 1e18);
 
-        uint256 preBalance = IERC20(WETH).balanceOf(address(adapter));
+        uint256 preBalance = IERC20(WETH_MAINNET).balanceOf(address(adapter));
         uint256 preLpBalance = lpToken.balanceOf(address(adapter));
 
         uint256 minLpMintAmount = 1;
@@ -61,7 +69,7 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         bytes memory extraParams = abi.encode(poolAddress, address(lpToken), false);
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
-        uint256 afterBalance = IERC20(WETH).balanceOf(address(adapter));
+        uint256 afterBalance = IERC20(WETH_MAINNET).balanceOf(address(adapter));
         uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
 
         assertEq(afterBalance, preBalance - amounts[0]);
@@ -77,14 +85,14 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         amounts[0] = 1.5 * 1e18;
         amounts[1] = 0;
 
-        deal(address(WETH), address(adapter), 2 * 1e18);
+        deal(address(WETH_MAINNET), address(adapter), 2 * 1e18);
 
         uint256 minLpMintAmount = 1;
 
         bytes memory extraParams = abi.encode(poolAddress, address(lpToken), false);
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
-        uint256 preBalance = IERC20(WETH).balanceOf(address(adapter));
+        uint256 preBalance = IERC20(WETH_MAINNET).balanceOf(address(adapter));
         uint256 preLpBalance = lpToken.balanceOf(address(adapter));
 
         uint256[] memory withdrawAmounts = new uint256[](2);
@@ -92,7 +100,7 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         withdrawAmounts[1] = 0;
         adapter.removeLiquidity(withdrawAmounts, preLpBalance, extraParams);
 
-        uint256 afterBalance = IERC20(WETH).balanceOf(address(adapter));
+        uint256 afterBalance = IERC20(WETH_MAINNET).balanceOf(address(adapter));
         uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
 
         assert(afterBalance > preBalance);
@@ -107,9 +115,9 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         amounts[0] = 0.5 * 1e18;
         amounts[1] = 0;
 
-        deal(address(RETH), address(adapter), 2 * 1e18);
+        deal(address(RETH_MAINNET), address(adapter), 2 * 1e18);
 
-        uint256 preBalance = IERC20(RETH).balanceOf(address(adapter));
+        uint256 preBalance = IERC20(RETH_MAINNET).balanceOf(address(adapter));
         uint256 preLpBalance = lpToken.balanceOf(address(adapter));
 
         uint256 minLpMintAmount = 1;
@@ -117,7 +125,7 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         bytes memory extraParams = abi.encode(poolAddress, address(lpToken), false);
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
-        uint256 afterBalance = IERC20(RETH).balanceOf(address(adapter));
+        uint256 afterBalance = IERC20(RETH_MAINNET).balanceOf(address(adapter));
         uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
 
         assertEq(afterBalance, preBalance - amounts[0]);
@@ -132,14 +140,14 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         amounts[0] = 1.5 * 1e18;
         amounts[1] = 0 * 1e18;
 
-        deal(address(RETH), address(adapter), 2 * 1e18);
+        deal(address(RETH_MAINNET), address(adapter), 2 * 1e18);
 
         uint256 minLpMintAmount = 1;
 
         bytes memory extraParams = abi.encode(poolAddress, address(lpToken), false);
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
-        uint256 preBalance = IERC20(RETH).balanceOf(address(adapter));
+        uint256 preBalance = IERC20(RETH_MAINNET).balanceOf(address(adapter));
         uint256 preLpBalance = lpToken.balanceOf(address(adapter));
 
         uint256[] memory withdrawAmounts = new uint256[](2);
@@ -147,7 +155,7 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         withdrawAmounts[1] = 0;
         adapter.removeLiquidity(withdrawAmounts, preLpBalance, extraParams);
 
-        uint256 afterBalance = IERC20(RETH).balanceOf(address(adapter));
+        uint256 afterBalance = IERC20(RETH_MAINNET).balanceOf(address(adapter));
         uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
 
         assert(afterBalance > preBalance);
@@ -167,12 +175,12 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         // Using whale for funding since storage slot overwrite is not working for proxy ERC-20s
         address sethWhale = 0xc5424B857f758E906013F3555Dad202e4bdB4567;
         vm.prank(sethWhale);
-        IERC20(SETH).approve(address(adapter), 2 * 1e18);
+        IERC20(SETH_MAINNET).approve(address(adapter), 2 * 1e18);
         vm.prank(sethWhale);
-        IERC20(SETH).transfer(address(adapter), 2 * 1e18);
+        IERC20(SETH_MAINNET).transfer(address(adapter), 2 * 1e18);
 
         uint256 preEthBalance = address(adapter).balance;
-        uint256 preBalance = IERC20(SETH).balanceOf(address(adapter));
+        uint256 preBalance = IERC20(SETH_MAINNET).balanceOf(address(adapter));
         uint256 preLpBalance = lpToken.balanceOf(address(adapter));
 
         uint256 minLpMintAmount = 1;
@@ -181,7 +189,7 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
         uint256 afterEthBalance = address(adapter).balance;
-        uint256 afterBalance = IERC20(SETH).balanceOf(address(adapter));
+        uint256 afterBalance = IERC20(SETH_MAINNET).balanceOf(address(adapter));
         uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
 
         assertEq(afterEthBalance, preEthBalance - amounts[0]);
@@ -202,16 +210,16 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         // Using whale for funding since storage slot overwrite is not working for proxy ERC-20s
         address sethWhale = 0xc5424B857f758E906013F3555Dad202e4bdB4567;
         vm.prank(sethWhale);
-        IERC20(SETH).approve(address(adapter), 2 * 1e18);
+        IERC20(SETH_MAINNET).approve(address(adapter), 2 * 1e18);
         vm.prank(sethWhale);
-        IERC20(SETH).transfer(address(adapter), 2 * 1e18);
+        IERC20(SETH_MAINNET).transfer(address(adapter), 2 * 1e18);
 
         uint256 minLpMintAmount = 1;
 
         bytes memory extraParams = abi.encode(poolAddress, address(lpToken), true);
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
-        uint256 preBalance = IERC20(SETH).balanceOf(address(adapter));
+        uint256 preBalance = IERC20(SETH_MAINNET).balanceOf(address(adapter));
         uint256 preLpBalance = lpToken.balanceOf(address(adapter));
 
         uint256[] memory withdrawAmounts = new uint256[](2);
@@ -219,7 +227,7 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         withdrawAmounts[1] = 0 * 1e18;
         adapter.removeLiquidity(withdrawAmounts, preLpBalance, extraParams);
 
-        uint256 afterBalance = IERC20(SETH).balanceOf(address(adapter));
+        uint256 afterBalance = IERC20(SETH_MAINNET).balanceOf(address(adapter));
         uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
 
         assert(afterBalance > preBalance);
@@ -236,10 +244,10 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
 
         vm.deal(address(adapter), 2 ether);
 
-        deal(address(FRXETH), address(adapter), 2 * 1e18);
+        deal(address(FRXETH_MAINNET), address(adapter), 2 * 1e18);
 
         uint256 preEthBalance = address(adapter).balance;
-        uint256 preBalance = IERC20(FRXETH).balanceOf(address(adapter));
+        uint256 preBalance = IERC20(FRXETH_MAINNET).balanceOf(address(adapter));
         uint256 preLpBalance = lpToken.balanceOf(address(adapter));
 
         uint256 minLpMintAmount = 1;
@@ -248,7 +256,7 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
         uint256 afterEthBalance = address(adapter).balance;
-        uint256 afterBalance = IERC20(FRXETH).balanceOf(address(adapter));
+        uint256 afterBalance = IERC20(FRXETH_MAINNET).balanceOf(address(adapter));
         uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
 
         assertEq(afterEthBalance, preEthBalance - amounts[0]);
@@ -266,14 +274,14 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
 
         vm.deal(address(adapter), 2 ether);
 
-        deal(address(FRXETH), address(adapter), 2 * 1e18);
+        deal(address(FRXETH_MAINNET), address(adapter), 2 * 1e18);
 
         uint256 minLpMintAmount = 1;
 
         bytes memory extraParams = abi.encode(poolAddress, address(lpToken), true);
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
-        uint256 preBalance = IERC20(FRXETH).balanceOf(address(adapter));
+        uint256 preBalance = IERC20(FRXETH_MAINNET).balanceOf(address(adapter));
         uint256 preLpBalance = lpToken.balanceOf(address(adapter));
 
         uint256[] memory withdrawAmounts = new uint256[](2);
@@ -281,7 +289,7 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         withdrawAmounts[1] = 0 * 1e18;
         adapter.removeLiquidity(withdrawAmounts, preLpBalance, extraParams);
 
-        uint256 afterBalance = IERC20(FRXETH).balanceOf(address(adapter));
+        uint256 afterBalance = IERC20(FRXETH_MAINNET).balanceOf(address(adapter));
         uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
 
         assert(afterBalance > preBalance);

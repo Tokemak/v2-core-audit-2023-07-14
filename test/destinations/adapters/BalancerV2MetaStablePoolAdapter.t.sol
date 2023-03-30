@@ -8,7 +8,15 @@ import "../../../src/destinations/adapters/BalancerV2MetaStablePoolAdapter.sol";
 import "../../../src/interfaces/destinations/IDestinationRegistry.sol";
 import "../../../src/interfaces/destinations/IDestinationAdapter.sol";
 import "../../../src/interfaces/external/balancer/IVault.sol";
-import { PRANK_ADDRESS, RANDOM, WETH, RETH, WSTETH, CBETH, SFRXETH } from "../../utils/Addresses.sol";
+import {
+    PRANK_ADDRESS,
+    RANDOM,
+    WETH_MAINNET,
+    RETH_MAINNET,
+    WSTETH_MAINNET,
+    SFRXETH_MAINNET,
+    CBETH_MAINNET
+} from "../../utils/Addresses.sol";
 
 contract BalancerV2MetaStablePoolAdapterTest is Test {
     using stdStorage for StdStorage;
@@ -56,25 +64,25 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         amounts[0] = 0.5 * 1e18;
         amounts[1] = 0.5 * 1e18;
 
-        deal(address(WSTETH), address(adapter), 2 * 1e18);
+        deal(address(WSTETH_MAINNET), address(adapter), 2 * 1e18);
 
-        deal(address(WETH), address(adapter), 2 * 1e18);
+        deal(address(WETH_MAINNET), address(adapter), 2 * 1e18);
 
-        uint256 preBalance1 = IERC20(WSTETH).balanceOf(address(adapter));
-        uint256 preBalance2 = IERC20(WETH).balanceOf(address(adapter));
+        uint256 preBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
+        uint256 preBalance2 = IERC20(WETH_MAINNET).balanceOf(address(adapter));
         uint256 preLpBalance = lpToken.balanceOf(address(adapter));
 
         uint256 minLpMintAmount = 1;
 
         IERC20[] memory tokens = new IERC20[](2);
-        tokens[0] = IERC20(WSTETH);
-        tokens[1] = IERC20(WETH);
+        tokens[0] = IERC20(WSTETH_MAINNET);
+        tokens[1] = IERC20(WETH_MAINNET);
 
         bytes memory extraParams = abi.encode(BalancerExtraParams(poolId, tokens));
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
-        uint256 afterBalance1 = IERC20(WSTETH).balanceOf(address(adapter));
-        uint256 afterBalance2 = IERC20(WETH).balanceOf(address(adapter));
+        uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalance2 = IERC20(WETH_MAINNET).balanceOf(address(adapter));
         uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
 
         assertEq(afterBalance1, preBalance1 - amounts[0]);
@@ -91,20 +99,20 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         amounts[0] = 1.5 * 1e18;
         amounts[1] = 1.5 * 1e18;
 
-        deal(address(WSTETH), address(adapter), 2 * 1e18);
-        deal(address(WETH), address(adapter), 2 * 1e18);
+        deal(address(WSTETH_MAINNET), address(adapter), 2 * 1e18);
+        deal(address(WETH_MAINNET), address(adapter), 2 * 1e18);
 
         uint256 minLpMintAmount = 1;
 
         IERC20[] memory tokens = new IERC20[](2);
-        tokens[0] = IERC20(WSTETH);
-        tokens[1] = IERC20(WETH);
+        tokens[0] = IERC20(WSTETH_MAINNET);
+        tokens[1] = IERC20(WETH_MAINNET);
 
         bytes memory extraParams = abi.encode(BalancerExtraParams(poolId, tokens));
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
-        uint256 preBalance1 = IERC20(WSTETH).balanceOf(address(adapter));
-        uint256 preBalance2 = IERC20(WETH).balanceOf(address(adapter));
+        uint256 preBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
+        uint256 preBalance2 = IERC20(WETH_MAINNET).balanceOf(address(adapter));
         uint256 preLpBalance = lpToken.balanceOf(address(adapter));
 
         uint256[] memory withdrawAmounts = new uint256[](2);
@@ -112,8 +120,8 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         withdrawAmounts[1] = 1 * 1e18;
         adapter.removeLiquidity(withdrawAmounts, preLpBalance, extraParams);
 
-        uint256 afterBalance1 = IERC20(WSTETH).balanceOf(address(adapter));
-        uint256 afterBalance2 = IERC20(WETH).balanceOf(address(adapter));
+        uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalance2 = IERC20(WETH_MAINNET).balanceOf(address(adapter));
         uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
 
         assert(afterBalance1 > preBalance1);
@@ -130,24 +138,24 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         amounts[0] = 0.5 * 1e18;
         amounts[1] = 0.5 * 1e18;
 
-        deal(address(RETH), address(adapter), 2 * 1e18);
-        deal(address(WETH), address(adapter), 2 * 1e18);
+        deal(address(RETH_MAINNET), address(adapter), 2 * 1e18);
+        deal(address(WETH_MAINNET), address(adapter), 2 * 1e18);
 
-        uint256 preBalance1 = IERC20(RETH).balanceOf(address(adapter));
-        uint256 preBalance2 = IERC20(WETH).balanceOf(address(adapter));
+        uint256 preBalance1 = IERC20(RETH_MAINNET).balanceOf(address(adapter));
+        uint256 preBalance2 = IERC20(WETH_MAINNET).balanceOf(address(adapter));
         uint256 preLpBalance = lpToken.balanceOf(address(adapter));
 
         uint256 minLpMintAmount = 1;
 
         IERC20[] memory tokens = new IERC20[](2);
-        tokens[0] = IERC20(RETH);
-        tokens[1] = IERC20(WETH);
+        tokens[0] = IERC20(RETH_MAINNET);
+        tokens[1] = IERC20(WETH_MAINNET);
 
         bytes memory extraParams = abi.encode(BalancerExtraParams(poolId, tokens));
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
-        uint256 afterBalance1 = IERC20(RETH).balanceOf(address(adapter));
-        uint256 afterBalance2 = IERC20(WETH).balanceOf(address(adapter));
+        uint256 afterBalance1 = IERC20(RETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalance2 = IERC20(WETH_MAINNET).balanceOf(address(adapter));
         uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
 
         assertEq(afterBalance1, preBalance1 - amounts[0]);
@@ -164,20 +172,20 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         amounts[0] = 1.5 * 1e18;
         amounts[1] = 1.5 * 1e18;
 
-        deal(address(RETH), address(adapter), 2 * 1e18);
-        deal(address(WETH), address(adapter), 2 * 1e18);
+        deal(address(RETH_MAINNET), address(adapter), 2 * 1e18);
+        deal(address(WETH_MAINNET), address(adapter), 2 * 1e18);
 
         uint256 minLpMintAmount = 1;
 
         IERC20[] memory tokens = new IERC20[](2);
-        tokens[0] = IERC20(RETH);
-        tokens[1] = IERC20(WETH);
+        tokens[0] = IERC20(RETH_MAINNET);
+        tokens[1] = IERC20(WETH_MAINNET);
 
         bytes memory extraParams = abi.encode(BalancerExtraParams(poolId, tokens));
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
-        uint256 preBalance1 = IERC20(RETH).balanceOf(address(adapter));
-        uint256 preBalance2 = IERC20(WETH).balanceOf(address(adapter));
+        uint256 preBalance1 = IERC20(RETH_MAINNET).balanceOf(address(adapter));
+        uint256 preBalance2 = IERC20(WETH_MAINNET).balanceOf(address(adapter));
         uint256 preLpBalance = lpToken.balanceOf(address(adapter));
 
         uint256[] memory withdrawAmounts = new uint256[](2);
@@ -185,8 +193,8 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         withdrawAmounts[1] = 1 * 1e18;
         adapter.removeLiquidity(withdrawAmounts, preLpBalance, extraParams);
 
-        uint256 afterBalance1 = IERC20(RETH).balanceOf(address(adapter));
-        uint256 afterBalance2 = IERC20(WETH).balanceOf(address(adapter));
+        uint256 afterBalance1 = IERC20(RETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalance2 = IERC20(WETH_MAINNET).balanceOf(address(adapter));
         uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
 
         assert(afterBalance1 > preBalance1);
@@ -203,24 +211,24 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         amounts[0] = 0.5 * 1e18;
         amounts[1] = 0.5 * 1e18;
 
-        deal(address(WSTETH), address(adapter), 2 * 1e18);
-        deal(address(CBETH), address(adapter), 2 * 1e18);
+        deal(address(WSTETH_MAINNET), address(adapter), 2 * 1e18);
+        deal(address(CBETH_MAINNET), address(adapter), 2 * 1e18);
 
-        uint256 preBalance1 = IERC20(WSTETH).balanceOf(address(adapter));
-        uint256 preBalance2 = IERC20(CBETH).balanceOf(address(adapter));
+        uint256 preBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
+        uint256 preBalance2 = IERC20(CBETH_MAINNET).balanceOf(address(adapter));
         uint256 preLpBalance = lpToken.balanceOf(address(adapter));
 
         uint256 minLpMintAmount = 1;
 
         IERC20[] memory tokens = new IERC20[](2);
-        tokens[0] = IERC20(WSTETH);
-        tokens[1] = IERC20(CBETH);
+        tokens[0] = IERC20(WSTETH_MAINNET);
+        tokens[1] = IERC20(CBETH_MAINNET);
 
         bytes memory extraParams = abi.encode(BalancerExtraParams(poolId, tokens));
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
-        uint256 afterBalance1 = IERC20(WSTETH).balanceOf(address(adapter));
-        uint256 afterBalance2 = IERC20(CBETH).balanceOf(address(adapter));
+        uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalance2 = IERC20(CBETH_MAINNET).balanceOf(address(adapter));
         uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
 
         assertEq(afterBalance1, preBalance1 - amounts[0]);
@@ -237,20 +245,20 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         amounts[0] = 1.5 * 1e18;
         amounts[1] = 1.5 * 1e18;
 
-        deal(address(WSTETH), address(adapter), 2 * 1e18);
-        deal(address(CBETH), address(adapter), 2 * 1e18);
+        deal(address(WSTETH_MAINNET), address(adapter), 2 * 1e18);
+        deal(address(CBETH_MAINNET), address(adapter), 2 * 1e18);
 
         uint256 minLpMintAmount = 1;
 
         IERC20[] memory tokens = new IERC20[](2);
-        tokens[0] = IERC20(WSTETH);
-        tokens[1] = IERC20(CBETH);
+        tokens[0] = IERC20(WSTETH_MAINNET);
+        tokens[1] = IERC20(CBETH_MAINNET);
 
         bytes memory extraParams = abi.encode(BalancerExtraParams(poolId, tokens));
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
-        uint256 preBalance1 = IERC20(WSTETH).balanceOf(address(adapter));
-        uint256 preBalance2 = IERC20(CBETH).balanceOf(address(adapter));
+        uint256 preBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
+        uint256 preBalance2 = IERC20(CBETH_MAINNET).balanceOf(address(adapter));
         uint256 preLpBalance = lpToken.balanceOf(address(adapter));
 
         uint256[] memory withdrawAmounts = new uint256[](2);
@@ -258,8 +266,8 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         withdrawAmounts[1] = 1 * 1e18;
         adapter.removeLiquidity(withdrawAmounts, preLpBalance, extraParams);
 
-        uint256 afterBalance1 = IERC20(WSTETH).balanceOf(address(adapter));
-        uint256 afterBalance2 = IERC20(CBETH).balanceOf(address(adapter));
+        uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalance2 = IERC20(CBETH_MAINNET).balanceOf(address(adapter));
         uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
 
         assert(afterBalance1 > preBalance1);
