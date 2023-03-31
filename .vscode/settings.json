@@ -11,5 +11,6 @@
 	},
 	"solidity.formatter": "forge",
 	"solidity.defaultCompiler": "remote",
-	"solidity.compileUsingRemoteVersion": "0.8.17"
+	"solidity.compileUsingRemoteVersion": "0.8.17",
+	"editor.formatOnSaveMode": "modifications"
 }

@@ -4,3 +4,4 @@ src/=src/
 openzeppelin-contracts/=lib/openzeppelin-contracts/contracts/
 @openzeppelin-upgradeable/=lib/openzeppelin-contracts-upgradeable/
 erc4626-tests/=lib/erc4626-tests/
+prb-math/=lib/prb-math
