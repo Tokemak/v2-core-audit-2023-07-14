@@ -2,10 +2,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-// import "forge-std/Test.sol";
-
-// import "erc4626-tests/ERC4626.test.sol";
-
 import { IPlasmaVaultRegistry, PlasmaVaultRegistry } from "src/vault/PlasmaVaultRegistry.sol";
 import { IPlasmaVaultFactory, PlasmaVaultFactory } from "src/vault/PlasmaVaultFactory.sol";
 import { IPlasmaVaultRouter, PlasmaVaultRouter } from "src/vault/PlasmaVaultRouter.sol";
@@ -17,6 +13,8 @@ import { MockERC20 } from "test/mocks/MockERC20.sol";
 import { BaseTest } from "test/BaseTest.t.sol";
 
 import { WETH9_ADDRESS } from "test/utils/Addresses.sol";
+
+// import { console2 as console } from "forge-std/console2.sol";
 
 contract PlasmaVaultBaseTest is BaseTest {
     PlasmaVaultRegistry public registry;
@@ -30,7 +28,7 @@ contract PlasmaVaultBaseTest is BaseTest {
         BaseTest.setUp();
 
         // create registry
-        registry = new PlasmaVaultRegistry();
+        registry = new PlasmaVaultRegistry(address(accessController));
 
         //
         // create and initialize factory
@@ -41,15 +39,13 @@ contract PlasmaVaultBaseTest is BaseTest {
         deal(address(mockAsset), msg.sender, uint256(1_000_000_000_000_000_000_000_000));
         poolAsset = mockAsset;
 
-        factory = new PlasmaVaultFactory(address(registry));
+        factory = new PlasmaVaultFactory(address(registry), address(accessController));
         // _mockPoolPrototypeAddress = address(new PlasmaVault());
         // factory.addPrototype(_mockPoolPrototypeAddress);
         factory.addPoolType(factory.POOLTYPE_PLASMAPOOL(), address(0));
-        // TODO check that it's in the list / added
 
-        // TODO: adding new factory to registry permission whitelist seems too manual...
-        //      .. would delegateCall right inside factory creation be a better idea? @codenutt
-        registry.grantRole(registry.REGISTRY_UPDATER(), address(factory));
+        // NOTE: deployer grants factory permission to update the registry
+        accessController.grantRole(registry.REGISTRY_UPDATER(), address(factory));
 
         // create router
         router = new PlasmaVaultRouter(WETH9_ADDRESS);

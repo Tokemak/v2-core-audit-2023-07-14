@@ -10,8 +10,9 @@ import { Pausable } from "openzeppelin-contracts/security/Pausable.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "openzeppelin-contracts/utils/math/Math.sol";
 import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
+import { SecurityBase } from "src/security/SecurityBase.sol";
 
-contract PlasmaVault is IPlasmaVault, ERC20Permit, Pausable, ReentrancyGuard {
+contract PlasmaVault is IPlasmaVault, ERC20Permit, Pausable, ReentrancyGuard, SecurityBase {
     using Math for uint256;
     using SafeERC20 for ERC20;
     using SafeERC20 for IERC20;
@@ -19,12 +20,16 @@ contract PlasmaVault is IPlasmaVault, ERC20Permit, Pausable, ReentrancyGuard {
     IERC20 internal immutable _asset;
     uint256 internal _totalAssets;
 
-    constructor(address _vaultAsset)
+    constructor(
+        address _vaultAsset,
+        address _accessController
+    )
         ERC20(
             string(abi.encodePacked(ERC20(_vaultAsset).name(), " Pool Token")),
             string(abi.encodePacked("zn", ERC20(_vaultAsset).symbol()))
         )
         ERC20Permit(string(abi.encodePacked("zn", ERC20(_vaultAsset).symbol())))
+        SecurityBase(_accessController)
     {
         if (_vaultAsset == address(0)) revert TokenAddressZero();
         _asset = IERC20(_vaultAsset);

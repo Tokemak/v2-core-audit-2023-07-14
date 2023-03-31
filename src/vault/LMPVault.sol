@@ -5,13 +5,12 @@ import { PlasmaVault } from "./PlasmaVault.sol";
 import { ILMPVault } from "src/interfaces/vault/ILMPVault.sol";
 import { IDestinationVault } from "src/interfaces/vault/IDestinationVault.sol";
 import { IStrategy } from "src/strategy/IStrategy.sol";
-import { Ownable } from "openzeppelin-contracts/access/Ownable.sol";
 import { IERC4626 } from "openzeppelin-contracts/interfaces/IERC4626.sol";
 
 // TODO: set deposit limit: a) method b) role c) events
 
-contract LMPVault is ILMPVault, PlasmaVault, Ownable {
-    constructor(address _vaultAsset) PlasmaVault(_vaultAsset) { }
+contract LMPVault is ILMPVault, PlasmaVault {
+    constructor(address _vaultAsset, address _accessController) PlasmaVault(_vaultAsset, _accessController) { }
 
     IStrategy public strategy;
 

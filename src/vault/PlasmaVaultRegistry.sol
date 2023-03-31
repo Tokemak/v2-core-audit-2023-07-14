@@ -4,12 +4,14 @@ pragma solidity 0.8.17;
 import { AccessControl } from "openzeppelin-contracts/access/AccessControl.sol";
 import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 
+import { SecurityBase } from "src/security/SecurityBase.sol";
+
 import { IPlasmaVaultRegistry } from "src/interfaces/vault/IPlasmaVaultRegistry.sol";
 import { IPlasmaVault } from "src/interfaces/vault/IPlasmaVault.sol";
 
 import { Errors } from "src/utils/errors.sol";
 
-contract PlasmaVaultRegistry is IPlasmaVaultRegistry, AccessControl {
+contract PlasmaVaultRegistry is IPlasmaVaultRegistry, SecurityBase {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     EnumerableSet.AddressSet private _vaults;
@@ -17,15 +19,12 @@ contract PlasmaVaultRegistry is IPlasmaVaultRegistry, AccessControl {
     mapping(address => EnumerableSet.AddressSet) private _vaultsByAsset;
 
     // solhint-disable-next-line var-name-mixedcase
-    bytes32 public immutable REGISTRY_UPDATER = keccak256("REGISTERED_ROLE");
+    bytes32 public immutable REGISTRY_UPDATER = keccak256("REGISTRY_UPDATER");
 
-    constructor() {
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _setupRole(REGISTRY_UPDATER, msg.sender);
-    }
+    constructor(address _accessController) SecurityBase(_accessController) { }
 
     modifier onlyUpdater() {
-        if (!hasRole(REGISTRY_UPDATER, msg.sender)) revert PermissionDenied();
+        if (!_hasRole(REGISTRY_UPDATER, msg.sender)) revert PermissionDenied();
         _;
     }
 

@@ -24,6 +24,7 @@ interface IGPToke {
     //                        Errors
     ///////////////////////////////////////////////////////////////////
 
+    error ZeroAddress();
     error StakingDurationTooShort();
     error StakingDurationTooLong();
     error StakingPointsExceeded();
@@ -36,7 +37,6 @@ interface IGPToke {
     error ExtendDurationTooShort();
     error TransfersDisabled();
     error TransferFailed();
-    error ZeroAddress();
 
     ///////////////////////////////////////////////////////////////////
     //                        Events

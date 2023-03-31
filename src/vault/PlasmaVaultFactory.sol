@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-// import "openzeppelin-contracts/proxy/Clones.sol";
-import { AccessControl } from "openzeppelin-contracts/access/AccessControl.sol";
 import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 
 import { IPlasmaVaultFactory } from "src/interfaces/vault/IPlasmaVaultFactory.sol";
 import { IPlasmaVaultRegistry } from "src/interfaces/vault/IPlasmaVaultRegistry.sol";
 import { PlasmaVault } from "./PlasmaVault.sol";
+import { SecurityBase } from "src/security/SecurityBase.sol";
+import { Roles } from "src/libs/Roles.sol";
 
-contract PlasmaVaultFactory is IPlasmaVaultFactory, AccessControl {
+contract PlasmaVaultFactory is IPlasmaVaultFactory, SecurityBase {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
     mapping(bytes32 => address) public poolTypeToPrototype;
@@ -18,21 +18,10 @@ contract PlasmaVaultFactory is IPlasmaVaultFactory, AccessControl {
     IPlasmaVaultRegistry public immutable poolRegistry;
 
     // solhint-disable-next-line var-name-mixedcase
-    bytes32 public immutable CREATE_POOL_ROLE = keccak256("CREATE_POOL_ROLE");
-
-    // solhint-disable-next-line var-name-mixedcase
     bytes32 public immutable POOLTYPE_PLASMAPOOL = keccak256("POOLTYPE_PLASMAPOOL");
 
-    constructor(address _vaultRegistry) {
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _setupRole(CREATE_POOL_ROLE, msg.sender);
-
+    constructor(address _vaultRegistry, address _accessController) SecurityBase(_accessController) {
         poolRegistry = IPlasmaVaultRegistry(_vaultRegistry);
-    }
-
-    modifier onlyAdmin() {
-        if (!hasRole(DEFAULT_ADMIN_ROLE, _msgSender())) revert PermissionDenied();
-        _;
     }
 
     function createPool(
@@ -40,7 +29,7 @@ contract PlasmaVaultFactory is IPlasmaVaultFactory, AccessControl {
         address _vaultAsset,
         bytes calldata /*extraParams*/
     ) external returns (address newPoolAddress) {
-        if (!hasRole(CREATE_POOL_ROLE, _msgSender()) && !hasRole(DEFAULT_ADMIN_ROLE, _msgSender())) {
+        if (!_hasRole(Roles.CREATE_POOL_ROLE, msg.sender)) {
             revert PermissionDenied();
         }
 
@@ -49,7 +38,7 @@ contract PlasmaVaultFactory is IPlasmaVaultFactory, AccessControl {
         if (!_vaultTypes.contains(_vaultType)) revert PoolTypeNotFound();
 
         // create new and initialize
-        newPoolAddress = address(new PlasmaVault(_vaultAsset));
+        newPoolAddress = address(new PlasmaVault(_vaultAsset, address(accessController)));
 
         // add to PoolRegistry
         poolRegistry.addPool(newPoolAddress);
@@ -65,7 +54,7 @@ contract PlasmaVaultFactory is IPlasmaVaultFactory, AccessControl {
         return _vaultTypes.values();
     }
 
-    function addPoolType(bytes32 poolType, address _plasmaPoolPrototype) public onlyAdmin {
+    function addPoolType(bytes32 poolType, address _plasmaPoolPrototype) public onlyOwner {
         // add prototype
         if (!_vaultTypes.add(poolType)) {
             revert PoolTypeAlreadyExists();
@@ -74,7 +63,7 @@ contract PlasmaVaultFactory is IPlasmaVaultFactory, AccessControl {
         emit PoolTypeAdded(poolType, _plasmaPoolPrototype);
     }
 
-    function removePoolType(bytes32 poolType) public onlyAdmin {
+    function removePoolType(bytes32 poolType) public onlyOwner {
         // remove actual prototype
         if (!_vaultTypes.remove(poolType)) {
             revert PoolTypeNotFound();
@@ -83,7 +72,7 @@ contract PlasmaVaultFactory is IPlasmaVaultFactory, AccessControl {
         emit PoolTypeRemoved(poolType);
     }
 
-    function replacePoolType(bytes32 poolType, address plasmaPoolPrototype) external onlyAdmin {
+    function replacePoolType(bytes32 poolType, address plasmaPoolPrototype) external onlyOwner {
         removePoolType(poolType);
         addPoolType(poolType, plasmaPoolPrototype);
     }
