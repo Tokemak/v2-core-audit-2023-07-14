@@ -14,6 +14,28 @@ import "./libs/LibAdapter.sol";
 contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
+    event DeployLiquidity(
+        uint256[] amountsDeposited,
+        address[] tokens,
+        // 0 - lpMintAmount
+        // 1 - lpShare
+        // 2 - lpTotalSupply
+        uint256[3] lpAmounts,
+        address poolAddress,
+        bytes32 poolId
+    );
+
+    event WithdrawLiquidity(
+        uint256[] amountsWithdrawn,
+        address[] tokens,
+        // 0 - lpBurnAmount
+        // 1 - lpShare
+        // 2 - lpTotalSupply
+        uint256[3] lpAmounts,
+        address poolAddress,
+        bytes32 poolId
+    );
+
     error ArraysLengthMismatch();
     error MustNotBeZero();
     error BalanceMustIncrease();
@@ -117,7 +139,8 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
             amounts,
             _convertERC20sToAddresses(balancerExtraParams.tokens),
             [bptBalanceAfter - bptBalanceBefore, bptBalanceAfter, IERC20(poolAddress).totalSupply()],
-            abi.encode(poolAddress, balancerExtraParams.poolId)
+            poolAddress,
+            balancerExtraParams.poolId
             );
     }
 
@@ -234,7 +257,8 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
             amountsOut,
             _convertERC20sToAddresses(params.tokens),
             [bptBalanceBefore - bptBalanceAfter, bptBalanceAfter, IERC20(poolAddress).totalSupply()],
-            abi.encode(poolAddress, poolId)
+            poolAddress,
+            poolId
             );
     }
 

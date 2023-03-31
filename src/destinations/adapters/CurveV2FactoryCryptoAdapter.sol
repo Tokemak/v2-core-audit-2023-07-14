@@ -12,6 +12,26 @@ import { ICryptoSwapPool, IPool } from "../../interfaces/external/curve/ICryptoS
 contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, ReentrancyGuard {
     address public constant CURVE_REGISTRY_ETH_ADDRESS_POINTER = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
+    event DeployLiquidity(
+        uint256[] amountsDeposited,
+        address[] tokens,
+        // 0 - lpMintAmount
+        // 1 - lpShare
+        // 2 - lpTotalSupply
+        uint256[3] lpAmounts,
+        address poolAddress
+    );
+
+    event WithdrawLiquidity(
+        uint256[] amountsWithdrawn,
+        address[] tokens,
+        // 0 - lpBurnAmount
+        // 1 - lpShare
+        // 2 - lpTotalSupply
+        uint256[3] lpAmounts,
+        address poolAddress
+    );
+
     error MustBeMoreThanZero();
     error MinLpAmountNotReached();
     error MinAmountNotReached();
@@ -66,7 +86,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
             _compareCoinsBalances(coinsBalancesBefore, _getCoinsBalances(tokens), amounts, true),
             tokens,
             [deployed, lpToken.balanceOf(address(this)), lpToken.totalSupply()],
-            abi.encode(poolAddress)
+            poolAddress
             );
     }
 
@@ -107,7 +127,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
             _compareCoinsBalances(coinsBalancesBefore, _getCoinsBalances(tokens), amounts, false),
             tokens,
             [lpTokenAmount, lpTokenBalanceAfter, IERC20(curveExtraParams.lpTokenAddress).totalSupply()],
-            abi.encode(curveExtraParams.poolAddress)
+            curveExtraParams.poolAddress
             );
     }
 
@@ -150,7 +170,7 @@ contract CurveV2FactoryCryptoAdapter is IDestinationAdapter, AccessControl, Reen
             LibAdapter._toDynamicArray(coinAmount),
             LibAdapter._toDynamicArray(coin),
             [lpTokenAmount, lpTokenBalanceAfter, lpToken.totalSupply()],
-            abi.encode(poolAddress)
+            poolAddress
             );
     }
 

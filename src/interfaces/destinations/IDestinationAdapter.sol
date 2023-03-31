@@ -2,26 +2,6 @@
 pragma solidity 0.8.17;
 
 interface IDestinationAdapter {
-    event DeployLiquidity(
-        uint256[] amountsDeposited,
-        address[] tokens,
-        // 0 - lpMintAmount
-        // 1 - lpShare
-        // 2 - lpTotalSupply
-        uint256[3] lpAmounts,
-        bytes extraData
-    ); // extraData: contains extra params for each controller (may be empty)
-
-    event WithdrawLiquidity(
-        uint256[] amountsWithdrawn,
-        address[] tokens,
-        // 0 - lpBurnAmount
-        // 1 - lpShare
-        // 2 - lpTotalSupply
-        uint256[3] lpAmounts,
-        bytes extraData
-    ); // extraData: contains extra params for each controller (may be empty)
-
     /// @notice Deploy liquidity to the assosiated destination
     /// @dev Calls into external contract
     /// @param amounts Amounts of corresponding tokens to deploy
