@@ -9,7 +9,7 @@ import "openzeppelin-contracts/security/ReentrancyGuard.sol";
 import "../../interfaces/destinations/IDestinationAdapter.sol";
 import "../../interfaces/external/balancer/IAsset.sol";
 import "../../interfaces/external/balancer/IVault.sol";
-import "./libs/LibAdapter.sol";
+import "../../libs/LibAdapter.sol";
 
 contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, ReentrancyGuard {
     using SafeERC20 for IERC20;
