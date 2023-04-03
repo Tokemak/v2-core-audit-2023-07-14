@@ -21,4 +21,13 @@ interface IBaseRewardPool {
 
     /// @notice Gives a staker their rewards, with the option of claiming extra rewards
     function getReward(address _account, bool _claimExtras) external returns (bool);
+
+    /// @notice Get total rewards supply
+    function totalSupply() external returns (uint256);
+
+    /// @notice Get balance of an address
+    function balanceOf(address _account) external returns (uint256);
+
+    /// @notice Withdraw directly to curve LP token
+    function withdrawAndUnwrap(uint256 _amount, bool _claim) external returns (bool);
 }
