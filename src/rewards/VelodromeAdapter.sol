@@ -5,6 +5,7 @@ import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 import { IAdapter } from "../interfaces/rewards/IAdapter.sol";
 
+import { IRouter } from "../interfaces/external/velodrome/IRouter.sol";
 import { IVoter } from "../interfaces/external/velodrome/IVoter.sol";
 import { IVotingEscrow } from "../interfaces/external/velodrome/IVotingEscrow.sol";
 import { IGauge } from "../interfaces/external/velodrome/IGauge.sol";
@@ -12,6 +13,7 @@ import { IBaseBribe } from "../interfaces/external/velodrome/IBaseBribe.sol";
 import { IWrappedExternalBribeFactory } from "../interfaces/external/velodrome/IWrappedExternalBribeFactory.sol";
 import { IRewardsDistributor } from "../interfaces/external/velodrome/IRewardsDistributor.sol";
 import { IPair } from "../interfaces/external/velodrome/IPair.sol";
+import { LibAdapter } from "../libs/LibAdapter.sol";
 
 /**
  * @title VelodromeAdapter
@@ -33,8 +35,23 @@ contract VelodromeAdapter is IAdapter, ReentrancyGuard {
         Fees
     }
 
-    error InvalidClaimType();
+    struct VelodromeExtraParams {
+        address pool;
+        uint256[] tokensIds;
+        address tokenA;
+        address tokenB;
+        bool stable;
+        uint256 amountAMin;
+        uint256 amountBMin;
+        uint256 deadline;
+    }
 
+    error InvalidClaimType();
+    error BalanceMustIncrease();
+    error lpTokenAmountMismatch();
+
+    // solhint-disable-next-line var-name-mixedcase
+    IRouter public immutable ROUTER;
     // solhint-disable-next-line var-name-mixedcase
     IVoter public immutable VOTER;
     // solhint-disable-next-line var-name-mixedcase
@@ -44,16 +61,132 @@ contract VelodromeAdapter is IAdapter, ReentrancyGuard {
     // solhint-disable-next-line var-name-mixedcase
     IRewardsDistributor public immutable REWARDS_DISTRIBUTOR;
 
-    constructor(address voter, address wrappedBribeFactory, address votingEscrow, address rewardsDistributor) {
+    constructor(
+        address router,
+        address voter,
+        address wrappedBribeFactory,
+        address votingEscrow,
+        address rewardsDistributor
+    ) {
+        if (router == address(0)) revert TokenAddressZero();
         if (voter == address(0)) revert TokenAddressZero();
         if (wrappedBribeFactory == address(0)) revert TokenAddressZero();
         if (votingEscrow == address(0)) revert TokenAddressZero();
         if (rewardsDistributor == address(0)) revert TokenAddressZero();
 
+        ROUTER = IRouter(router);
         VOTER = IVoter(voter);
         WRAPPED_BRIBE_FACTORY = IWrappedExternalBribeFactory(wrappedBribeFactory);
         VOTING_ESCROW = IVotingEscrow(votingEscrow);
         REWARDS_DISTRIBUTOR = IRewardsDistributor(rewardsDistributor);
+    }
+
+    function addLiquidity(
+        uint256[] calldata amounts,
+        uint256 minLpMintAmount,
+        bytes calldata extraParams
+    ) public nonReentrant {
+        (VelodromeExtraParams memory velodromeExtraParams) = abi.decode(extraParams, (VelodromeExtraParams));
+
+        LibAdapter._approve(IERC20(velodromeExtraParams.tokenA), address(ROUTER), amounts[0]);
+        LibAdapter._approve(IERC20(velodromeExtraParams.tokenB), address(ROUTER), amounts[1]);
+
+        IPair pair =
+            IPair(ROUTER.pairFor(velodromeExtraParams.tokenA, velodromeExtraParams.tokenB, velodromeExtraParams.stable));
+
+        uint256 lpTokensBefore = pair.balanceOf(address(this));
+
+        ROUTER.addLiquidity(
+            velodromeExtraParams.tokenA,
+            velodromeExtraParams.tokenB,
+            velodromeExtraParams.stable,
+            amounts[0],
+            amounts[1],
+            velodromeExtraParams.amountAMin,
+            velodromeExtraParams.amountBMin,
+            address(this),
+            velodromeExtraParams.deadline
+        );
+
+        uint256 lpTokensAfter = pair.balanceOf(address(this));
+
+        if (lpTokensAfter - lpTokensBefore < minLpMintAmount) revert BalanceMustIncrease();
+    }
+
+    function removeLiquidity(
+        uint256[] calldata amounts,
+        uint256 maxLpBurnAmount,
+        bytes calldata extraParams
+    ) external nonReentrant {
+        (VelodromeExtraParams memory velodromeExtraParams) = abi.decode(extraParams, (VelodromeExtraParams));
+
+        IPair pair =
+            IPair(ROUTER.pairFor(velodromeExtraParams.tokenA, velodromeExtraParams.tokenB, velodromeExtraParams.stable));
+
+        LibAdapter._approve(pair, address(ROUTER), maxLpBurnAmount);
+
+        uint256 lpTokensBefore = pair.balanceOf(address(this));
+
+        ROUTER.removeLiquidity(
+            velodromeExtraParams.tokenA,
+            velodromeExtraParams.tokenB,
+            velodromeExtraParams.stable,
+            maxLpBurnAmount,
+            amounts[0],
+            amounts[1],
+            address(this),
+            velodromeExtraParams.deadline
+        );
+        uint256 lpTokensAfter = pair.balanceOf(address(this));
+
+        uint256 lpTokenAmount = lpTokensBefore - lpTokensAfter;
+        if (lpTokenAmount > maxLpBurnAmount) {
+            revert lpTokenAmountMismatch();
+        }
+    }
+
+    function stakeLPs(
+        uint256[] calldata amounts,
+        uint256 minLpMintAmount,
+        bytes calldata extraParams
+    ) public nonReentrant {
+        (VelodromeExtraParams memory velodromeExtraParams) = abi.decode(extraParams, (VelodromeExtraParams));
+        address gaugeAddress = VOTER.gauges(velodromeExtraParams.pool);
+        IGauge gauge = IGauge(gaugeAddress);
+
+        uint256 lpTokensBefore = gauge.balanceOf(address(this));
+
+        for (uint256 i = 0; i < amounts.length; ++i) {
+            LibAdapter._approve(IERC20(gauge.stake()), address(gauge), amounts[i]);
+            gauge.deposit(amounts[i], velodromeExtraParams.tokensIds[i]);
+        }
+
+        uint256 lpTokensAfter = gauge.balanceOf(address(this));
+
+        if (lpTokensAfter - lpTokensBefore < minLpMintAmount) revert BalanceMustIncrease();
+    }
+
+    function unstakeLPs(
+        uint256[] calldata amounts,
+        uint256 maxLpBurnAmount,
+        bytes calldata extraParams
+    ) public nonReentrant {
+        (VelodromeExtraParams memory velodromeExtraParams) = abi.decode(extraParams, (VelodromeExtraParams));
+        address gaugeAddress = VOTER.gauges(velodromeExtraParams.pool);
+        IGauge gauge = IGauge(gaugeAddress);
+
+        uint256 lpTokensBefore = gauge.balanceOf(address(this));
+
+        for (uint256 i = 0; i < amounts.length; ++i) {
+            gauge.withdrawToken(amounts[i], velodromeExtraParams.tokensIds[i]);
+        }
+
+        uint256 lpTokensAfter = gauge.balanceOf(address(this));
+
+        uint256 lpTokenAmount = lpTokensBefore - lpTokensAfter;
+        if (lpTokenAmount > maxLpBurnAmount) {
+            revert lpTokenAmountMismatch();
+        }
     }
 
     // slither-disable-start calls-loop
