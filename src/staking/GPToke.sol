@@ -17,6 +17,8 @@ contract GPToke is IGPToke, ERC20Votes, Ownable, ReentrancyGuard, Pausable {
     // variables
     uint256 public immutable startEpoch;
     uint256 public immutable minStakeDuration;
+    // solhint-disable-next-line const-name-snakecase
+    uint256 public constant maxStakeDuration = 1461 days;
 
     mapping(address => Lockup[]) public lockups;
 
@@ -79,6 +81,8 @@ contract GPToke is IGPToke, ERC20Votes, Ownable, ReentrancyGuard, Pausable {
 
     /// @inheritdoc IGPToke
     function unstake(uint256 lockupId) external nonReentrant whenNotPaused {
+        if (lockupId >= lockups[msg.sender].length) revert LockupDoesNotExist();
+
         Lockup memory lockup = lockups[msg.sender][lockupId];
         uint256 amount = lockup.amount;
         uint256 end = lockup.end;
@@ -99,6 +103,8 @@ contract GPToke is IGPToke, ERC20Votes, Ownable, ReentrancyGuard, Pausable {
 
     /// @inheritdoc IGPToke
     function extend(uint256 lockupId, uint256 duration) external whenNotPaused {
+        if (lockupId >= lockups[msg.sender].length) revert LockupDoesNotExist();
+
         // duration checked inside previewPoints
         Lockup memory lockup = lockups[msg.sender][lockupId];
         uint256 oldAmount = lockup.amount;
@@ -113,14 +119,13 @@ contract GPToke is IGPToke, ERC20Votes, Ownable, ReentrancyGuard, Pausable {
         lockups[msg.sender][lockupId] = lockup;
         _mint(msg.sender, newPoints - oldPoints);
 
-        emit Unstake(msg.sender, lockupId, oldAmount, oldEnd, oldPoints);
-        emit Stake(msg.sender, lockupId, oldAmount, newEnd, newPoints);
+        emit Extend(msg.sender, lockupId, oldEnd, newEnd, oldPoints, newPoints);
     }
 
     /// @inheritdoc IGPToke
     function previewPoints(uint256 amount, uint256 duration) public view returns (uint256 points, uint256 end) {
         if (duration < minStakeDuration) revert StakingDurationTooShort();
-        if (duration > 1461 days) revert StakingDurationTooLong();
+        if (duration > maxStakeDuration) revert StakingDurationTooLong();
 
         // TODO: find nearest day rounding?
         // slither-disable-next-line timestamp

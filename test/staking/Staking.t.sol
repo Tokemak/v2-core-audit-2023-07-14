@@ -6,7 +6,6 @@ pragma solidity 0.8.17;
 import { BaseTest } from "test/BaseTest.t.sol";
 import { GPToke } from "src/staking/GPToke.sol";
 import { IGPToke } from "src/interfaces/staking/IGPToke.sol";
-// import { PRANK_ADDRESS } from "../utils/Addresses.sol";
 
 contract StakingTest is BaseTest {
     GPToke private gpToke;
@@ -15,6 +14,12 @@ contract StakingTest is BaseTest {
     uint256 private maxDuration = 1461 days;
     uint256 private oneYear = 365 days;
     uint256 private oneMonth = 30 days;
+
+    event Stake(address indexed user, uint256 lockupId, uint256 amount, uint256 end, uint256 points);
+    event Unstake(address indexed user, uint256 lockupId, uint256 amount, uint256 end, uint256 points);
+    event Extend(
+        address indexed user, uint256 lockupId, uint256 oldEnd, uint256 newEnd, uint256 oldPoints, uint256 newPoints
+    );
 
     function setUp() public virtual override {
         super.setUp();
@@ -143,6 +148,8 @@ contract StakingTest is BaseTest {
         stake(oneYear);
         (uint256 amountBefore,, uint256 pointsBefore) = gpToke.lockups(address(this), 0);
         // extend to 2 years
+        vm.expectEmit(true, false, false, false);
+        emit Extend(address(this), 0, 0, 0, 0, 0);
         gpToke.extend(0, 2 * oneYear);
         // verify that duration (and points) increased
         IGPToke.Lockup memory lockup = gpToke.getLockups(address(this))[0];
@@ -152,15 +159,21 @@ contract StakingTest is BaseTest {
     }
 
     function stake(uint256 stakeTimespan) private {
+        vm.expectEmit(true, false, false, false);
+        emit Stake(address(this), 0, 0, 0, 0);
         gpToke.stake(stakeAmount, stakeTimespan);
     }
 
     function warpAndStake(uint256 warpTimespan, uint256 stakeTimespan) private {
         vm.warp(block.timestamp + warpTimespan);
+        vm.expectEmit(true, false, false, false);
+        emit Stake(address(this), 0, 0, 0, 0);
         gpToke.stake(stakeAmount, stakeTimespan);
     }
 
     function warpAndUnstake(uint256 warpTimespan, uint256 lockupId) private {
+        vm.expectEmit(true, false, false, false);
+        emit Unstake(address(this), 0, 0, 0, 0);
         vm.warp(block.timestamp + warpTimespan);
         gpToke.unstake(lockupId);
     }
