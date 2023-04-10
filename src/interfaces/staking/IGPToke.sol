@@ -41,6 +41,7 @@ interface IGPToke {
     ///////////////////////////////////////////////////////////////////
     //                        Events
     ///////////////////////////////////////////////////////////////////
+    event SetMaxStakeDuration(uint256 oldDuration, uint256 newDuration);
     event Stake(address indexed user, uint256 lockupId, uint256 amount, uint256 end, uint256 points);
     event Unstake(address indexed user, uint256 lockupId, uint256 amount, uint256 end, uint256 points);
     event Extend(

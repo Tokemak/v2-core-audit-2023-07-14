@@ -143,7 +143,11 @@ contract GPToke is IGPToke, ERC20Votes, Ownable, ReentrancyGuard, Pausable {
     }
 
     function setMaxStakeDuration(uint256 _maxStakeDuration) external onlyOwner {
+        uint256 old = maxStakeDuration;
+
         maxStakeDuration = _maxStakeDuration;
+
+        emit SetMaxStakeDuration(old, _maxStakeDuration);
     }
 
     function pause() external onlyOwner {
