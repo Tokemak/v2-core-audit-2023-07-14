@@ -18,7 +18,7 @@ contract GPToke is IGPToke, ERC20Votes, Ownable, ReentrancyGuard, Pausable {
     uint256 public immutable startEpoch;
     uint256 public immutable minStakeDuration;
     // solhint-disable-next-line const-name-snakecase
-    uint256 public constant maxStakeDuration = 1461 days;
+    uint256 public maxStakeDuration = 1461 days; // default 4 years
 
     mapping(address => Lockup[]) public lockups;
 
@@ -59,7 +59,7 @@ contract GPToke is IGPToke, ERC20Votes, Ownable, ReentrancyGuard, Pausable {
 
     function _stake(uint256 amount, uint256 duration, address to) internal whenNotPaused {
         if (to == address(0)) revert ZeroAddress();
-        if (amount > type(uint128).max) revert StakingAmountExceeded();
+        // if (amount > type(uint128).max) revert StakingAmountExceeded();
         if (amount == 0) revert StakingAmountInsufficient();
         if (amount > toke.balanceOf(msg.sender)) revert InsufficientFunds();
 
@@ -106,7 +106,7 @@ contract GPToke is IGPToke, ERC20Votes, Ownable, ReentrancyGuard, Pausable {
         if (lockupId >= lockups[msg.sender].length) revert LockupDoesNotExist();
 
         // duration checked inside previewPoints
-        Lockup memory lockup = lockups[msg.sender][lockupId];
+        Lockup storage lockup = lockups[msg.sender][lockupId];
         uint256 oldAmount = lockup.amount;
         uint256 oldEnd = lockup.end;
         uint256 oldPoints = lockup.points;
@@ -140,6 +140,10 @@ contract GPToke is IGPToke, ERC20Votes, Ownable, ReentrancyGuard, Pausable {
 
     function getLockups(address user) external view returns (Lockup[] memory) {
         return lockups[user];
+    }
+
+    function setMaxStakeDuration(uint256 _maxStakeDuration) external onlyOwner {
+        maxStakeDuration = _maxStakeDuration;
     }
 
     function pause() external onlyOwner {

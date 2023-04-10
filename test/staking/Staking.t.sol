@@ -84,6 +84,15 @@ contract StakingTest is BaseTest {
         gpToke.stake(stakeAmount, maxDuration + 1);
     }
 
+    function testSetMaxDuration() public {
+        // regular stake for two years
+        gpToke.stake(stakeAmount, 2 * oneYear);
+        // change staking duration to shorter, try staking again (should fail)
+        gpToke.setMaxStakeDuration(oneYear);
+        vm.expectRevert(IGPToke.StakingDurationTooLong.selector);
+        gpToke.stake(stakeAmount, 2 * oneYear);
+    }
+
     function testStakingAndUnstaking() public {
         //
         // stake
