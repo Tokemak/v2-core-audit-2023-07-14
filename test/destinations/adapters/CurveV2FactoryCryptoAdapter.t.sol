@@ -15,7 +15,10 @@ import {
     RETH_MAINNET,
     SETH_MAINNET,
     FRXETH_MAINNET,
-    STETH_MAINNET
+    STETH_MAINNET,
+    SETH_OPTIMISM,
+    WSTETH_OPTIMISM,
+    WSTETH_ARBITRUM
 } from "../../utils/Addresses.sol";
 
 contract CurveV2FactoryCryptoAdapterTest is Test {
@@ -23,6 +26,12 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
 
     uint256 public mainnetFork;
     CurveV2FactoryCryptoAdapter public adapter;
+
+    struct CurveExtraParams {
+        address poolAddress;
+        address lpTokenAddress;
+        bool useEth;
+    }
 
     event DeployLiquidity(
         uint256[] amountsDeposited,
@@ -47,6 +56,22 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         vm.selectFork(mainnetFork);
         assertEq(vm.activeFork(), mainnetFork);
 
+        adapter = new CurveV2FactoryCryptoAdapter();
+    }
+
+    function forkOptimism() private {
+        string memory endpoint = vm.envString("OPTIMISM_MAINNET_RPC_URL");
+        uint256 forkId = vm.createFork(endpoint);
+        vm.selectFork(forkId);
+        assertEq(vm.activeFork(), forkId);
+        adapter = new CurveV2FactoryCryptoAdapter();
+    }
+
+    function forkArbitrum() private {
+        string memory endpoint = vm.envString("ARBITRUM_MAINNET_RPC_URL");
+        uint256 forkId = vm.createFork(endpoint);
+        vm.selectFork(forkId);
+        assertEq(vm.activeFork(), forkId);
         adapter = new CurveV2FactoryCryptoAdapter();
     }
 
@@ -162,6 +187,68 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         assert(aftrerLpBalance < preLpBalance);
     }
 
+    function testAddLiquidityEthFrxEth() public {
+        address poolAddress = 0xa1F8A6807c402E4A15ef4EBa36528A3FED24E577;
+        IERC20 lpToken = IERC20(0xf43211935C781D5ca1a41d2041F397B8A7366C7A);
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 0.5 * 1e18;
+        amounts[1] = 0.5 * 1e18;
+
+        vm.deal(address(adapter), 2 ether);
+
+        deal(address(FRXETH_MAINNET), address(adapter), 2 * 1e18);
+
+        uint256 preEthBalance = address(adapter).balance;
+        uint256 preBalance = IERC20(FRXETH_MAINNET).balanceOf(address(adapter));
+        uint256 preLpBalance = lpToken.balanceOf(address(adapter));
+
+        uint256 minLpMintAmount = 1;
+
+        bytes memory extraParams = abi.encode(poolAddress, address(lpToken), true);
+        adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
+
+        uint256 afterEthBalance = address(adapter).balance;
+        uint256 afterBalance = IERC20(FRXETH_MAINNET).balanceOf(address(adapter));
+        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+
+        assertEq(afterEthBalance, preEthBalance - amounts[0]);
+        assertEq(afterBalance, preBalance - amounts[1]);
+        assert(aftrerLpBalance > preLpBalance);
+    }
+
+    function testRemoveLiquidityEthFrxEth() public {
+        address poolAddress = 0xa1F8A6807c402E4A15ef4EBa36528A3FED24E577;
+        IERC20 lpToken = IERC20(0xf43211935C781D5ca1a41d2041F397B8A7366C7A);
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 1.5 * 1e18;
+        amounts[1] = 1.5 * 1e18;
+
+        vm.deal(address(adapter), 2 ether);
+
+        deal(address(FRXETH_MAINNET), address(adapter), 2 * 1e18);
+
+        uint256 minLpMintAmount = 1;
+
+        bytes memory extraParams = abi.encode(poolAddress, address(lpToken), true);
+        adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
+
+        uint256 preBalance = IERC20(FRXETH_MAINNET).balanceOf(address(adapter));
+        uint256 preLpBalance = lpToken.balanceOf(address(adapter));
+
+        uint256[] memory withdrawAmounts = new uint256[](2);
+        withdrawAmounts[0] = 0.5 * 1e18;
+        withdrawAmounts[1] = 0 * 1e18;
+        adapter.removeLiquidity(withdrawAmounts, preLpBalance, extraParams);
+
+        uint256 afterBalance = IERC20(FRXETH_MAINNET).balanceOf(address(adapter));
+        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+
+        assert(afterBalance > preBalance);
+        assert(aftrerLpBalance < preLpBalance);
+    }
+
     function testAddLiquidityEthSeth() public {
         address poolAddress = 0xc5424B857f758E906013F3555Dad202e4bdB4567;
         IERC20 lpToken = IERC20(0xA3D87FffcE63B53E0d54fAa1cc983B7eB0b74A9c);
@@ -234,29 +321,37 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         assert(aftrerLpBalance < preLpBalance);
     }
 
-    function testAddLiquidityEthFrxEth() public {
-        address poolAddress = 0xa1F8A6807c402E4A15ef4EBa36528A3FED24E577;
-        IERC20 lpToken = IERC20(0xf43211935C781D5ca1a41d2041F397B8A7366C7A);
+    function testAddLiquidityEthSethOptimism() public {
+        forkOptimism();
+
+        address poolAddress = 0x7Bc5728BC2b59B45a58d9A576E2Ffc5f0505B35E;
+        IERC20 lpToken = IERC20(poolAddress);
 
         uint256[] memory amounts = new uint256[](2);
         amounts[0] = 0.5 * 1e18;
         amounts[1] = 0.5 * 1e18;
 
-        vm.deal(address(adapter), 2 ether);
+        vm.deal(address(adapter), 3 ether);
 
-        deal(address(FRXETH_MAINNET), address(adapter), 2 * 1e18);
+        // Using whale for funding since storage slot overwrite is not working for proxy ERC-20s
+        address sethWhale = 0x9912a94725271600590BeB0815Ca96fA0065eA27;
+        vm.startPrank(sethWhale);
+        IERC20(SETH_OPTIMISM).approve(address(adapter), 2 * 1e18);
+        IERC20(SETH_OPTIMISM).transfer(address(adapter), 2 * 1e18);
+        vm.stopPrank();
 
         uint256 preEthBalance = address(adapter).balance;
-        uint256 preBalance = IERC20(FRXETH_MAINNET).balanceOf(address(adapter));
+        uint256 preBalance = IERC20(SETH_OPTIMISM).balanceOf(address(adapter));
         uint256 preLpBalance = lpToken.balanceOf(address(adapter));
 
         uint256 minLpMintAmount = 1;
 
-        bytes memory extraParams = abi.encode(poolAddress, address(lpToken), true);
+        bytes memory extraParams = abi.encode(CurveExtraParams(poolAddress, address(lpToken), true));
+
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
         uint256 afterEthBalance = address(adapter).balance;
-        uint256 afterBalance = IERC20(FRXETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalance = IERC20(SETH_OPTIMISM).balanceOf(address(adapter));
         uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
 
         assertEq(afterEthBalance, preEthBalance - amounts[0]);
@@ -264,32 +359,169 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         assert(aftrerLpBalance > preLpBalance);
     }
 
-    function testRemoveLiquidityEthFrxEth() public {
-        address poolAddress = 0xa1F8A6807c402E4A15ef4EBa36528A3FED24E577;
-        IERC20 lpToken = IERC20(0xf43211935C781D5ca1a41d2041F397B8A7366C7A);
+    function testRemoveLiquidityEthSethOptimism() public {
+        forkOptimism();
+
+        address poolAddress = 0x7Bc5728BC2b59B45a58d9A576E2Ffc5f0505B35E;
+        IERC20 lpToken = IERC20(poolAddress);
 
         uint256[] memory amounts = new uint256[](2);
         amounts[0] = 1.5 * 1e18;
         amounts[1] = 1.5 * 1e18;
 
-        vm.deal(address(adapter), 2 ether);
+        vm.deal(address(adapter), 3 ether);
 
-        deal(address(FRXETH_MAINNET), address(adapter), 2 * 1e18);
+        // Using whale for funding since storage slot overwrite is not working for proxy ERC-20s
+        address sethWhale = 0x9912a94725271600590BeB0815Ca96fA0065eA27;
+        vm.prank(sethWhale);
+        IERC20(SETH_OPTIMISM).approve(address(adapter), 3 * 1e18);
+        vm.prank(sethWhale);
+        IERC20(SETH_OPTIMISM).transfer(address(adapter), 3 * 1e18);
 
         uint256 minLpMintAmount = 1;
 
         bytes memory extraParams = abi.encode(poolAddress, address(lpToken), true);
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
-        uint256 preBalance = IERC20(FRXETH_MAINNET).balanceOf(address(adapter));
+        uint256 preBalance = IERC20(SETH_OPTIMISM).balanceOf(address(adapter));
         uint256 preLpBalance = lpToken.balanceOf(address(adapter));
 
         uint256[] memory withdrawAmounts = new uint256[](2);
         withdrawAmounts[0] = 0.5 * 1e18;
-        withdrawAmounts[1] = 0 * 1e18;
+        withdrawAmounts[1] = 0.5 * 1e18;
         adapter.removeLiquidity(withdrawAmounts, preLpBalance, extraParams);
 
-        uint256 afterBalance = IERC20(FRXETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalance = IERC20(SETH_OPTIMISM).balanceOf(address(adapter));
+        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+
+        assert(afterBalance > preBalance);
+        assert(aftrerLpBalance < preLpBalance);
+    }
+
+    function testAddLiquidityEthWstethOptimism() public {
+        forkOptimism();
+
+        address poolAddress = 0xB90B9B1F91a01Ea22A182CD84C1E22222e39B415;
+        IERC20 lpToken = IERC20(0xEfDE221f306152971D8e9f181bFe998447975810);
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 0.5 * 1e18;
+        amounts[1] = 0.5 * 1e18;
+
+        deal(address(adapter), 3 ether);
+        deal(address(WSTETH_OPTIMISM), address(adapter), 2 * 1e18);
+
+        uint256 preEthBalance = address(adapter).balance;
+        uint256 preBalance = IERC20(WSTETH_OPTIMISM).balanceOf(address(adapter));
+        uint256 preLpBalance = lpToken.balanceOf(address(adapter));
+
+        uint256 minLpMintAmount = 1;
+
+        bytes memory extraParams = abi.encode(CurveExtraParams(poolAddress, address(lpToken), true));
+
+        adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
+
+        uint256 afterEthBalance = address(adapter).balance;
+        uint256 afterBalance = IERC20(WSTETH_OPTIMISM).balanceOf(address(adapter));
+        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+
+        assertEq(afterEthBalance, preEthBalance - amounts[0]);
+        assertEq(afterBalance, preBalance - amounts[1]);
+        assert(aftrerLpBalance > preLpBalance);
+    }
+
+    function testRemoveLiquidityEthWstethOptimism() public {
+        forkOptimism();
+
+        address poolAddress = 0xB90B9B1F91a01Ea22A182CD84C1E22222e39B415;
+        IERC20 lpToken = IERC20(0xEfDE221f306152971D8e9f181bFe998447975810);
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 1.5 * 1e18;
+        amounts[1] = 1.5 * 1e18;
+
+        deal(address(adapter), 3 ether);
+        deal(address(WSTETH_OPTIMISM), address(adapter), 2 * 1e18);
+
+        uint256 minLpMintAmount = 1;
+
+        bytes memory extraParams = abi.encode(poolAddress, address(lpToken), true);
+        adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
+
+        uint256 preBalance = IERC20(WSTETH_OPTIMISM).balanceOf(address(adapter));
+        uint256 preLpBalance = lpToken.balanceOf(address(adapter));
+
+        uint256[] memory withdrawAmounts = new uint256[](2);
+        withdrawAmounts[0] = 0.5 * 1e18;
+        withdrawAmounts[1] = 0.5 * 1e18;
+        adapter.removeLiquidity(withdrawAmounts, preLpBalance, extraParams);
+
+        uint256 afterBalance = IERC20(WSTETH_OPTIMISM).balanceOf(address(adapter));
+        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+
+        assert(afterBalance > preBalance);
+        assert(aftrerLpBalance < preLpBalance);
+    }
+
+    function testAddLiquidityEthWstethArbitrum() public {
+        forkArbitrum();
+
+        address poolAddress = 0x6eB2dc694eB516B16Dc9FBc678C60052BbdD7d80;
+        IERC20 lpToken = IERC20(0xDbcD16e622c95AcB2650b38eC799f76BFC557a0b);
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 0.5 * 1e18;
+        amounts[1] = 0.5 * 1e18;
+
+        deal(address(adapter), 3 ether);
+        deal(address(WSTETH_ARBITRUM), address(adapter), 2 * 1e18);
+
+        uint256 preEthBalance = address(adapter).balance;
+        uint256 preBalance = IERC20(WSTETH_ARBITRUM).balanceOf(address(adapter));
+        uint256 preLpBalance = lpToken.balanceOf(address(adapter));
+
+        uint256 minLpMintAmount = 1;
+
+        bytes memory extraParams = abi.encode(CurveExtraParams(poolAddress, address(lpToken), true));
+
+        adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
+
+        uint256 afterEthBalance = address(adapter).balance;
+        uint256 afterBalance = IERC20(WSTETH_ARBITRUM).balanceOf(address(adapter));
+        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+
+        assertEq(afterEthBalance, preEthBalance - amounts[0]);
+        assertEq(afterBalance, preBalance - amounts[1]);
+        assert(aftrerLpBalance > preLpBalance);
+    }
+
+    function testRemoveLiquidityEthWstethArbitrum() public {
+        forkArbitrum();
+
+        address poolAddress = 0x6eB2dc694eB516B16Dc9FBc678C60052BbdD7d80;
+        IERC20 lpToken = IERC20(0xDbcD16e622c95AcB2650b38eC799f76BFC557a0b);
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 1.5 * 1e18;
+        amounts[1] = 1.5 * 1e18;
+
+        deal(address(adapter), 3 ether);
+        deal(address(WSTETH_ARBITRUM), address(adapter), 2 * 1e18);
+
+        uint256 minLpMintAmount = 1;
+
+        bytes memory extraParams = abi.encode(poolAddress, address(lpToken), true);
+        adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
+
+        uint256 preBalance = IERC20(WSTETH_ARBITRUM).balanceOf(address(adapter));
+        uint256 preLpBalance = lpToken.balanceOf(address(adapter));
+
+        uint256[] memory withdrawAmounts = new uint256[](2);
+        withdrawAmounts[0] = 0.5 * 1e18;
+        withdrawAmounts[1] = 0.5 * 1e18;
+        adapter.removeLiquidity(withdrawAmounts, preLpBalance, extraParams);
+
+        uint256 afterBalance = IERC20(WSTETH_ARBITRUM).balanceOf(address(adapter));
         uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
 
         assert(afterBalance > preBalance);
