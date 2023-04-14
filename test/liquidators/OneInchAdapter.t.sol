@@ -5,40 +5,41 @@ import { Test } from "forge-std/Test.sol";
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
-import { BaseSwapperAdapter } from "../../src/liquidators/BaseSwapperAdapter.sol";
-import { ISwapper } from "../../src/interfaces/liquidators/ISwapper.sol";
+import { BaseAsyncSwapper } from "../../src/liquidation/BaseAsyncSwapper.sol";
+import { IAsyncSwapper, SwapParams } from "../../src/interfaces/liquidation/IAsyncSwapper.sol";
 import { ONE_INCH_MAINNET, PRANK_ADDRESS, CVX_MAINNET, WETH_MAINNET } from "../utils/Addresses.sol";
 
 // solhint-disable func-name-mixedcase
 contract OneInchAdapterTest is Test {
-    BaseSwapperAdapter private adapter;
+    BaseAsyncSwapper private adapter;
 
     function setUp() public {
         string memory endpoint = vm.envString("MAINNET_RPC_URL");
         uint256 forkId = vm.createFork(endpoint, 16_770_565);
         vm.selectFork(forkId);
 
-        adapter = new BaseSwapperAdapter(ONE_INCH_MAINNET);
+        adapter = new BaseAsyncSwapper(ONE_INCH_MAINNET);
     }
 
     function test_Revert_IfBuyTokenAddressIsZeroAddress() public {
-        vm.expectRevert(ISwapper.TokenAddressZero.selector);
-        adapter.swap(PRANK_ADDRESS, 0, address(0), 0, new bytes(0));
+        vm.expectRevert(IAsyncSwapper.TokenAddressZero.selector);
+        // encode swap params
+        adapter.swap(SwapParams(PRANK_ADDRESS, 1, address(0), 0, new bytes(0), new bytes(0)));
     }
 
     function test_Revert_IfSellTokenAddressIsZeroAddress() public {
-        vm.expectRevert(ISwapper.TokenAddressZero.selector);
-        adapter.swap(address(0), 0, PRANK_ADDRESS, 0, new bytes(0));
+        vm.expectRevert(IAsyncSwapper.TokenAddressZero.selector);
+        adapter.swap(SwapParams(address(0), 0, PRANK_ADDRESS, 0, new bytes(0), new bytes(0)));
     }
 
     function test_Revert_IfSellAmountIsZero() public {
-        vm.expectRevert(ISwapper.InsufficientSellAmount.selector);
-        adapter.swap(PRANK_ADDRESS, 0, PRANK_ADDRESS, 1, new bytes(0));
+        vm.expectRevert(IAsyncSwapper.InsufficientSellAmount.selector);
+        adapter.swap(SwapParams(PRANK_ADDRESS, 0, PRANK_ADDRESS, 1, new bytes(0), new bytes(0)));
     }
 
     function test_Revert_IfBuyAmountIsZero() public {
-        vm.expectRevert(ISwapper.InsufficientBuyAmount.selector);
-        adapter.swap(PRANK_ADDRESS, 1, PRANK_ADDRESS, 0, new bytes(0));
+        vm.expectRevert(IAsyncSwapper.InsufficientBuyAmount.selector);
+        adapter.swap(SwapParams(PRANK_ADDRESS, 1, PRANK_ADDRESS, 0, new bytes(0), new bytes(0)));
     }
 
     function test_swap() public {
@@ -53,7 +54,16 @@ contract OneInchAdapterTest is Test {
 
         uint256 balanceBefore = IERC20(WETH_MAINNET).balanceOf(address(adapter));
 
-        adapter.swap(CVX_MAINNET, 119_621_320_376_600_000_000_000, WETH_MAINNET, 356_292_255_653_182_345_276, data);
+        adapter.swap(
+            SwapParams(
+                CVX_MAINNET,
+                119_621_320_376_600_000_000_000,
+                WETH_MAINNET,
+                356_292_255_653_182_345_276,
+                data,
+                new bytes(0)
+            )
+        );
 
         uint256 balanceAfter = IERC20(WETH_MAINNET).balanceOf(address(adapter));
         uint256 balanceDiff = balanceAfter - balanceBefore;

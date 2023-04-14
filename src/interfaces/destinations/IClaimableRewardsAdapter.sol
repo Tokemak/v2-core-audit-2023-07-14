@@ -4,6 +4,10 @@ pragma solidity 0.8.17;
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IDestinationAdapter } from "./IDestinationAdapter.sol";
 
+/**
+ * @dev This interface is intended to be used with contracts that are meant to be delegate called.
+ * Contracts that inherit from this interface should not have any state variables.
+ */
 interface IClaimableRewardsAdapter is IDestinationAdapter {
     error ClaimRewardsFailed();
     error TokenAddressZero();
