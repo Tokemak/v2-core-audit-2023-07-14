@@ -1,19 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { Test } from "forge-std/Test.sol";
+import "forge-std/Test.sol";
 
-import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
-import { IBaseRewardPool } from "../../src/interfaces/external/convex/IBaseRewardPool.sol";
-import { IConvexBooster } from "../../src/interfaces/external/convex/IConvexBooster.sol";
-import { ConvexAdapter } from "../../src/rewards/ConvexAdapter.sol";
-import { IClaimableRewards } from "../../src/rewards/IClaimableRewards.sol";
-import { AURA_BOOSTER, BAL_MAINNET, LDO_MAINNET } from "../utils/Addresses.sol";
+import "../../../../src/interfaces/external/convex/IBaseRewardPool.sol";
+import "../../../../src/interfaces/external/convex/IConvexBooster.sol";
+import "../../../../src/destinations/adapters/staking/AuraAdapter.sol";
+import { AURA_BOOSTER } from "../../../utils/Addresses.sol";
 
 // solhint-disable func-name-mixedcase
-contract AuraBalancerAdapterTest is Test {
-    ConvexAdapter private adapter;
+contract AuraAdapterTest is Test {
+    AuraAdapter private adapter;
 
     IConvexBooster private convexBooster = IConvexBooster(AURA_BOOSTER);
 
@@ -22,7 +21,7 @@ contract AuraBalancerAdapterTest is Test {
         uint256 forkId = vm.createFork(endpoint, 16_731_638);
         vm.selectFork(forkId);
 
-        adapter = new ConvexAdapter();
+        adapter = new AuraAdapter();
     }
 
     function transferCurveLpTokenAndDepositToConvex(
@@ -37,17 +36,12 @@ contract AuraBalancerAdapterTest is Test {
 
         uint256 pid = IBaseRewardPool(convexPool).pid();
 
-        adapter.depositAndStakeConvex(convexBooster, curveLp, convexPool, pid, balance);
+        adapter.depositAndStake(convexBooster, curveLp, convexPool, pid, balance);
 
         // Move 7 days later
         vm.roll(block.number + 7200 * 7);
         // solhint-disable-next-line not-rely-on-time
         vm.warp(block.timestamp + 7 days);
-    }
-
-    function test_Revert_IfAddressZero() public {
-        vm.expectRevert(IClaimableRewards.TokenAddressZero.selector);
-        adapter.claimRewards(address(0));
     }
 
     // Pool rETH-WETH
@@ -60,17 +54,8 @@ contract AuraBalancerAdapterTest is Test {
         uint256 balance = IERC20(curveLp).balanceOf(curveLpWhale);
         transferCurveLpTokenAndDepositToConvex(curveLp, gauge, balance, curveLpWhale, address(adapter));
 
-        // Claim rewards
-        vm.prank(address(adapter));
-        (uint256[] memory amountsClaimed, IERC20[] memory rewardsToken) = adapter.claimRewards(gauge);
-
-        assertEq(amountsClaimed.length, rewardsToken.length);
-        assertEq(rewardsToken.length, 1);
-        assertEq(address(rewardsToken[0]), BAL_MAINNET);
-        assertEq(amountsClaimed[0] > 0, true);
-
         // Withdraw
-        adapter.withdrawStakeConvex(curveLp, gauge, balance);
+        adapter.withdrawStake(curveLp, gauge, balance);
         assertEq(balance, IERC20(curveLp).balanceOf(address(adapter)));
     }
 
@@ -84,17 +69,8 @@ contract AuraBalancerAdapterTest is Test {
         uint256 balance = IERC20(curveLp).balanceOf(curveLpWhale);
         transferCurveLpTokenAndDepositToConvex(curveLp, gauge, balance, curveLpWhale, address(adapter));
 
-        // Claim rewards
-        vm.prank(address(adapter));
-        (uint256[] memory amountsClaimed, IERC20[] memory rewardsToken) = adapter.claimRewards(gauge);
-
-        assertEq(amountsClaimed.length, rewardsToken.length);
-        assertEq(rewardsToken.length, 1);
-        assertEq(address(rewardsToken[0]), BAL_MAINNET);
-        assertEq(amountsClaimed[0] > 0, true);
-
         // Withdraw
-        adapter.withdrawStakeConvex(curveLp, gauge, balance);
+        adapter.withdrawStake(curveLp, gauge, balance);
         assertEq(balance, IERC20(curveLp).balanceOf(address(adapter)));
     }
 
@@ -108,17 +84,8 @@ contract AuraBalancerAdapterTest is Test {
         uint256 balance = IERC20(curveLp).balanceOf(curveLpWhale);
         transferCurveLpTokenAndDepositToConvex(curveLp, gauge, balance, curveLpWhale, address(adapter));
 
-        // Claim rewards
-        vm.prank(address(adapter));
-        (uint256[] memory amountsClaimed, IERC20[] memory rewardsToken) = adapter.claimRewards(gauge);
-
-        assertEq(amountsClaimed.length, rewardsToken.length);
-        assertEq(rewardsToken.length, 1);
-        assertEq(address(rewardsToken[0]), BAL_MAINNET);
-        assertEq(amountsClaimed[0] > 0, true);
-
         // Withdraw
-        adapter.withdrawStakeConvex(curveLp, gauge, balance);
+        adapter.withdrawStake(curveLp, gauge, balance);
         assertEq(balance, IERC20(curveLp).balanceOf(address(adapter)));
     }
 
@@ -132,19 +99,8 @@ contract AuraBalancerAdapterTest is Test {
         uint256 balance = IERC20(curveLp).balanceOf(curveLpWhale);
         transferCurveLpTokenAndDepositToConvex(curveLp, gauge, balance, curveLpWhale, address(adapter));
 
-        // Claim rewards
-        vm.prank(address(adapter));
-        (uint256[] memory amountsClaimed, IERC20[] memory rewardsToken) = adapter.claimRewards(gauge);
-
-        assertEq(amountsClaimed.length, rewardsToken.length);
-        assertEq(rewardsToken.length, 2);
-        assertEq(address(rewardsToken[0]), LDO_MAINNET);
-        // assert(amountsClaimed[0] > 0);
-        assertEq(address(rewardsToken[1]), BAL_MAINNET);
-        assert(amountsClaimed[1] > 0);
-
         // Withdraw
-        adapter.withdrawStakeConvex(curveLp, gauge, balance);
+        adapter.withdrawStake(curveLp, gauge, balance);
         assertEq(balance, IERC20(curveLp).balanceOf(address(adapter)));
     }
 }

@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { Test } from "forge-std/Test.sol";
+import "forge-std/Test.sol";
 
-import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
-import { IBaseRewardPool } from "../../src/interfaces/external/convex/IBaseRewardPool.sol";
-import { IConvexBooster } from "../../src/interfaces/external/convex/IConvexBooster.sol";
-import { ConvexAdapter } from "../../src/rewards/ConvexAdapter.sol";
-import { IClaimableRewards } from "../../src/interfaces/rewards/IClaimableRewards.sol";
-import { AURA_BOOSTER, BAL_MAINNET } from "../utils/Addresses.sol";
+import "../../../../src/interfaces/external/convex/IBaseRewardPool.sol";
+import "../../../../src/interfaces/external/convex/IConvexBooster.sol";
+import "../../../../src/destinations/adapters/rewards/AuraRewardsAdapter.sol";
+import "../../../../src/interfaces/destinations/IClaimableRewardsAdapter.sol";
+import { AURA_BOOSTER, BAL_MAINNET } from "../../../utils/Addresses.sol";
 
 // solhint-disable func-name-mixedcase
-contract AuraBalancerAdapterTest is Test {
-    ConvexAdapter private adapter;
+contract AuraRewardsAdapterTest is Test {
+    AuraRewardsAdapter private adapter;
 
     IConvexBooster private convexBooster = IConvexBooster(AURA_BOOSTER);
 
@@ -22,7 +22,7 @@ contract AuraBalancerAdapterTest is Test {
         uint256 forkId = vm.createFork(endpoint, 16_731_638);
         vm.selectFork(forkId);
 
-        adapter = new ConvexAdapter();
+        adapter = new AuraRewardsAdapter();
     }
 
     function transferCurveLpTokenAndDepositToConvex(
@@ -49,7 +49,7 @@ contract AuraBalancerAdapterTest is Test {
     }
 
     function test_Revert_IfAddressZero() public {
-        vm.expectRevert(IClaimableRewards.TokenAddressZero.selector);
+        vm.expectRevert(IClaimableRewardsAdapter.TokenAddressZero.selector);
         adapter.claimRewards(address(0));
     }
 
