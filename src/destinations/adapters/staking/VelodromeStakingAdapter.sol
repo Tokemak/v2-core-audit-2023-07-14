@@ -1,0 +1,119 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.17;
+
+import "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/security/ReentrancyGuard.sol";
+
+import "../../../interfaces/destinations/IStakingAdapter.sol";
+import "../../../interfaces/external/velodrome/IVoter.sol";
+import "../../../interfaces/external/velodrome/IVotingEscrow.sol";
+import "../../../interfaces/external/velodrome/IGauge.sol";
+import "../../../interfaces/external/velodrome/IBaseBribe.sol";
+import "../../../interfaces/external/velodrome/IWrappedExternalBribeFactory.sol";
+import "../../../interfaces/external/velodrome/IRewardsDistributor.sol";
+import "../../../interfaces/external/velodrome/IPair.sol";
+import "../../../libs/LibAdapter.sol";
+
+contract VelodromeStakingAdapter is IStakingAdapter, ReentrancyGuard {
+    event DeployLiquidity(
+        uint256[] amountsDeposited,
+        uint256[] tokensIds,
+        // 0 - lpMintAmount
+        // 1 - lpShare
+        // 2 - lpTotalSupply
+        uint256[3] lpAmounts,
+        address pool,
+        address guageAddress,
+        address staking
+    );
+
+    event WithdrawLiquidity(
+        uint256[] amountsWithdrawn,
+        uint256[] tokensIds,
+        // 0 - lpMintAmount
+        // 1 - lpShare
+        // 2 - lpTotalSupply
+        uint256[3] lpAmounts,
+        address pool,
+        address guageAddress,
+        address staking
+    );
+
+    error MustBeMoreThanZero();
+    error ArraysLengthMismatch();
+    error MinLpAmountNotReached();
+    error LpTokenAmountMismatch();
+    error InvalidAddress(address);
+
+    IVoter public immutable voter;
+
+    constructor(address _voter) {
+        if (_voter == address(0)) revert InvalidAddress(_voter);
+        voter = IVoter(_voter);
+    }
+
+    function stakeLPs(
+        uint256[] calldata amounts,
+        uint256 minLpMintAmount,
+        address pool,
+        uint256[] calldata tokensIds
+    ) public nonReentrant {
+        if (minLpMintAmount == 0) revert MustBeMoreThanZero();
+        if (amounts.length == 0 || amounts.length != tokensIds.length) revert ArraysLengthMismatch();
+
+        address gaugeAddress = voter.gauges(pool);
+        IGauge gauge = IGauge(gaugeAddress);
+
+        uint256 lpTokensBefore = gauge.balanceOf(address(this));
+
+        for (uint256 i = 0; i < amounts.length; ++i) {
+            LibAdapter._approve(IERC20(gauge.stake()), address(gauge), amounts[i]);
+            gauge.deposit(amounts[i], tokensIds[i]);
+        }
+        uint256 lpTokensAfter = gauge.balanceOf(address(this));
+        uint256 lpTokenAmount = lpTokensAfter - lpTokensBefore;
+        if (lpTokenAmount < minLpMintAmount) revert MinLpAmountNotReached();
+
+        emit DeployLiquidity(
+            amounts,
+            tokensIds,
+            [lpTokenAmount, lpTokensAfter, gauge.totalSupply()],
+            pool,
+            address(gauge),
+            address(gauge.stake())
+            );
+    }
+
+    function unstakeLPs(
+        uint256[] calldata amounts,
+        uint256 maxLpBurnAmount,
+        address pool,
+        uint256[] calldata tokenIds
+    ) public nonReentrant {
+        if (maxLpBurnAmount == 0) revert MustBeMoreThanZero();
+        if (amounts.length == 0 || amounts.length != tokenIds.length) revert ArraysLengthMismatch();
+
+        address gaugeAddress = voter.gauges(pool);
+        IGauge gauge = IGauge(gaugeAddress);
+
+        uint256 lpTokensBefore = gauge.balanceOf(address(this));
+
+        for (uint256 i = 0; i < amounts.length; ++i) {
+            gauge.withdrawToken(amounts[i], tokenIds[i]);
+        }
+
+        uint256 lpTokensAfter = gauge.balanceOf(address(this));
+
+        uint256 lpTokenAmount = lpTokensBefore - lpTokensAfter;
+        if (lpTokenAmount > maxLpBurnAmount) revert LpTokenAmountMismatch();
+
+        emit DeployLiquidity(
+            amounts,
+            tokenIds,
+            [lpTokenAmount, lpTokensAfter, gauge.totalSupply()],
+            pool,
+            address(gauge),
+            address(gauge.stake())
+            );
+    }
+}
