@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
+import "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
-import { ILiquidityGaugeV2 } from "../interfaces/external/curve/ILiquidityGaugeV2.sol";
-import { IAdapter } from "../interfaces/rewards/IAdapter.sol";
+import "../../../interfaces/external/curve/ILiquidityGaugeV2.sol";
+import "../../../interfaces/destinations/IClaimableRewardsAdapter.sol";
 
-contract CurveAdapter is IAdapter, ReentrancyGuard {
+contract CurveRewardsAdapter is IClaimableRewardsAdapter, ReentrancyGuard {
     // solhint-disable-next-line var-name-mixedcase
     uint256 private constant MAX_REWARDS = 8;
 
@@ -38,13 +38,17 @@ contract CurveAdapter is IAdapter, ReentrancyGuard {
             ++rewardsLength;
         }
 
+        // resize the tokens array to the correct size
+        IERC20[] memory rewardTokens = new IERC20[](rewardsLength);
+        for (uint256 i = 0; i < rewardsLength; ++i) {
+            rewardTokens[i] = tempRewardTokens[i];
+        }
+
         uint256[] memory balancesBefore = new uint256[](rewardsLength);
         uint256[] memory amountsClaimed = new uint256[](rewardsLength);
-        IERC20[] memory rewardTokens = new IERC20[](rewardsLength);
 
         // get balances before
         for (uint256 i = 0; i < rewardsLength; ++i) {
-            rewardTokens[i] = tempRewardTokens[i];
             balancesBefore[i] = rewardTokens[i].balanceOf(account);
         }
 

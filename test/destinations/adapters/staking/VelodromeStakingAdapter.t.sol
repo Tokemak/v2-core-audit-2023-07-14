@@ -9,7 +9,6 @@ import "../../../../src/interfaces/external/velodrome/IGauge.sol";
 import "../../../../src/interfaces/external/velodrome/IVoter.sol";
 import "../../../../src/interfaces/external/velodrome/IRouter.sol";
 import "../../../../src/destinations/adapters/staking/VelodromeStakingAdapter.sol";
-
 import {
     WSTETH_OPTIMISM,
     WETH9_OPTIMISM,

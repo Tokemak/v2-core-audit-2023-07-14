@@ -177,6 +177,8 @@ contract MaverickAdapter is IPoolAdapter, ReentrancyGuard {
             approvalSummary[0] += maverickParams[i].deltaA;
             approvalSummary[1] += maverickParams[i].deltaB;
         }
+        // _validateToken(IPool(maverickExtraParams.poolAddress).tokenA()); TODO: Call to Token Registry
+        // _validateToken(IPool(maverickExtraParams.poolAddress).tokenB()); TODO: Call to Token Registry
         LibAdapter._approve(IPool(maverickExtraParams.poolAddress).tokenA(), address(router), approvalSummary[0]);
         LibAdapter._approve(IPool(maverickExtraParams.poolAddress).tokenB(), address(router), approvalSummary[1]);
     }

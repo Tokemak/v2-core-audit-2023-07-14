@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
+import "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
-import { IRewardsOnlyGauge } from "../interfaces/external/beethoven/IRewardsOnlyGauge.sol";
-import { IChildChainStreamer } from "../interfaces/external/beethoven/IChildChainStreamer.sol";
-import { IChildChainGaugeRewardHelper } from "../interfaces/external/beethoven/IChildChainGaugeRewardHelper.sol";
-import { IAdapter } from "../interfaces/rewards/IAdapter.sol";
+import "../../../interfaces/external/beethoven/IRewardsOnlyGauge.sol";
+import "../../../interfaces/external/beethoven/IChildChainStreamer.sol";
+import "../../../interfaces/external/beethoven/IChildChainGaugeRewardHelper.sol";
+import "../../../interfaces/destinations/IClaimableRewardsAdapter.sol";
 
-contract BeethovenAdapter is IAdapter, ReentrancyGuard {
+contract BeethovenRewardsAdapter is IClaimableRewardsAdapter, ReentrancyGuard {
     // slither-disable-start naming-convention
     // solhint-disable-next-line var-name-mixedcase
     IChildChainGaugeRewardHelper public immutable GAUGE_REWARD_HELPER;
@@ -49,11 +49,13 @@ contract BeethovenAdapter is IAdapter, ReentrancyGuard {
         GAUGE_REWARD_HELPER.claimRewards(gaugeContract, account);
 
         // get balances after and calculate amounts claimed
+        uint256 sum = 0;
         for (uint256 i = 0; i < count; ++i) {
             uint256 balance = rewardTokens[i].balanceOf(account);
 
             uint256 claimed = balance - balancesBefore[i];
             amountsClaimed[i] = claimed;
+            sum += claimed;
         }
 
         emit RewardsClaimed(rewardTokens, amountsClaimed);

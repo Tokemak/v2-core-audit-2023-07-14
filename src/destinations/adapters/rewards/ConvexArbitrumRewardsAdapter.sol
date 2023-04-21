@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
+import "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
-import { IConvexRewardPool, RewardType } from "../interfaces/external/convex/IConvexRewardPool.sol";
-import { IAdapter } from "../interfaces/rewards/IAdapter.sol";
+import "../../../interfaces/external/convex/IConvexRewardPool.sol";
+import "../../../interfaces/destinations/IClaimableRewardsAdapter.sol";
 
-contract ConvexArbitrumAdapter is IAdapter, ReentrancyGuard {
+contract ConvexArbitrumRewardsAdapter is IClaimableRewardsAdapter, ReentrancyGuard {
     // slither-disable-start calls-loop
     /**
      * @param gauge The gauge to claim rewards from

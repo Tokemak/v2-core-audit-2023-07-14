@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "openzeppelin-contracts/access/AccessControl.sol";
 import "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
-import "../../interfaces/destinations/IDestinationAdapter.sol";
+import "../../interfaces/destinations/IPoolAdapter.sol";
 import "../../interfaces/external/balancer/IAsset.sol";
 import "../../interfaces/external/balancer/IVault.sol";
 import "../../libs/LibAdapter.sol";
 
-contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, ReentrancyGuard {
+contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     event DeployLiquidity(
@@ -207,10 +206,11 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
             revert ArraysLengthMismatch();
         }
 
-        checkZeroBalancesWithdrawal(params.tokens, poolTokens, amountsOut);
+        _checkZeroBalancesWithdrawal(params.tokens, poolTokens, amountsOut);
 
         // grant erc20 approval for vault to spend our tokens
         (address poolAddress,) = vault.getPool(poolId);
+        // _validateToken(poolAddress); TODO: Call to Token Registry
         LibAdapter._approve(IERC20(poolAddress), address(vault), params.bptAmount);
 
         // record balance before withdraw
@@ -286,7 +286,7 @@ contract BalancerV2MetaStablePoolAdapter is IDestinationAdapter, AccessControl, 
     }
 
     // run through tokens and make sure it matches the pool's assets, check non zero amount
-    function checkZeroBalancesWithdrawal(
+    function _checkZeroBalancesWithdrawal(
         IERC20[] memory tokens,
         IERC20[] memory poolTokens,
         uint256[] memory amountsOut

@@ -52,6 +52,7 @@ contract VelodromeStakingAdapter is IStakingAdapter, ReentrancyGuard {
         voter = IVoter(_voter);
     }
 
+    // TODO: add doc 
     function stakeLPs(
         uint256[] calldata amounts,
         uint256 minLpMintAmount,
@@ -67,6 +68,7 @@ contract VelodromeStakingAdapter is IStakingAdapter, ReentrancyGuard {
         uint256 lpTokensBefore = gauge.balanceOf(address(this));
 
         for (uint256 i = 0; i < amounts.length; ++i) {
+            // _validateToken(IERC20(gauge.stake()); TODO: Call to Token Registry
             LibAdapter._approve(IERC20(gauge.stake()), address(gauge), amounts[i]);
             gauge.deposit(amounts[i], tokensIds[i]);
         }

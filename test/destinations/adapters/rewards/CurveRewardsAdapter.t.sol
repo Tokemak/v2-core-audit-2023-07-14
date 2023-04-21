@@ -1,26 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { Test } from "forge-std/Test.sol";
+import "forge-std/Test.sol";
 
-import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
-import { ICurveStableSwap } from "../../src/interfaces/external/curve/ICurveStableSwap.sol";
-import { ILiquidityGaugeV2 } from "../../src/interfaces/external/curve/ILiquidityGaugeV2.sol";
-import { CurveAdapter } from "../../src/rewards/CurveAdapter.sol";
-import { IClaimableRewards } from "../../src/interfaces/rewards/IClaimableRewards.sol";
-import { LDO_MAINNET, RETH_MAINNET, WSTETH_MAINNET, STETH_MAINNET } from "../utils/Addresses.sol";
+import "../../../../src/interfaces/external/curve/ICurveStableSwap.sol";
+import "../../../../src/interfaces/external/curve/ILiquidityGaugeV2.sol";
+import "../../../../src/destinations/adapters/rewards/CurveRewardsAdapter.sol";
+import "../../../../src/interfaces/destinations/IClaimableRewardsAdapter.sol";
+import { LDO_MAINNET, RETH_MAINNET, WSTETH_MAINNET, STETH_MAINNET } from "../../../utils/Addresses.sol";
 
 // solhint-disable func-name-mixedcase
-contract CurveAdapterTest is Test {
-    CurveAdapter private adapter;
+contract CurveRewardsAdapterTest is Test {
+    CurveRewardsAdapter private adapter;
 
     function setUp() public {
         string memory endpoint = vm.envString("MAINNET_RPC_URL");
         uint256 forkId = vm.createFork(endpoint, 16_699_085);
         vm.selectFork(forkId);
 
-        adapter = new CurveAdapter();
+        adapter = new CurveRewardsAdapter();
     }
 
     function addLiquidityETH(address curvePool, uint256 amountEth, address tokenAddress, uint256 tokenAmount) private {
@@ -64,7 +64,7 @@ contract CurveAdapterTest is Test {
     }
 
     function test_Revert_IfAddressZero() public {
-        vm.expectRevert(IClaimableRewards.TokenAddressZero.selector);
+        vm.expectRevert(IClaimableRewardsAdapter.TokenAddressZero.selector);
         adapter.claimRewards(address(0));
     }
 

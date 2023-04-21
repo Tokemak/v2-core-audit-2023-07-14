@@ -1,33 +1,33 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { Test } from "forge-std/Test.sol";
+import "forge-std/Test.sol";
 
-import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
-import { CamelotAdapter } from "../../src/rewards/CamelotAdapter.sol";
-import { IClaimableRewards } from "../../src/interfaces/rewards/IClaimableRewards.sol";
-import { INFTPool } from "../../src/interfaces/external/camelot/INFTPool.sol";
-import { XGRAIL_ARBITRUM, GRAIL_ARBITRUM } from "../utils/Addresses.sol";
-import { CamelotBase } from "../base/CamelotBase.sol";
+import "../../../../src/destinations/adapters/rewards/CamelotRewardsAdapter.sol";
+import "../../../../src/interfaces/destinations/IClaimableRewardsAdapter.sol";
+import "../../../../src/interfaces/external/camelot/INFTPool.sol";
+import "../../../base/CamelotBase.sol";
+import { XGRAIL_ARBITRUM, GRAIL_ARBITRUM } from "../../../utils/Addresses.sol";
 
 // solhint-disable func-name-mixedcase
-contract CamelotAdapterTest is CamelotBase {
+contract CamelotRewardsAdapterTest is CamelotBase {
     IERC20 private grailToken = IERC20(GRAIL_ARBITRUM);
     IERC20 private xGrailToken = IERC20(XGRAIL_ARBITRUM);
 
-    CamelotAdapter private adapter;
+    CamelotRewardsAdapter private adapter;
 
     function setUp() public {
         string memory endpoint = vm.envString("ARBITRUM_MAINNET_RPC_URL");
         uint256 forkId = vm.createFork(endpoint, 65_803_040);
         vm.selectFork(forkId);
 
-        adapter = new CamelotAdapter(grailToken, xGrailToken);
+        adapter = new CamelotRewardsAdapter(grailToken, xGrailToken);
     }
 
     function test_Revert_IfAddressZero() public {
-        vm.expectRevert(IClaimableRewards.TokenAddressZero.selector);
+        vm.expectRevert(IClaimableRewardsAdapter.TokenAddressZero.selector);
         adapter.claimRewards(address(0));
     }
 
@@ -44,8 +44,8 @@ contract CamelotAdapterTest is CamelotBase {
         assertEq(rewardsToken.length, 2);
         assertEq(address(rewardsToken[0]), GRAIL_ARBITRUM);
         assertEq(address(rewardsToken[1]), XGRAIL_ARBITRUM);
-        assertTrue(amountsClaimed[0] > 0);
-        assertTrue(amountsClaimed[1] > 0);
+        assertEq(amountsClaimed[0] > 0, true);
+        assertEq(amountsClaimed[1] > 0, true);
     }
 
     // pool ETH-wstETH
@@ -63,7 +63,7 @@ contract CamelotAdapterTest is CamelotBase {
         assertEq(rewardsToken.length, 2);
         assertEq(address(rewardsToken[0]), GRAIL_ARBITRUM);
         assertEq(address(rewardsToken[1]), XGRAIL_ARBITRUM);
-        assertTrue(amountsClaimed[0] > 0);
-        assertTrue(amountsClaimed[1] > 0);
+        assertEq(amountsClaimed[0] > 0, true);
+        assertEq(amountsClaimed[1] > 0, true);
     }
 }

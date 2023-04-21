@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
+import "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
-import { IBaseRewardPool } from "../interfaces/external/convex/IBaseRewardPool.sol";
-import { IConvexBooster } from "../interfaces/external/convex/IConvexBooster.sol";
-import { IClaimableRewards } from "./IClaimableRewards.sol";
-import "../libs/LibAdapter.sol";
+import "../../../interfaces/external/convex/IBaseRewardPool.sol";
+import "../../../interfaces/external/convex/IConvexBooster.sol";
+import "../../../interfaces/destinations/IStakingAdapter.sol";
+import "../../../libs/LibAdapter.sol";
 
-contract ConvexAdapter is IClaimableRewards, ReentrancyGuard {
+// TODO: clenup
+contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
     error InvalidAddress();
     error MustBeGreaterThanZero();
     error BalanceMustIncrease();
-    error WithdrawStakeFailed();
+    error withdrawStakeFailed();
     error DepositAndStakeFailed();
     error PoolIdLpTokenMismatch();
     error PoolIdStakingMismatch();
@@ -24,7 +25,7 @@ contract ConvexAdapter is IClaimableRewards, ReentrancyGuard {
     /// @param staking Convex reward contract associated with the Curve LP token
     /// @param poolId Convex poolId for the associated Curve LP token
     /// @param amount Quantity of Curve LP token to deposit and stake
-    function depositAndStakeConvex(
+    function depositAndStake(
         IConvexBooster booster,
         address lpToken,
         address staking,
@@ -39,6 +40,7 @@ contract ConvexAdapter is IClaimableRewards, ReentrancyGuard {
         _validatePoolInfo(booster, poolId, lpToken, staking);
 
         IERC20 lpTokenErc = IERC20(lpToken);
+        // _validateToken(lpTokenErc); TODO: Call to Token Registry
         LibAdapter._approve(lpTokenErc, address(booster), amount);
         uint256 lpBalanceBefore = lpTokenErc.balanceOf(address(this));
 
@@ -67,7 +69,7 @@ contract ConvexAdapter is IClaimableRewards, ReentrancyGuard {
     /// @param lpToken Curve LP token to withdraw
     /// @param staking Convex reward contract associated with the Curve LP token
     /// @param amount Quantity of Curve LP token to withdraw
-    function withdrawStakeConvex(address lpToken, address staking, uint256 amount) external nonReentrant {
+    function withdrawStake(address lpToken, address staking, uint256 amount) external nonReentrant {
         // _validateToken(lpToken); TODO: Call to Token Registry
         if (staking == address(0)) revert InvalidAddress();
         if (amount == 0) revert MustBeGreaterThanZero();
@@ -79,7 +81,7 @@ contract ConvexAdapter is IClaimableRewards, ReentrancyGuard {
         uint256 rewardsBeforeBalance = rewards.balanceOf(address(this));
 
         bool success = rewards.withdrawAndUnwrap(amount, false);
-        if (!success) revert WithdrawStakeFailed();
+        if (!success) revert withdrawStakeFailed();
 
         uint256 updatedLpBalance = lpTokenErc.balanceOf(address(this));
         if (updatedLpBalance - beforeLpBalance != amount) {
@@ -97,57 +99,6 @@ contract ConvexAdapter is IClaimableRewards, ReentrancyGuard {
         //     abi.encode(staking)
         //     );
     }
-
-    // slither-disable-start calls-loop
-    /**
-     * @param gauge The gauge to claim rewards from
-     */
-    function claimRewards(address gauge) public nonReentrant returns (uint256[] memory, IERC20[] memory) {
-        if (gauge == address(0)) revert TokenAddressZero();
-
-        address account = address(this);
-
-        IBaseRewardPool rewardPool = IBaseRewardPool(gauge);
-        uint256 extraRewardsLength = rewardPool.extraRewardsLength();
-
-        uint256[] memory balancesBefore = new uint256[](extraRewardsLength + 1);
-        uint256[] memory amountsClaimed = new uint256[](extraRewardsLength + 1);
-        IERC20[] memory rewardTokens = new IERC20[](extraRewardsLength + 1);
-
-        // add pool rewards tokens and extra rewards tokens to rewardTokens array
-        IERC20 rewardToken = rewardPool.rewardToken();
-        rewardTokens[extraRewardsLength] = rewardToken;
-        if (extraRewardsLength > 0) {
-            for (uint256 i = 0; i < extraRewardsLength; ++i) {
-                address extraReward = rewardPool.extraRewards(i);
-                rewardTokens[i] = IBaseRewardPool(extraReward).rewardToken();
-            }
-        }
-
-        // get balances before
-        uint256 tokensLength = rewardTokens.length;
-        for (uint256 i = 0; i < tokensLength; ++i) {
-            balancesBefore[i] = rewardTokens[i].balanceOf(account);
-        }
-
-        // claim rewards
-        bool result = rewardPool.getReward(account, true);
-        if (!result) {
-            revert ClaimRewardsFailed();
-        }
-
-        // get balances after and calculate amounts claimed
-        for (uint256 i = 0; i < tokensLength; ++i) {
-            uint256 balance = rewardTokens[i].balanceOf(account);
-
-            amountsClaimed[i] = balance - balancesBefore[i];
-        }
-
-        emit RewardsClaimed(rewardTokens, amountsClaimed);
-
-        return (amountsClaimed, rewardTokens);
-    }
-    // slither-disable-end calls-loop
 
     /// @dev Separate function to avoid stack-too-deep errors
     function _runDeposit(IConvexBooster booster, uint256 poolId, uint256 amount) private {

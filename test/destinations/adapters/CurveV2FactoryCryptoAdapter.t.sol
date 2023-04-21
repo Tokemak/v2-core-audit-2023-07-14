@@ -33,24 +33,6 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         bool useEth;
     }
 
-    event DeployLiquidity(
-        uint256[] amountsDeposited,
-        address[] tokens,
-        uint256 lpMintAmount,
-        uint256 lpShare,
-        uint256 lpTotalSupply,
-        bytes extraData
-    );
-
-    event WithdrawLiquidity(
-        uint256[] amountsWithdrawn,
-        address[] tokens,
-        uint256 lpBurnAmount,
-        uint256 lpShare,
-        uint256 lpTotalSupply,
-        bytes extraData
-    );
-
     function setUp() public {
         mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"));
         vm.selectFork(mainnetFork);

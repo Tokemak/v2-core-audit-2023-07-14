@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { Test } from "forge-std/Test.sol";
+import "forge-std/Test.sol";
 
-import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
-import { ConvexArbitrumAdapter } from "../../src/rewards/ConvexArbitrumAdapter.sol";
-import { IClaimableRewards } from "../../src/interfaces/rewards/IClaimableRewards.sol";
-import { CRV_ARBITRUM, CVX_ARBITRUM, CONVEX_BOOSTER } from "../utils/Addresses.sol";
-import { IConvexBoosterArbitrum } from "../../src/interfaces/external/convex/IConvexBoosterArbitrum.sol";
-import { IConvexRewardPool } from "../../src/interfaces/external/convex/IConvexRewardPool.sol";
+import "../../../../src/destinations/adapters/rewards/ConvexArbitrumRewardsAdapter.sol";
+import "../../../../src/interfaces/destinations/IClaimableRewardsAdapter.sol";
+import "../../../../src/interfaces/external/convex/IConvexBoosterArbitrum.sol";
+import "../../../../src/interfaces/external/convex/IConvexRewardPool.sol";
+import { CRV_ARBITRUM, CVX_ARBITRUM, CONVEX_BOOSTER } from "../../../utils/Addresses.sol";
 
 // solhint-disable func-name-mixedcase
-contract ConvexAdapterArbitrumTest is Test {
-    ConvexArbitrumAdapter private adapter;
+contract ConvexArbitrumRewardsAdapterTest is Test {
+    ConvexArbitrumRewardsAdapter private adapter;
 
     IConvexBoosterArbitrum private convexBooster = IConvexBoosterArbitrum(CONVEX_BOOSTER);
 
@@ -22,11 +22,11 @@ contract ConvexAdapterArbitrumTest is Test {
         uint256 forkId = vm.createFork(endpoint, 65_506_618);
         vm.selectFork(forkId);
 
-        adapter = new ConvexArbitrumAdapter();
+        adapter = new ConvexArbitrumRewardsAdapter();
     }
 
     function test_Revert_IfAddressZero() public {
-        vm.expectRevert(IClaimableRewards.TokenAddressZero.selector);
+        vm.expectRevert(IClaimableRewardsAdapter.TokenAddressZero.selector);
         adapter.claimRewards(address(0));
     }
 
@@ -67,7 +67,7 @@ contract ConvexAdapterArbitrumTest is Test {
         assertEq(rewardsToken.length, 2);
         assertEq(address(rewardsToken[0]), CRV_ARBITRUM);
         assertEq(address(rewardsToken[1]), CVX_ARBITRUM);
-        assertTrue(amountsClaimed[0] > 0);
+        assertEq(amountsClaimed[0] > 0, true);
         assertEq(amountsClaimed[1], 0);
     }
 
