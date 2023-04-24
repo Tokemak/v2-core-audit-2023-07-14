@@ -17,7 +17,7 @@ contract AuraAdapterTest is Test {
     IConvexBooster private convexBooster = IConvexBooster(AURA_BOOSTER);
 
     function setUp() public {
-        string memory endpoint = vm.envString("TEST_ALCHEMY_MAINNET_RPC_URL");
+        string memory endpoint = vm.envString("MAINNET_RPC_URL");
         uint256 forkId = vm.createFork(endpoint, 16_731_638);
         vm.selectFork(forkId);
 
