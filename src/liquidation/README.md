@@ -2,29 +2,24 @@
 
 The primary goal of this process is to claim rewards for each Vault. Once rewards are claimed, they are sent to the Liquidator Row contract for subsequent liquidation.
 
-Sequence diagram: https://app.diagrams.net/#G1tO09VdO5BIaHqEBGVZ2ld6wF_25szZdj
+Sequence diagram: https://app.diagrams.net/#G1nVeX6V3yy8ODWu_YAusSSB_PQs-kDlXA
 
 ### Process
 
 The Autotask cloud function is triggered and performs the following steps:
 
--   Calls the Claimer contract with the list of Vault addresses.
--   The Claimer contract iterates through each Vault address and calls the claimRewards function.
+-   Calls the Liquidator Row contract with the list of Vault addresses.
+-   The Liquidator Row contract iterates through each Vault address and calls the claimRewards function and then call the \_updateBalance function.
 
 For each Vault, the claimRewards function performs the following steps:
 
 -   Calls the RewardAdapter's claimRewards function, which claims the rewards from the external pool contract (e.g., Convex, Curve, or Balancer).
 -   For each claimed asset:
     -   Transfers the claimed rewards to the Liquidator Row contract using IERC20(claimedAsset).transfer(liquidatorRow, amount).
-    -   Calls the Liquidator Row's updateBalances function to update the balance information for the claimed assets.
 
 After the claiming process, the liquidation process takes place, which converts the claimed assets into a target asset (e.g., WETH) and updates the Vault balances accordingly.
 
 ### Components
-
-#### Claimer
-
-The Claimer contract acts as an orchestrator for the claiming process. Its primary function is to trigger the claimRewards function for each Vault contract provided in the parameter.
 
 #### Vaults
 
@@ -41,7 +36,10 @@ This component implements the IClaimableRewardsAdapter interface and serves as a
 
 #### Liquidator Row
 
-The Liquidator Row is the smart contract responsible for liquidating reward tokens into another asset, such as WETH. After the Vault claims rewards using the RewardAdapter, it transfers the rewards to the Liquidator Row. The Liquidator Row maintains a record of each vault's balances, enabling it to accurately distribute the liquidated assets (e.g., WETH) back to the appropriate vaults in proportion to their respective balances.
+The Liquidator Row contract:
+
+-   acts as an orchestrator for the claiming process. Its primary function is to trigger the claimRewards function for each Vault contract provided in the parameter.
+-   is the smart contract responsible for liquidating reward tokens into another asset, such as WETH. After the Vault claims rewards using the RewardAdapter, it transfers the rewards to the Liquidator Row. The Liquidator Row maintains a record of each vault's balances, enabling it to accurately distribute the liquidated assets (e.g., WETH) back to the appropriate vaults in proportion to their respective balances.
 
 ---
 
