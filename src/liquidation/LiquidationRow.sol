@@ -15,6 +15,7 @@ import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSe
 import { Address } from "openzeppelin-contracts/utils/Address.sol";
 import { IAsyncSwapper, SwapParams } from "../interfaces/liquidation/IAsyncSwapper.sol";
 import { ILiquidationRow } from "../interfaces/liquidation/ILiquidationRow.sol";
+import { IVaultClaimableRewards } from "../interfaces/rewards/IVaultClaimableRewards.sol";
 
 contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
     using Address for address;
@@ -78,26 +79,20 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
     }
 
     /// @inheritdoc ILiquidationRow
-    function updateBalances(
-        address[] memory vaultAddresses,
-        address[][] memory rewardsTokensList,
-        uint256[][] memory rewardsTokensAmounts
-    ) public {
-        for (uint256 i = 0; i < vaultAddresses.length; i++) {
-            address vaultAddress = vaultAddresses[i];
-            address[] memory rewardsTokens = rewardsTokensList[i];
-            uint256[] memory rewardsTokensAmount = rewardsTokensAmounts[i];
+    function claimsVaultRewards(IVaultClaimableRewards[] memory vaults) public nonReentrant {
+        for (uint256 i = 0; i < vaults.length; i++) {
+            if (address(vaults[i]) == address(0)) revert ZeroAddress();
+            IVaultClaimableRewards vault = vaults[i];
+            // slither-disable-next-line calls-loop
+            (uint256[] memory amounts, IERC20[] memory tokens) = vault.claimRewards();
 
-            if (rewardsTokens.length != rewardsTokensAmount.length) {
-                revert LengthsMismatch();
-            }
-
-            for (uint256 j = 0; j < rewardsTokens.length; j++) {
-                address tokenAddress = rewardsTokens[j];
-                uint256 tokenAmount = rewardsTokensAmount[j];
-
-                if (tokenAmount > 0) {
-                    _updateBalance(tokenAddress, vaultAddress, tokenAmount);
+            uint256 tokensLength = tokens.length;
+            for (uint256 j = 0; j < tokensLength; j++) {
+                IERC20 token = tokens[j];
+                uint256 amount = amounts[j];
+                if (amount > 0) {
+                    // slither-disable-next-line reentrancy-no-eth
+                    _updateBalance(address(token), address(vault), amount);
                 }
             }
         }
@@ -231,7 +226,7 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
      * @param vaultAddress The address of the vault
      * @param balance The amount of the token to be updated
      */
-    function _updateBalance(address tokenAddress, address vaultAddress, uint256 balance) private {
+    function _updateBalance(address tokenAddress, address vaultAddress, uint256 balance) internal {
         uint256 currentBalance = balances[tokenAddress][vaultAddress];
         uint256 totalBalance = totalTokenBalances[tokenAddress];
         uint256 newTotalBalance = totalBalance + balance;

@@ -9,9 +9,10 @@ import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSe
 import { LiquidationRow } from "../../src/liquidation/LiquidationRow.sol";
 import { IAsyncSwapper, SwapParams } from "../../src/interfaces/liquidation/IAsyncSwapper.sol";
 import { ILiquidationRow } from "../../src/interfaces/liquidation/ILiquidationRow.sol";
-import { ZERO_EX_MAINNET, PRANK_ADDRESS, CVX_MAINNET, WETH_MAINNET } from "../utils/Addresses.sol";
 import { BaseAsyncSwapper } from "../../src/liquidation/BaseAsyncSwapper.sol";
-import { MockERC20 } from "..//mocks/MockERC20.sol";
+import { IVaultClaimableRewards } from "../../src/interfaces/rewards/IVaultClaimableRewards.sol";
+import { ZERO_EX_MAINNET, PRANK_ADDRESS, CVX_MAINNET, WETH_MAINNET } from "../utils/Addresses.sol";
+import { MockERC20 } from "../mocks/MockERC20.sol";
 
 contract AsyncSwapperMock is BaseAsyncSwapper {
     MockERC20 private immutable targetToken;
@@ -29,9 +30,52 @@ contract AsyncSwapperMock is BaseAsyncSwapper {
     }
 }
 
+contract MockVault is IVaultClaimableRewards {
+    function claimRewards() external override returns (uint256[] memory, IERC20[] memory) {
+        // delegatecall the Reward Adapater associated to it
+    }
+}
+
+/**
+ * @notice This contract is used to test the LiquidationRow contract and specifically the _updateBalance private
+ * function
+ */
+contract LiquidationRowWrapper is LiquidationRow {
+    /**
+     * @notice Update the balances of the vaults
+     * @param vaultAddresses An array of vault addresses
+     * @param rewardsTokensList An array of arrays containing the reward tokens for each vault
+     * @param rewardsTokensAmounts An array of arrays containing the reward token amounts for each vault
+     */
+    function updateBalances(
+        address[] memory vaultAddresses,
+        address[][] memory rewardsTokensList,
+        uint256[][] memory rewardsTokensAmounts
+    ) public {
+        for (uint256 i = 0; i < vaultAddresses.length; i++) {
+            address vaultAddress = vaultAddresses[i];
+            address[] memory rewardsTokens = rewardsTokensList[i];
+            uint256[] memory rewardsTokensAmount = rewardsTokensAmounts[i];
+
+            if (rewardsTokens.length != rewardsTokensAmount.length) {
+                revert LengthsMismatch();
+            }
+
+            for (uint256 j = 0; j < rewardsTokens.length; j++) {
+                address tokenAddress = rewardsTokens[j];
+                uint256 tokenAmount = rewardsTokensAmount[j];
+
+                if (tokenAmount > 0) {
+                    _updateBalance(tokenAddress, vaultAddress, tokenAmount);
+                }
+            }
+        }
+    }
+}
+
 // solhint-disable func-name-mixedcase
 contract LiquidationRowTest is Test {
-    LiquidationRow private liquidationRow;
+    LiquidationRowWrapper private liquidationRow;
     AsyncSwapperMock private asyncSwapper;
     MockERC20 private targetToken;
     MockERC20 private rewardToken;
@@ -42,7 +86,7 @@ contract LiquidationRowTest is Test {
     address private vault2 = vm.addr(2);
 
     function setUp() public {
-        liquidationRow = new LiquidationRow();
+        liquidationRow = new LiquidationRowWrapper();
         targetToken = new MockERC20();
         rewardToken = new MockERC20();
         rewardToken2 = new MockERC20();
@@ -51,6 +95,44 @@ contract LiquidationRowTest is Test {
 
         liquidationRow.addAllowedSwapper(address(asyncSwapper));
     }
+
+    /*  
+        ----------------------------------------------------------------------
+        test_Revert_claimRewards_IfAVaultHasZeroAddress and test_claimRewards
+        only tests the claimRewards function but only checks if the vault.claimRewards() function is being called.
+        The _updateBalance function is tested in other parts of the contract.
+        ----------------------------------------------------------------------
+    */
+
+    function test_Revert_claimRewards_IfAVaultHasZeroAddress() public {
+        IVaultClaimableRewards[] memory vaults = new IVaultClaimableRewards[](1);
+        vaults[0] = IVaultClaimableRewards(address(0));
+
+        vm.expectRevert(ILiquidationRow.ZeroAddress.selector);
+        liquidationRow.claimsVaultRewards(vaults);
+    }
+
+    /**
+     * @notice Test the claimRewards function.
+     * @dev This test checks if the vault.claimRewards() function is being called.
+     * The _updateBalance function is tested in other parts of the contract.
+     */
+    function test_claimRewards() public {
+        IVaultClaimableRewards[] memory vaults = new IVaultClaimableRewards[](2);
+        vaults[0] = IVaultClaimableRewards(new MockVault());
+        vaults[1] = IVaultClaimableRewards(new MockVault());
+
+        vm.expectCall(address(vaults[0]), abi.encodeCall(vaults[0].claimRewards, ()));
+        vm.expectCall(address(vaults[1]), abi.encodeCall(vaults[0].claimRewards, ()));
+
+        liquidationRow.claimsVaultRewards(vaults);
+    }
+
+    /*  
+        ----------------------------------------------------------------------
+        Following tests only focuses on the _updateBalance function.
+        ----------------------------------------------------------------------
+    */
 
     /**
      * @notice Test if a revert occurs when there's a mismatch in the lengths of input arrays.
@@ -186,7 +268,7 @@ contract LiquidationRowTest is Test {
     /**
      * @notice Test the updateBalances function with multiple vaults.
      */
-    function test_updateBalancesWithMultipleVaults() public {
+    function test_updateBalancesForMultipleVaults() public {
         (address[] memory vaultAddresses, address[][] memory rewardsTokensList, uint256[][] memory rewardsTokensAmounts)
         = get_update_balance_multiple_vaults();
 

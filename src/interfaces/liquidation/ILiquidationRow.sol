@@ -2,6 +2,7 @@
 pragma solidity 0.8.17;
 
 import { SwapParams } from "./IAsyncSwapper.sol";
+import { IVaultClaimableRewards } from "../rewards/IVaultClaimableRewards.sol";
 
 interface ILiquidationRow {
     event SwapperAdded(address indexed swapper);
@@ -9,6 +10,7 @@ interface ILiquidationRow {
     event BalanceUpdated(address indexed token, address indexed vault, uint256 balance);
     event VaultLiquidated(address indexed fromToken, address indexed toToken, uint256 totalAmountSwapped);
 
+    error ZeroAddress();
     error LengthsMismatch();
     error InsufficientSellAmount();
     error SellAmountMismatch();
@@ -21,6 +23,12 @@ interface ILiquidationRow {
     error VaultNotFound();
     error TokenAlreadyAdded();
     error TokenNotFound();
+
+    /**
+     * @notice Claim rewards from a list of vaults
+     * @param vaults The list of vaults to claim rewards from
+     */
+    function claimsVaultRewards(IVaultClaimableRewards[] memory vaults) external;
 
     /**
      * @notice Get the list of allowed swappers
@@ -46,18 +54,6 @@ interface ILiquidationRow {
      * @return A boolean indicating if the swapper is allowed
      */
     function isAllowedSwapper(address swapper) external view returns (bool);
-
-    /**
-     * @notice Update the balances of the vaults
-     * @param vaultAddresses An array of vault addresses
-     * @param rewardsTokensList An array of arrays containing the reward tokens for each vault
-     * @param rewardsTokensAmounts An array of arrays containing the reward token amounts for each vault
-     */
-    function updateBalances(
-        address[] memory vaultAddresses,
-        address[][] memory rewardsTokensList,
-        uint256[][] memory rewardsTokensAmounts
-    ) external;
 
     /**
      * @notice Get the balance of a specific token and vault
