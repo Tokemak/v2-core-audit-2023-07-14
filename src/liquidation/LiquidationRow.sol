@@ -82,6 +82,7 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
     function claimsVaultRewards(IVaultClaimableRewards[] memory vaults) public nonReentrant {
         for (uint256 i = 0; i < vaults.length; i++) {
             if (address(vaults[i]) == address(0)) revert ZeroAddress();
+            // @todo: Check if the vault is in our registry
             IVaultClaimableRewards vault = vaults[i];
             // slither-disable-next-line calls-loop
             (uint256[] memory amounts, IERC20[] memory tokens) = vault.claimRewards();
@@ -92,7 +93,7 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
                 uint256 amount = amounts[j];
                 if (amount > 0) {
                     // slither-disable-next-line reentrancy-no-eth
-                    _updateBalance(address(token), address(vault), amount);
+                    _increaseBalance(address(token), address(vault), amount);
                 }
             }
         }
@@ -128,19 +129,12 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
         uint256 vaultsToLiquidateLength = vaultsToLiquidate.length;
         LiquidationData memory data = LiquidationData(0, 0, 0, 0, 0, new uint256[](vaultsToLiquidateLength));
 
-        data.totalBalanceToLiquidate = _getVaultsTotalBalance(fromToken, vaultsToLiquidate);
-
-        if (data.totalBalanceToLiquidate == 0) {
-            revert NothingToLiquidate();
-        }
-
-        if (data.totalBalanceToLiquidate != params.sellAmount) {
-            revert SellAmountMismatch();
-        }
+        data.totalBalanceToLiquidate = 0;
 
         for (uint256 i = 0; i < vaultsToLiquidateLength; i++) {
             address vaultAddress = vaultsToLiquidate[i];
             uint256 vaultBalance = balances[fromToken][vaultAddress];
+            data.totalBalanceToLiquidate += vaultBalance;
             data.vaultsBalances[i] = vaultBalance;
             // Update the total balance for the token
             totalTokenBalances[fromToken] -= vaultBalance;
@@ -153,9 +147,16 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
             }
         }
 
+        if (data.totalBalanceToLiquidate == 0) {
+            revert NothingToLiquidate();
+        }
+
+        if (data.totalBalanceToLiquidate != params.sellAmount) {
+            revert SellAmountMismatch();
+        }
+
         // Check if the token still has any other vaults
         if (tokenVaults[fromToken].length() == 0) {
-            delete tokenVaults[fromToken];
             bool success = rewardTokens.remove(fromToken);
             if (!success) {
                 revert TokenNotFound();
@@ -174,38 +175,15 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
 
         for (uint256 i = 0; i < vaultsToLiquidateLength; i++) {
             address vaultAddress = vaultsToLiquidate[i];
-
             uint256 vaultBalance = data.vaultsBalances[i];
 
-            data.pct = vaultBalance * 1e18 / data.totalBalanceToLiquidate;
-            data.amount = data.balanceDiff * data.pct / 1e18;
+            data.pct = vaultBalance * data.totalBalanceToLiquidate;
+            data.amount = data.balanceDiff * vaultBalance / data.totalBalanceToLiquidate;
 
             IERC20(params.buyTokenAddress).safeTransfer(vaultAddress, data.amount);
         }
 
         emit VaultLiquidated(fromToken, params.buyTokenAddress, data.balanceDiff);
-    }
-
-    /**
-     * @notice Get the total balance for the vaults
-     * @param tokenAddress The address of the token
-     * @param vaultsToLiquidate The list of vaults to liquidate
-     */
-
-    function _getVaultsTotalBalance(
-        address tokenAddress,
-        address[] memory vaultsToLiquidate
-    ) private view returns (uint256) {
-        uint256 vaultsToLiquidateLength = vaultsToLiquidate.length;
-        uint256 totalBalanceToLiquidate = 0;
-
-        for (uint256 i = 0; i < vaultsToLiquidateLength; i++) {
-            address vaultAddress = vaultsToLiquidate[i];
-            uint256 vaultBalance = balances[tokenAddress][vaultAddress];
-            totalBalanceToLiquidate += vaultBalance;
-        }
-
-        return totalBalanceToLiquidate;
     }
 
     /**
@@ -226,7 +204,7 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
      * @param vaultAddress The address of the vault
      * @param balance The amount of the token to be updated
      */
-    function _updateBalance(address tokenAddress, address vaultAddress, uint256 balance) internal {
+    function _increaseBalance(address tokenAddress, address vaultAddress, uint256 balance) internal {
         uint256 currentBalance = balances[tokenAddress][vaultAddress];
         uint256 totalBalance = totalTokenBalances[tokenAddress];
         uint256 newTotalBalance = totalBalance + balance;

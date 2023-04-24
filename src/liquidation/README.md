@@ -9,7 +9,7 @@ Sequence diagram: https://app.diagrams.net/#G1nVeX6V3yy8ODWu_YAusSSB_PQs-kDlXA
 The Autotask cloud function is triggered and performs the following steps:
 
 -   Calls the Liquidator Row contract with the list of Vault addresses.
--   The Liquidator Row contract iterates through each Vault address and calls the claimRewards function and then call the \_updateBalance function.
+-   The Liquidator Row contract iterates through each Vault address and calls the claimRewards function and then call the \_increaseBalance function.
 
 For each Vault, the claimRewards function performs the following steps:
 

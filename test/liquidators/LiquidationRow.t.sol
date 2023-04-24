@@ -37,7 +37,7 @@ contract MockVault is IVaultClaimableRewards {
 }
 
 /**
- * @notice This contract is used to test the LiquidationRow contract and specifically the _updateBalance private
+ * @notice This contract is used to test the LiquidationRow contract and specifically the _increaseBalance private
  * function
  */
 contract LiquidationRowWrapper is LiquidationRow {
@@ -66,7 +66,7 @@ contract LiquidationRowWrapper is LiquidationRow {
                 uint256 tokenAmount = rewardsTokensAmount[j];
 
                 if (tokenAmount > 0) {
-                    _updateBalance(tokenAddress, vaultAddress, tokenAmount);
+                    _increaseBalance(tokenAddress, vaultAddress, tokenAmount);
                 }
             }
         }
@@ -100,7 +100,7 @@ contract LiquidationRowTest is Test {
         ----------------------------------------------------------------------
         test_Revert_claimRewards_IfAVaultHasZeroAddress and test_claimRewards
         only tests the claimRewards function but only checks if the vault.claimRewards() function is being called.
-        The _updateBalance function is tested in other parts of the contract.
+        The _increaseBalance function is tested in other parts of the contract.
         ----------------------------------------------------------------------
     */
 
@@ -115,7 +115,7 @@ contract LiquidationRowTest is Test {
     /**
      * @notice Test the claimRewards function.
      * @dev This test checks if the vault.claimRewards() function is being called.
-     * The _updateBalance function is tested in other parts of the contract.
+     * The _increaseBalance function is tested in other parts of the contract.
      */
     function test_claimRewards() public {
         IVaultClaimableRewards[] memory vaults = new IVaultClaimableRewards[](2);
@@ -130,7 +130,7 @@ contract LiquidationRowTest is Test {
 
     /*  
         ----------------------------------------------------------------------
-        Following tests only focuses on the _updateBalance function.
+        Following tests only focuses on the _increaseBalance function.
         ----------------------------------------------------------------------
     */
 
@@ -268,7 +268,7 @@ contract LiquidationRowTest is Test {
     /**
      * @notice Test the updateBalances function with multiple vaults.
      */
-    function test_updateBalancesForMultipleVaults() public {
+    function test_increaseBalancesForMultipleVaults() public {
         (address[] memory vaultAddresses, address[][] memory rewardsTokensList, uint256[][] memory rewardsTokensAmounts)
         = get_update_balance_multiple_vaults();
 
@@ -415,7 +415,7 @@ contract LiquidationRowTest is Test {
     /**
      * @notice Test the updateBalances function when merging balances for a single vault.
      */
-    function test_updateBalances_MergeSuccessful() public {
+    function test_increaseBalances_MergeSuccessful() public {
         (address[] memory vaultAddresses, address[][] memory rewardsTokensList, uint256[][] memory rewardsTokensAmounts)
         = get_update_balance_merge_data();
 
