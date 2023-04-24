@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+// solhint-disable not-rely-on-time
 pragma solidity 0.8.17;
 
 import "forge-std/Test.sol";

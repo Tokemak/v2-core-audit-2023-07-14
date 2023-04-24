@@ -56,14 +56,14 @@ contract VelodromeStakingAdapterTest is Test {
 
         uint256[] memory stakeAmounts = new uint256[](1);
         stakeAmounts[0] = lpToken.balanceOf(address(adapter));
-        adapter.stakeLPs(stakeAmounts, minLpMintAmount, pool, tokenIds);
+        adapter.stakeLPs(stakeAmounts, tokenIds, minLpMintAmount, pool);
 
         uint256 afterStakeLpBalance = gauge.balanceOf(address(adapter));
 
         assertTrue(afterStakeLpBalance > 0 && afterStakeLpBalance > preStakeLpBalance);
 
         // Unstake LPs
-        adapter.unstakeLPs(stakeAmounts, afterStakeLpBalance, pool, tokenIds);
+        adapter.unstakeLPs(stakeAmounts, tokenIds, afterStakeLpBalance, pool);
 
         uint256 afterUnstakeLpBalance = gauge.balanceOf(address(adapter));
 
@@ -90,14 +90,14 @@ contract VelodromeStakingAdapterTest is Test {
 
         uint256[] memory stakeAmounts = new uint256[](1);
         stakeAmounts[0] = lpToken.balanceOf(address(adapter));
-        adapter.stakeLPs(stakeAmounts, minLpMintAmount, pool, tokenIds);
+        adapter.stakeLPs(stakeAmounts, tokenIds, minLpMintAmount, pool);
 
         uint256 afterStakeLpBalance = gauge.balanceOf(address(adapter));
 
         assertTrue(afterStakeLpBalance > 0 && afterStakeLpBalance > preStakeLpBalance);
 
         // Unstake LPs
-        adapter.unstakeLPs(stakeAmounts, afterStakeLpBalance, pool, tokenIds);
+        adapter.unstakeLPs(stakeAmounts, tokenIds, afterStakeLpBalance, pool);
 
         uint256 afterUnstakeLpBalance = gauge.balanceOf(address(adapter));
 
@@ -124,14 +124,14 @@ contract VelodromeStakingAdapterTest is Test {
 
         uint256[] memory stakeAmounts = new uint256[](1);
         stakeAmounts[0] = lpToken.balanceOf(address(adapter));
-        adapter.stakeLPs(stakeAmounts, minLpMintAmount, pool, tokenIds);
+        adapter.stakeLPs(stakeAmounts, tokenIds, minLpMintAmount, pool);
 
         uint256 afterStakeLpBalance = gauge.balanceOf(address(adapter));
 
         assertTrue(afterStakeLpBalance > 0 && afterStakeLpBalance > preStakeLpBalance);
 
         // Unstake LPs
-        adapter.unstakeLPs(stakeAmounts, afterStakeLpBalance, pool, tokenIds);
+        adapter.unstakeLPs(stakeAmounts, tokenIds, afterStakeLpBalance, pool);
 
         uint256 afterUnstakeLpBalance = gauge.balanceOf(address(adapter));
 
@@ -158,14 +158,14 @@ contract VelodromeStakingAdapterTest is Test {
 
         uint256[] memory stakeAmounts = new uint256[](1);
         stakeAmounts[0] = lpToken.balanceOf(address(adapter));
-        adapter.stakeLPs(stakeAmounts, minLpMintAmount, pool, tokenIds);
+        adapter.stakeLPs(stakeAmounts, tokenIds, minLpMintAmount, pool);
 
         uint256 afterStakeLpBalance = gauge.balanceOf(address(adapter));
 
         assertTrue(afterStakeLpBalance > 0 && afterStakeLpBalance > preStakeLpBalance);
 
         // Unstake LPs
-        adapter.unstakeLPs(stakeAmounts, afterStakeLpBalance, pool, tokenIds);
+        adapter.unstakeLPs(stakeAmounts, tokenIds, afterStakeLpBalance, pool);
 
         uint256 afterUnstakeLpBalance = gauge.balanceOf(address(adapter));
 
@@ -192,14 +192,14 @@ contract VelodromeStakingAdapterTest is Test {
 
         uint256[] memory stakeAmounts = new uint256[](1);
         stakeAmounts[0] = lpToken.balanceOf(address(adapter));
-        adapter.stakeLPs(stakeAmounts, minLpMintAmount, pool, tokenIds);
+        adapter.stakeLPs(stakeAmounts, tokenIds, minLpMintAmount, pool);
 
         uint256 afterStakeLpBalance = gauge.balanceOf(address(adapter));
 
         assertTrue(afterStakeLpBalance > 0 && afterStakeLpBalance > preStakeLpBalance);
 
         // Unstake LPs
-        adapter.unstakeLPs(stakeAmounts, afterStakeLpBalance, pool, tokenIds);
+        adapter.unstakeLPs(stakeAmounts, tokenIds, afterStakeLpBalance, pool);
 
         uint256 afterUnstakeLpBalance = gauge.balanceOf(address(adapter));
 

@@ -26,6 +26,7 @@ contract MaverickAdapterTest is Test {
         IPool.RemoveLiquidityParams[] maverickParams;
     }
 
+    // solhint-disable-next-line var-name-mixedcase
     uint256 private INITIAL_TOKEN_ID = 0;
 
     uint256 private mainnetFork;

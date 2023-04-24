@@ -9,8 +9,10 @@ import "../../../interfaces/external/convex/IConvexBooster.sol";
 import "../../../interfaces/destinations/IStakingAdapter.sol";
 import "../../../libs/LibAdapter.sol";
 
-// TODO: clenup
 contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
+    event DeployLiquidity(address lpToken, address staking, uint256 poolId, uint256 amount);
+    event WithdrawLiquidity(address lpToken, address staking, uint256 amount);
+
     error InvalidAddress();
     error MustBeGreaterThanZero();
     error BalanceMustIncrease();
@@ -21,6 +23,7 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
 
     /// @notice Deposits and stakes Curve LP tokens to Convex
     /// @dev Calls to external contract
+    /// @param booster Convex Booster address
     /// @param lpToken Curve LP token to deposit
     /// @param staking Convex reward contract associated with the Curve LP token
     /// @param poolId Convex poolId for the associated Curve LP token
@@ -34,6 +37,7 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
     ) external nonReentrant {
         // _validateToken(lpToken);  TODO: Call to Token Registry
 
+        if (address(booster) == address(0)) revert InvalidAddress();
         if (staking == address(0)) revert InvalidAddress();
         if (amount == 0) revert MustBeGreaterThanZero();
 
@@ -42,7 +46,6 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
         IERC20 lpTokenErc = IERC20(lpToken);
         // _validateToken(lpTokenErc); TODO: Call to Token Registry
         LibAdapter._approve(lpTokenErc, address(booster), amount);
-        uint256 lpBalanceBefore = lpTokenErc.balanceOf(address(this));
 
         IBaseRewardPool rewards = IBaseRewardPool(staking);
         uint256 rewardsBeforeBalance = rewards.balanceOf(address(this));
@@ -53,14 +56,7 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
             revert BalanceMustIncrease();
         }
 
-        // emit DeployLiquidity(
-        //     LibController._toDynamicArray(lpBalanceBefore - lpTokenErc.balanceOf(address(this))),
-        //     LibController._toDynamicArray(lpToken),
-        //     amount,
-        //     rewards.balanceOf(address(this)),
-        //     rewards.totalSupply(),
-        //     abi.encode(poolId, staking)
-        //     );
+        emit DeployLiquidity(lpToken, staking, poolId, amount);
     }
 
     /// @notice Withdraws a Curve LP token from Convex
@@ -78,7 +74,6 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
         uint256 beforeLpBalance = lpTokenErc.balanceOf(address(this));
 
         IBaseRewardPool rewards = IBaseRewardPool(staking);
-        uint256 rewardsBeforeBalance = rewards.balanceOf(address(this));
 
         bool success = rewards.withdrawAndUnwrap(amount, false);
         if (!success) revert withdrawStakeFailed();
@@ -88,16 +83,7 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
             revert BalanceMustIncrease();
         }
 
-        uint256 rewardsAfterBalance = rewards.balanceOf(address(this));
-
-        // emit WithdrawLiquidity(
-        //     LibController._toDynamicArray(updatedLpBalance - beforeLpBalance),
-        //     LibController._toDynamicArray(lpToken),
-        //     rewardsBeforeBalance - rewardsAfterBalance,
-        //     rewardsAfterBalance,
-        //     rewards.totalSupply(),
-        //     abi.encode(staking)
-        //     );
+        emit WithdrawLiquidity(lpToken, staking, amount);
     }
 
     /// @dev Separate function to avoid stack-too-deep errors

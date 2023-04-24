@@ -52,15 +52,20 @@ contract VelodromeStakingAdapter is IStakingAdapter, ReentrancyGuard {
         voter = IVoter(_voter);
     }
 
-    // TODO: add doc 
+    /// @notice Stakes tokens to Velodrome
+    /// @dev Calls to external contract
+    /// @param amounts amounts of corresponding tokenIds to add
+    /// @param tokenIds ids for the associated LP tokens
+    /// @param minLpMintAmount min amount to reach in result of staking (for all tokens in summary)
+    /// @param pool corresponding pool of the deposited tokens
     function stakeLPs(
         uint256[] calldata amounts,
+        uint256[] calldata tokenIds,
         uint256 minLpMintAmount,
-        address pool,
-        uint256[] calldata tokensIds
+        address pool
     ) public nonReentrant {
         if (minLpMintAmount == 0) revert MustBeMoreThanZero();
-        if (amounts.length == 0 || amounts.length != tokensIds.length) revert ArraysLengthMismatch();
+        if (amounts.length == 0 || amounts.length != tokenIds.length) revert ArraysLengthMismatch();
 
         address gaugeAddress = voter.gauges(pool);
         IGauge gauge = IGauge(gaugeAddress);
@@ -70,7 +75,7 @@ contract VelodromeStakingAdapter is IStakingAdapter, ReentrancyGuard {
         for (uint256 i = 0; i < amounts.length; ++i) {
             // _validateToken(IERC20(gauge.stake()); TODO: Call to Token Registry
             LibAdapter._approve(IERC20(gauge.stake()), address(gauge), amounts[i]);
-            gauge.deposit(amounts[i], tokensIds[i]);
+            gauge.deposit(amounts[i], tokenIds[i]);
         }
         uint256 lpTokensAfter = gauge.balanceOf(address(this));
         uint256 lpTokenAmount = lpTokensAfter - lpTokensBefore;
@@ -78,7 +83,7 @@ contract VelodromeStakingAdapter is IStakingAdapter, ReentrancyGuard {
 
         emit DeployLiquidity(
             amounts,
-            tokensIds,
+            tokenIds,
             [lpTokenAmount, lpTokensAfter, gauge.totalSupply()],
             pool,
             address(gauge),
@@ -86,11 +91,17 @@ contract VelodromeStakingAdapter is IStakingAdapter, ReentrancyGuard {
             );
     }
 
+    /// @notice Stakes tokens to Velodrome
+    /// @dev Calls to external contract
+    /// @param amounts amounts of corresponding tokenIds to add
+    /// @param tokenIds ids for the associated LP tokens
+    /// @param maxLpBurnAmount max amount to burn in result of unstaking (for all tokens in summary)
+    /// @param pool corresponding pool of the deposited tokens
     function unstakeLPs(
         uint256[] calldata amounts,
+        uint256[] calldata tokenIds,
         uint256 maxLpBurnAmount,
-        address pool,
-        uint256[] calldata tokenIds
+        address pool
     ) public nonReentrant {
         if (maxLpBurnAmount == 0) revert MustBeMoreThanZero();
         if (amounts.length == 0 || amounts.length != tokenIds.length) revert ArraysLengthMismatch();
