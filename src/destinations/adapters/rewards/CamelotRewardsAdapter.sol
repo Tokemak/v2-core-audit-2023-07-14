@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import "openzeppelin-contracts/security/ReentrancyGuard.sol";
+import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
-import "../../../interfaces/external/camelot/INFTPool.sol";
-import "../../../interfaces/external/camelot/INFTHandler.sol";
-import "../../../interfaces/destinations/IClaimableRewardsAdapter.sol";
+import { INFTPool } from "../../../interfaces/external/camelot/INFTPool.sol";
+import { INFTHandler } from "../../../interfaces/external/camelot/INFTHandler.sol";
+import { IClaimableRewardsAdapter } from "../../../interfaces/destinations/IClaimableRewardsAdapter.sol";
 
 contract CamelotRewardsAdapter is IClaimableRewardsAdapter, INFTHandler, ReentrancyGuard {
     error WrongOperator(address expected, address actual);

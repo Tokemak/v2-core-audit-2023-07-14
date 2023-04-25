@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import "openzeppelin-contracts/security/ReentrancyGuard.sol";
+import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
-import "../../interfaces/destinations/IPoolAdapter.sol";
-import "../../libs/LibAdapter.sol";
+import { IPoolAdapter } from "../../interfaces/destinations/IPoolAdapter.sol";
+import { LibAdapter } from "../../libs/LibAdapter.sol";
 import { ICryptoSwapPool, IPool } from "../../interfaces/external/curve/ICryptoSwapPool.sol";
 
 contract CurveV2FactoryCryptoAdapter is IPoolAdapter, ReentrancyGuard {

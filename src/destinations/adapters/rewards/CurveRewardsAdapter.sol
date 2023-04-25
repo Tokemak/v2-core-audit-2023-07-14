@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import "openzeppelin-contracts/security/ReentrancyGuard.sol";
+import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
-import "../../../interfaces/external/curve/ILiquidityGaugeV2.sol";
-import "../../../interfaces/destinations/IClaimableRewardsAdapter.sol";
+import { ILiquidityGaugeV2 } from "../../../interfaces/external/curve/ILiquidityGaugeV2.sol";
+import { IClaimableRewardsAdapter } from "../../../interfaces/destinations/IClaimableRewardsAdapter.sol";
 
 contract CurveRewardsAdapter is IClaimableRewardsAdapter, ReentrancyGuard {
     // solhint-disable-next-line var-name-mixedcase

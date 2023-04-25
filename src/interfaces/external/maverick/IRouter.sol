@@ -4,10 +4,10 @@
 
 pragma solidity 0.8.17;
 
-import "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
-import "./IPool.sol";
-import "./IPosition.sol";
+import { IPool } from "./IPool.sol";
+import { IPosition } from "./IPosition.sol";
 
 interface IRouter {
     /// @return Returns the address of the factory

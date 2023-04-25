@@ -2,8 +2,8 @@
 
 pragma solidity 0.8.17;
 
-import "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import "./IAsset.sol";
+import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import { IAsset } from "./IAsset.sol";
 
 /**
  * @dev Full external interface for the Vault core contract - no external or public methods exist in the contract that

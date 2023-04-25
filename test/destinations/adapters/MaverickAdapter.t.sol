@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "forge-std/Test.sol";
-import "forge-std/StdStorage.sol";
+import { Test } from "forge-std/Test.sol";
+import { stdStorage, StdStorage } from "forge-std/StdStorage.sol";
 
-import "../../../src/destinations/adapters/MaverickAdapter.sol";
-import "../../../src/interfaces/destinations/IDestinationRegistry.sol";
-import "../../../src/interfaces/destinations/IDestinationAdapter.sol";
-import "../../../src/interfaces/external/maverick/IPool.sol";
-import "../../../src/interfaces/external/maverick/IRouter.sol";
+import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+
+import { MaverickAdapter } from "../../../src/destinations/adapters/MaverickAdapter.sol";
+import { IDestinationRegistry } from "../../../src/interfaces/destinations/IDestinationRegistry.sol";
+import { IDestinationAdapter } from "../../../src/interfaces/destinations/IDestinationAdapter.sol";
+import { IPool } from "../../../src/interfaces/external/maverick/IPool.sol";
+import { IPosition } from "../../../src/interfaces/external/maverick/IPosition.sol";
+import { IRouter } from "../../../src/interfaces/external/maverick/IRouter.sol";
 import { WSTETH_MAINNET, CBETH_MAINNET, STETH_MAINNET, WETH_MAINNET } from "../../utils/Addresses.sol";
 
 contract MaverickAdapterTest is Test {

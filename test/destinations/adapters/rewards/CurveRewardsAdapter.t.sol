@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 
-import "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
-import "../../../../src/interfaces/external/curve/ICurveStableSwap.sol";
-import "../../../../src/interfaces/external/curve/ILiquidityGaugeV2.sol";
-import "../../../../src/destinations/adapters/rewards/CurveRewardsAdapter.sol";
-import "../../../../src/interfaces/destinations/IClaimableRewardsAdapter.sol";
+import { ICurveStableSwap } from "../../../../src/interfaces/external/curve/ICurveStableSwap.sol";
+import { ILiquidityGaugeV2 } from "../../../../src/interfaces/external/curve/ILiquidityGaugeV2.sol";
+import { CurveRewardsAdapter } from "../../../../src/destinations/adapters/rewards/CurveRewardsAdapter.sol";
+import { IClaimableRewardsAdapter } from "../../../../src/interfaces/destinations/IClaimableRewardsAdapter.sol";
 import { LDO_MAINNET, RETH_MAINNET, WSTETH_MAINNET, STETH_MAINNET } from "../../../utils/Addresses.sol";
 
 // solhint-disable func-name-mixedcase

@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "forge-std/Test.sol";
-import "forge-std/StdStorage.sol";
+import { Test } from "forge-std/Test.sol";
+import { stdStorage, StdStorage } from "forge-std/StdStorage.sol";
 
-import "../../../src/destinations/adapters/CurveV2FactoryCryptoAdapter.sol";
-import "../../../src/interfaces/destinations/IDestinationRegistry.sol";
-import "../../../src/interfaces/destinations/IDestinationAdapter.sol";
+import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+
+import { CurveV2FactoryCryptoAdapter } from "../../../src/destinations/adapters/CurveV2FactoryCryptoAdapter.sol";
+import { IDestinationRegistry } from "../../../src/interfaces/destinations/IDestinationRegistry.sol";
+import { IDestinationAdapter } from "../../../src/interfaces/destinations/IDestinationAdapter.sol";
 import { ICryptoSwapPool, IPool } from "../../../src/interfaces/external/curve/ICryptoSwapPool.sol";
 import {
     PRANK_ADDRESS,

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import "./IDestinationAdapter.sol";
+import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import { IDestinationAdapter } from "./IDestinationAdapter.sol";
 
 interface IClaimableRewardsAdapter is IDestinationAdapter {
     error ClaimRewardsFailed();

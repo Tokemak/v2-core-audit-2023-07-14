@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import "openzeppelin-contracts/security/ReentrancyGuard.sol";
+import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
-import "../../../interfaces/external/beethoven/IRewardsOnlyGauge.sol";
-import "../../../interfaces/external/beethoven/IChildChainStreamer.sol";
-import "../../../interfaces/external/beethoven/IChildChainGaugeRewardHelper.sol";
-import "../../../interfaces/destinations/IClaimableRewardsAdapter.sol";
+import { IRewardsOnlyGauge } from "../../../interfaces/external/beethoven/IRewardsOnlyGauge.sol";
+import { IChildChainStreamer } from "../../../interfaces/external/beethoven/IChildChainStreamer.sol";
+import { IChildChainGaugeRewardHelper } from "../../../interfaces/external/beethoven/IChildChainGaugeRewardHelper.sol";
+import { IClaimableRewardsAdapter } from "../../../interfaces/destinations/IClaimableRewardsAdapter.sol";
 
 contract BeethovenRewardsAdapter is IClaimableRewardsAdapter, ReentrancyGuard {
     // slither-disable-start naming-convention

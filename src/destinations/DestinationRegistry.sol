@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "openzeppelin-contracts/access/Ownable2Step.sol";
+import { Ownable2Step } from "openzeppelin-contracts/access/Ownable2Step.sol";
 
-import "../interfaces/destinations/IDestinationRegistry.sol";
-import "../interfaces/destinations/IDestinationAdapter.sol";
+import { IDestinationRegistry } from "../interfaces/destinations/IDestinationRegistry.sol";
+import { IDestinationAdapter } from "../interfaces/destinations/IDestinationAdapter.sol";
 
 contract DestinationRegistry is IDestinationRegistry, Ownable2Step {
     mapping(bytes32 => IDestinationAdapter) public destinations;

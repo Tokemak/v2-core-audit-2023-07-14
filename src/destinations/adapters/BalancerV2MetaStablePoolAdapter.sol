@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
-import "openzeppelin-contracts/security/ReentrancyGuard.sol";
+import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
+import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
-import "../../interfaces/destinations/IPoolAdapter.sol";
-import "../../interfaces/external/balancer/IAsset.sol";
-import "../../interfaces/external/balancer/IVault.sol";
-import "../../libs/LibAdapter.sol";
+import { IPoolAdapter } from "../../interfaces/destinations/IPoolAdapter.sol";
+import { IAsset } from "../../interfaces/external/balancer/IAsset.sol";
+import { IVault } from "../../interfaces/external/balancer/IVault.sol";
+import { LibAdapter } from "../../libs/LibAdapter.sol";
 
 contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard {
     using SafeERC20 for IERC20;

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "openzeppelin-contracts/token/ERC721/extensions/IERC721Enumerable.sol";
-import "./IPositionMetadata.sol";
+import { IERC721Enumerable } from "openzeppelin-contracts/token/ERC721/extensions/IERC721Enumerable.sol";
+import { IPositionMetadata } from "./IPositionMetadata.sol";
 
 interface IPosition is IERC721Enumerable {
     event SetMetadata(IPositionMetadata metadata);

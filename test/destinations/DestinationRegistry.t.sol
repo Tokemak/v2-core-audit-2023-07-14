@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "forge-std/Test.sol";
-import "../../src/destinations/DestinationRegistry.sol";
-import "../../src/interfaces/destinations/IDestinationRegistry.sol";
-import "../../src/interfaces/destinations/IDestinationAdapter.sol";
+import { Test } from "forge-std/Test.sol";
+import { DestinationRegistry } from "../../src/destinations/DestinationRegistry.sol";
+import { IDestinationRegistry } from "../../src/interfaces/destinations/IDestinationRegistry.sol";
+import { IDestinationAdapter } from "../../src/interfaces/destinations/IDestinationAdapter.sol";
 import { PRANK_ADDRESS, RANDOM } from "../utils/Addresses.sol";
 
 contract DestinationRegistryTest is Test {

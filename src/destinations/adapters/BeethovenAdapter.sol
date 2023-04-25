@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "./BalancerV2MetaStablePoolAdapter.sol";
+import { BalancerV2MetaStablePoolAdapter } from "./BalancerV2MetaStablePoolAdapter.sol";
 
-import "../../interfaces/external/balancer/IVault.sol";
+import { IVault } from "../../interfaces/external/balancer/IVault.sol";
 
 /**
  * @title BeethovenAdapter

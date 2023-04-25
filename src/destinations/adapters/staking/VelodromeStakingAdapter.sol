@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import "openzeppelin-contracts/security/ReentrancyGuard.sol";
+import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
-import "../../../interfaces/destinations/IStakingAdapter.sol";
-import "../../../interfaces/external/velodrome/IVoter.sol";
-import "../../../interfaces/external/velodrome/IVotingEscrow.sol";
-import "../../../interfaces/external/velodrome/IGauge.sol";
-import "../../../interfaces/external/velodrome/IBaseBribe.sol";
-import "../../../interfaces/external/velodrome/IWrappedExternalBribeFactory.sol";
-import "../../../interfaces/external/velodrome/IRewardsDistributor.sol";
-import "../../../interfaces/external/velodrome/IPair.sol";
-import "../../../libs/LibAdapter.sol";
+import { IStakingAdapter } from "../../../interfaces/destinations/IStakingAdapter.sol";
+import { IVoter } from "../../../interfaces/external/velodrome/IVoter.sol";
+import { IVotingEscrow } from "../../../interfaces/external/velodrome/IVotingEscrow.sol";
+import { IGauge } from "../../../interfaces/external/velodrome/IGauge.sol";
+import { IBaseBribe } from "../../../interfaces/external/velodrome/IBaseBribe.sol";
+import { IWrappedExternalBribeFactory } from "../../../interfaces/external/velodrome/IWrappedExternalBribeFactory.sol";
+import { IRewardsDistributor } from "../../../interfaces/external/velodrome/IRewardsDistributor.sol";
+import { IPair } from "../../../interfaces/external/velodrome/IPair.sol";
+import { LibAdapter } from "../../../libs/LibAdapter.sol";
 
 contract VelodromeStakingAdapter is IStakingAdapter, ReentrancyGuard {
     event DeployLiquidity(

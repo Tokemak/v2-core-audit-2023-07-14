@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 
-import "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
-import "../../../../src/destinations/adapters/rewards/ConvexArbitrumRewardsAdapter.sol";
-import "../../../../src/interfaces/destinations/IClaimableRewardsAdapter.sol";
-import "../../../../src/interfaces/external/convex/IConvexBoosterArbitrum.sol";
-import "../../../../src/interfaces/external/convex/IConvexRewardPool.sol";
+import { ConvexArbitrumRewardsAdapter } from
+    "../../../../src/destinations/adapters/rewards/ConvexArbitrumRewardsAdapter.sol";
+import { IClaimableRewardsAdapter } from "../../../../src/interfaces/destinations/IClaimableRewardsAdapter.sol";
+import { IConvexBoosterArbitrum } from "../../../../src/interfaces/external/convex/IConvexBoosterArbitrum.sol";
+import { IConvexRewardPool } from "../../../../src/interfaces/external/convex/IConvexRewardPool.sol";
 import { CRV_ARBITRUM, CVX_ARBITRUM, CONVEX_BOOSTER } from "../../../utils/Addresses.sol";
 
 // solhint-disable func-name-mixedcase

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 
-import "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
-import "../../../../src/destinations/adapters/staking/ConvexAdapter.sol";
-import "../../../../src/interfaces/external/convex/IConvexBooster.sol";
-import "../../../../src/interfaces/external/convex/IBaseRewardPool.sol";
+import { ConvexAdapter } from "../../../../src/destinations/adapters/staking/ConvexAdapter.sol";
+import { IConvexBooster } from "../../../../src/interfaces/external/convex/IConvexBooster.sol";
+import { IBaseRewardPool } from "../../../../src/interfaces/external/convex/IBaseRewardPool.sol";
 import { CONVEX_BOOSTER } from "../../../utils/Addresses.sol";
 
 // solhint-disable func-name-mixedcase

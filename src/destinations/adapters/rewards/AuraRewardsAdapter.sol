@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "./ConvexRewardsAdapter.sol";
+import { ConvexRewardsAdapter } from "./ConvexRewardsAdapter.sol";
 
 /**
  * @title AuraAdapter
