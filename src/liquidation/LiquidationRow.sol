@@ -167,6 +167,7 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
 
         _swapTokens(asyncSwapper, params);
 
+        /// @todo integrate pricing to confirm that our specified minimum token is within a reasonable price
         data.balanceDiff = IERC20(params.buyTokenAddress).balanceOf(address(this)) - data.balanceBefore;
 
         if (data.balanceDiff < params.buyAmount) {
