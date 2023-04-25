@@ -4,18 +4,18 @@ pragma solidity 0.8.17;
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 
-import { IStakeTracking } from "../interfaces/reward-vault/IStakeTracking.sol";
-import { IMainReward } from "../interfaces/reward-vault/IMainReward.sol";
-import { IExtraReward } from "../interfaces/reward-vault/IExtraReward.sol";
-import { AbstractRewardVault } from "./AbstractRewardVault.sol";
+import { IStakeTracking } from "../interfaces/rewarders/IStakeTracking.sol";
+import { IMainRewarder } from "../interfaces/rewarders/IMainRewarder.sol";
+import { IExtraRewarder } from "../interfaces/rewarders/IExtraRewarder.sol";
+import { AbstractRewarder } from "./AbstractRewarder.sol";
 
 /**
- * @title MainRewardVault
- * @notice The MainRewardVault contract extends the AbstractRewardVault and
+ * @title MainRewarder
+ * @notice The MainRewarder contract extends the AbstractRewarder and
  * manages the distribution of main rewards along with additional rewards
- * from ExtraRewardVault contracts.
+ * from ExtraRewarder contracts.
  */
-contract MainRewardVault is AbstractRewardVault, IMainReward {
+contract MainRewarder is AbstractRewarder, IMainRewarder {
     address public immutable rewardManager;
     address[] public extraRewards;
 
@@ -24,7 +24,7 @@ contract MainRewardVault is AbstractRewardVault, IMainReward {
         address _operator,
         address _rewardToken,
         address _rewardManager
-    ) AbstractRewardVault(_stakeTracker, _operator, _rewardToken) {
+    ) AbstractRewarder(_stakeTracker, _operator, _rewardToken) {
         if (_rewardManager == address(0)) {
             revert ZeroAddress();
         }
@@ -59,7 +59,7 @@ contract MainRewardVault is AbstractRewardVault, IMainReward {
 
         // slither-disable-start calls-loop
         for (uint256 i = 0; i < extraRewards.length; i++) {
-            IExtraReward(extraRewards[i]).withdraw(account, amount);
+            IExtraRewarder(extraRewards[i]).withdraw(account, amount);
         }
         // slither-disable-end calls-loop
 
@@ -73,7 +73,7 @@ contract MainRewardVault is AbstractRewardVault, IMainReward {
 
         // slither-disable-start calls-loop
         for (uint256 i = 0; i < extraRewards.length; i++) {
-            IExtraReward(extraRewards[i]).stake(account, amount);
+            IExtraRewarder(extraRewards[i]).stake(account, amount);
         }
         // slither-disable-end calls-loop
     }
@@ -85,7 +85,7 @@ contract MainRewardVault is AbstractRewardVault, IMainReward {
         if (claimExtras) {
             for (uint256 i = 0; i < extraRewards.length; i++) {
                 // slither-disable-start calls-loop
-                IExtraReward(extraRewards[i]).getReward(account);
+                IExtraRewarder(extraRewards[i]).getReward(account);
                 // slither-disable-end calls-loop
             }
         }

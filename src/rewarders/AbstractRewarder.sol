@@ -5,10 +5,10 @@ import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
-import { IStakeTracking } from "../interfaces/reward-vault/IStakeTracking.sol";
-import { IBaseReward } from "../interfaces/reward-vault/IBaseReward.sol";
+import { IStakeTracking } from "../interfaces/rewarders/IStakeTracking.sol";
+import { IBaseRewarder } from "../interfaces/rewarders/IBaseRewarder.sol";
 
-abstract contract AbstractRewardVault is IBaseReward, ReentrancyGuard {
+abstract contract AbstractRewarder is IBaseRewarder, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     /**

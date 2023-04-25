@@ -8,9 +8,9 @@ import "forge-std/console2.sol";
 import { ERC20Mock } from "openzeppelin-contracts/mocks/ERC20Mock.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
-import { MainRewardVault } from "../../src/reward-vault/MainRewardVault.sol";
-import { ExtraRewardVault } from "../../src/reward-vault/ExtraRewardVault.sol";
-import { IStakeTracking } from "../../src/interfaces/reward-vault/IStakeTracking.sol";
+import { MainRewarder } from "../../src/rewarders/MainRewarder.sol";
+import { ExtraRewarder } from "../../src/rewarders/ExtraRewarder.sol";
+import { IStakeTracking } from "../../src/interfaces/rewarders/IStakeTracking.sol";
 
 import { PRANK_ADDRESS, RANDOM } from "../utils/Addresses.sol";
 
@@ -24,14 +24,14 @@ contract StakeTrackingMock is IStakeTracking {
     }
 }
 
-contract MainRewardVaultTest is Test {
+contract MainRewarderTest is Test {
     address private operator;
 
     StakeTrackingMock private stakeTracker;
 
-    MainRewardVault private mainRewardVault;
-    ExtraRewardVault private extraReward1Vault;
-    ExtraRewardVault private extraReward2Vault;
+    MainRewarder private mainRewardVault;
+    ExtraRewarder private extraReward1Vault;
+    ExtraRewarder private extraReward2Vault;
 
     ERC20Mock private mainReward;
     ERC20Mock private extraReward1;
@@ -44,21 +44,21 @@ contract MainRewardVaultTest is Test {
         extraReward2 = new ERC20Mock("EXTRA_REWARD_2", "EXTRA_REWARD_2", address(this), 0);
 
         stakeTracker = new StakeTrackingMock();
-        mainRewardVault = new MainRewardVault(
+        mainRewardVault = new MainRewarder(
             address(stakeTracker),
             operator,
             address(mainReward),
             operator
         );
 
-        extraReward1Vault = new ExtraRewardVault(
+        extraReward1Vault = new ExtraRewarder(
             address(stakeTracker),
             operator,
             address(extraReward1),
             address(mainRewardVault)
         );
 
-        extraReward2Vault = new ExtraRewardVault(
+        extraReward2Vault = new ExtraRewarder(
             address(stakeTracker),
             operator,
             address(extraReward2),

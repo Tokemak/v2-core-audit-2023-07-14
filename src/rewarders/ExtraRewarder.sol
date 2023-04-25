@@ -4,11 +4,11 @@ pragma solidity 0.8.17;
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 
-import { IStakeTracking } from "../interfaces/reward-vault/IStakeTracking.sol";
-import { IExtraReward } from "../interfaces/reward-vault/IExtraReward.sol";
-import { AbstractRewardVault } from "./AbstractRewardVault.sol";
+import { IStakeTracking } from "../interfaces/rewarders/IStakeTracking.sol";
+import { IExtraRewarder } from "../interfaces/rewarders/IExtraRewarder.sol";
+import { AbstractRewarder } from "./AbstractRewarder.sol";
 
-contract ExtraRewardVault is AbstractRewardVault, IExtraReward {
+contract ExtraRewarder is AbstractRewarder, IExtraRewarder {
     address public immutable mainReward;
 
     error MainRewardOnly();
@@ -18,7 +18,7 @@ contract ExtraRewardVault is AbstractRewardVault, IExtraReward {
         address _operator,
         address _rewardToken,
         address _mainReward
-    ) AbstractRewardVault(_stakeTracker, _operator, _rewardToken) {
+    ) AbstractRewarder(_stakeTracker, _operator, _rewardToken) {
         if (_mainReward == address(0)) {
             revert ZeroAddress();
         }

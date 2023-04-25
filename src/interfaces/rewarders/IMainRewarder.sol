@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { IBaseReward } from "./IBaseReward.sol";
+import { IBaseRewarder } from "./IBaseRewarder.sol";
 
-interface IMainReward is IBaseReward {
+interface IMainRewarder is IBaseRewarder {
     /**
-     * @notice Adds an ExtraRewardVault contract address to the extraRewards array.
-     * @param reward The address of the ExtraRewardVault contract.
+     * @notice Adds an ExtraRewarder contract address to the extraRewards array.
+     * @param reward The address of the ExtraRewarder contract.
      */
     function addExtraReward(address reward) external;
 

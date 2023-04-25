@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { IBaseReward } from "./IBaseReward.sol";
+import { IBaseRewarder } from "./IBaseRewarder.sol";
 
-interface IExtraReward is IBaseReward {
+interface IExtraRewarder is IBaseRewarder {
     /**
      * @notice Withdraws the specified amount of tokens from the vault for the specified account.
      * @param account The address of the account to withdraw tokens for.

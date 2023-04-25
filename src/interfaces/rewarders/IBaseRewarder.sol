@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-interface IBaseReward {
+interface IBaseRewarder {
     error UnAuthorized();
     error OperatorOnly();
     error StakeTrackerOnly();
