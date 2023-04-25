@@ -39,12 +39,6 @@ contract VelodromeStakingAdapter is IStakingAdapter, ReentrancyGuard {
         address staking
     );
 
-    error MustBeMoreThanZero();
-    error ArraysLengthMismatch();
-    error MinLpAmountNotReached();
-    error LpTokenAmountMismatch();
-    error InvalidAddress(address);
-
     IVoter public immutable voter;
 
     constructor(address _voter) {

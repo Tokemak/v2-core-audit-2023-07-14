@@ -10,12 +10,6 @@ contract DestinationRegistry is IDestinationRegistry, Ownable2Step {
     mapping(bytes32 => IDestinationAdapter) public destinations;
     mapping(bytes32 => bool) public allowedTypes;
 
-    error ArraysLengthMismatch();
-    error ZeroAddress(string param);
-    error NotAllowedDestination();
-    error DestinationAlreadySet();
-    error DestinationNotPresent();
-
     modifier arrayLengthMatch(bytes32[] calldata destinationTypes, address[] calldata targets) {
         if (destinationTypes.length != targets.length) {
             revert ArraysLengthMismatch();
@@ -25,7 +19,7 @@ contract DestinationRegistry is IDestinationRegistry, Ownable2Step {
 
     function ensureTargetNotZero(address target) private pure {
         if (target == address(0)) {
-            revert ZeroAddress("target");
+            revert InvalidAddress(target);
         }
     }
 

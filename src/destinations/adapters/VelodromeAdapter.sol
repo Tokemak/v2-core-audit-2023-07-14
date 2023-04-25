@@ -44,14 +44,6 @@ contract VelodromeAdapter is IPoolAdapter, ReentrancyGuard {
         uint256 deadline;
     }
 
-    error MustBeMoreThanZero();
-    error ArraysLengthMismatch();
-    error MinLpAmountNotReached();
-    error LpTokenAmountMismatch();
-    error NoNonZeroAmountProvided();
-    error InvalidBalanceChange();
-    error InvalidAddress(address);
-
     IRouter public immutable router;
 
     constructor(address _router) {

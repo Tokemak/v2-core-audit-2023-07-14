@@ -35,13 +35,7 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard {
         bytes32 poolId
     );
 
-    error ArraysLengthMismatch();
-    error MustNotBeZero();
-    error BalanceMustIncrease();
-    error MustBeMoreThanZero();
     error TokenPoolAssetMismatch();
-    error NoNonZeroAmountProvided();
-    error InvalidAddress(address addr);
 
     enum JoinKind {
         INIT,
@@ -89,11 +83,11 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard {
         bytes calldata extraParams
     ) external nonReentrant {
         (BalancerExtraParams memory balancerExtraParams) = abi.decode(extraParams, (BalancerExtraParams));
-        if (balancerExtraParams.tokens.length != amounts.length) {
+        if (balancerExtraParams.tokens.length == 0 || balancerExtraParams.tokens.length != amounts.length) {
             revert ArraysLengthMismatch();
         }
-        if (balancerExtraParams.tokens.length == 0 || minLpMintAmount == 0) {
-            revert MustNotBeZero();
+        if (minLpMintAmount == 0) {
+            revert MustBeMoreThanZero();
         }
 
         // get bpt address of the pool (for later balance checks)

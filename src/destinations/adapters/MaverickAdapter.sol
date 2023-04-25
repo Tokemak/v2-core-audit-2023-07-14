@@ -36,14 +36,6 @@ contract MaverickAdapter is IPoolAdapter, ReentrancyGuard {
         uint256[] deployedBinIds
     );
 
-    error MustBeMoreThanZero();
-    error ArraysLengthMismatch();
-    error MinLpAmountNotReached();
-    error LpTokenAmountMismatch();
-    error NoNonZeroAmountProvided();
-    error InvalidBalanceChange();
-    error InvalidAddress(address);
-
     struct MaverickDeploymentExtraParams {
         address poolAddress;
         uint256 tokenId;

@@ -31,14 +31,7 @@ contract CurveV2FactoryCryptoAdapter is IPoolAdapter, ReentrancyGuard {
         address poolAddress
     );
 
-    error MustBeMoreThanZero();
-    error MinLpAmountNotReached();
-    error MinAmountNotReached();
-    error LpTokenAmountMismatch();
-    error MustNotBeZero();
     error TooManyAmountsProvided();
-    error NoNonZeroAmountProvided();
-    error InvalidBalanceChange();
 
     struct CurveExtraParams {
         address poolAddress;
@@ -145,7 +138,7 @@ contract CurveV2FactoryCryptoAdapter is IPoolAdapter, ReentrancyGuard {
         uint256 minAmount
     ) external nonReentrant {
         if (lpBurnAmount == 0 || minAmount == 0) {
-            revert MustNotBeZero();
+            revert MustBeMoreThanZero();
         }
         address coin = ICryptoSwapPool(poolAddress).coins(coinIndex);
         IERC20 coinErc = IERC20(coin);
@@ -163,7 +156,7 @@ contract CurveV2FactoryCryptoAdapter is IPoolAdapter, ReentrancyGuard {
             revert LpTokenAmountMismatch();
         }
         uint256 coinAmount = coinErc.balanceOf(address(this)) - coinBalanceBefore;
-        if (coinAmount < minAmount) revert MinAmountNotReached();
+        if (coinAmount < minAmount) revert InvalidBalanceChange();
 
         emit WithdrawLiquidity(
             LibAdapter._toDynamicArray(coinAmount),

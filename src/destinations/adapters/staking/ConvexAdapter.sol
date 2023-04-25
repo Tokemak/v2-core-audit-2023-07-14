@@ -13,9 +13,6 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
     event DeployLiquidity(address lpToken, address staking, uint256 poolId, uint256 amount);
     event WithdrawLiquidity(address lpToken, address staking, uint256 amount);
 
-    error InvalidAddress();
-    error MustBeGreaterThanZero();
-    error BalanceMustIncrease();
     error withdrawStakeFailed();
     error DepositAndStakeFailed();
     error PoolIdLpTokenMismatch();
@@ -39,9 +36,9 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
     ) external nonReentrant {
         // _validateToken(lpToken);  TODO: Call to Token Registry
 
-        if (address(booster) == address(0)) revert InvalidAddress();
-        if (staking == address(0)) revert InvalidAddress();
-        if (amount == 0) revert MustBeGreaterThanZero();
+        if (address(booster) == address(0)) revert InvalidAddress(address(booster));
+        if (staking == address(0)) revert InvalidAddress(address(staking));
+        if (amount == 0) revert MustBeMoreThanZero();
 
         _validatePoolInfo(booster, poolId, lpToken, staking);
 
@@ -71,8 +68,8 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
      */
     function withdrawStake(address lpToken, address staking, uint256 amount) external nonReentrant {
         // _validateToken(lpToken); TODO: Call to Token Registry
-        if (staking == address(0)) revert InvalidAddress();
-        if (amount == 0) revert MustBeGreaterThanZero();
+        if (staking == address(0)) revert InvalidAddress(staking);
+        if (amount == 0) revert MustBeMoreThanZero();
 
         IERC20 lpTokenErc = IERC20(lpToken);
         uint256 beforeLpBalance = lpTokenErc.balanceOf(address(this));

@@ -34,7 +34,7 @@ contract DestinationRegistryTest is Test {
 
         registry.addToWhitelist(destinationTypes);
 
-        vm.expectRevert(abi.encodeWithSelector(DestinationRegistry.ArraysLengthMismatch.selector));
+        vm.expectRevert(abi.encodeWithSelector(IDestinationRegistry.ArraysLengthMismatch.selector));
         registry.register(destinationTypes, targets);
     }
 
@@ -47,7 +47,7 @@ contract DestinationRegistryTest is Test {
 
         registry.addToWhitelist(destinationTypes);
 
-        vm.expectRevert(abi.encodeWithSelector(DestinationRegistry.ZeroAddress.selector, bytes("target")));
+        vm.expectRevert(abi.encodeWithSelector(IDestinationRegistry.InvalidAddress.selector, address(0)));
         registry.register(destinationTypes, targets);
     }
 
@@ -61,7 +61,7 @@ contract DestinationRegistryTest is Test {
         registry.addToWhitelist(destinationTypes);
         registry.register(destinationTypes, targets);
 
-        vm.expectRevert(abi.encodeWithSelector(DestinationRegistry.DestinationAlreadySet.selector));
+        vm.expectRevert(abi.encodeWithSelector(IDestinationRegistry.DestinationAlreadySet.selector));
         registry.register(destinationTypes, targets);
     }
 
@@ -72,7 +72,7 @@ contract DestinationRegistryTest is Test {
         address[] memory targets = new address[](1);
         targets[0] = PRANK_ADDRESS;
 
-        vm.expectRevert(abi.encodeWithSelector(DestinationRegistry.NotAllowedDestination.selector));
+        vm.expectRevert(abi.encodeWithSelector(IDestinationRegistry.NotAllowedDestination.selector));
         registry.register(destinationTypes, targets);
     }
 
@@ -122,7 +122,7 @@ contract DestinationRegistryTest is Test {
         targets[0] = PRANK_ADDRESS;
         targets[1] = RANDOM;
 
-        vm.expectRevert(abi.encodeWithSelector(DestinationRegistry.ArraysLengthMismatch.selector));
+        vm.expectRevert(abi.encodeWithSelector(IDestinationRegistry.ArraysLengthMismatch.selector));
         registry.replace(destinationTypes, targets);
     }
 
@@ -138,7 +138,7 @@ contract DestinationRegistryTest is Test {
         registry.register(destinationTypes, targets);
 
         targets[0] = address(0);
-        vm.expectRevert(abi.encodeWithSelector(DestinationRegistry.ZeroAddress.selector, bytes("target")));
+        vm.expectRevert(abi.encodeWithSelector(IDestinationRegistry.InvalidAddress.selector, address(0)));
         registry.replace(destinationTypes, targets);
     }
 
@@ -151,7 +151,7 @@ contract DestinationRegistryTest is Test {
 
         registry.addToWhitelist(destinationTypes);
 
-        vm.expectRevert(abi.encodeWithSelector(DestinationRegistry.DestinationNotPresent.selector));
+        vm.expectRevert(abi.encodeWithSelector(IDestinationRegistry.DestinationNotPresent.selector));
         registry.replace(destinationTypes, targets);
     }
 
@@ -166,7 +166,7 @@ contract DestinationRegistryTest is Test {
 
         registry.register(destinationTypes, targets);
 
-        vm.expectRevert(abi.encodeWithSelector(DestinationRegistry.DestinationAlreadySet.selector));
+        vm.expectRevert(abi.encodeWithSelector(IDestinationRegistry.DestinationAlreadySet.selector));
         registry.replace(destinationTypes, targets);
     }
 
@@ -195,7 +195,7 @@ contract DestinationRegistryTest is Test {
 
         registry.addToWhitelist(destinationTypes);
 
-        vm.expectRevert(abi.encodeWithSelector(DestinationRegistry.DestinationNotPresent.selector));
+        vm.expectRevert(abi.encodeWithSelector(IDestinationRegistry.DestinationNotPresent.selector));
         registry.unregister(destinationTypes);
     }
 
@@ -222,7 +222,7 @@ contract DestinationRegistryTest is Test {
         destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
         registry.addToWhitelist(destinationTypes);
 
-        vm.expectRevert(abi.encodeWithSelector(DestinationRegistry.DestinationNotPresent.selector));
+        vm.expectRevert(abi.encodeWithSelector(IDestinationRegistry.DestinationNotPresent.selector));
         registry.getAdapter(BALANCER_V2_META_STABLE_POOL_ADAPTER);
     }
 
@@ -251,7 +251,7 @@ contract DestinationRegistryTest is Test {
         emit Whitelist(destinationTypes);
         registry.addToWhitelist(destinationTypes);
 
-        vm.expectRevert(abi.encodeWithSelector(DestinationRegistry.DestinationAlreadySet.selector));
+        vm.expectRevert(abi.encodeWithSelector(IDestinationRegistry.DestinationAlreadySet.selector));
         registry.addToWhitelist(destinationTypes);
     }
 
@@ -283,7 +283,7 @@ contract DestinationRegistryTest is Test {
         emit Whitelist(destinationTypes);
         registry.addToWhitelist(destinationTypes);
 
-        vm.expectRevert(abi.encodeWithSelector(DestinationRegistry.DestinationNotPresent.selector));
+        vm.expectRevert(abi.encodeWithSelector(IDestinationRegistry.DestinationNotPresent.selector));
 
         destinationTypes[0] = CURVE_V2_FACTORY_CRYPTO_ADAPTER;
         registry.removeFromWhitelist(destinationTypes);
@@ -302,7 +302,7 @@ contract DestinationRegistryTest is Test {
         emit Register(destinationTypes, targets);
         registry.register(destinationTypes, targets);
 
-        vm.expectRevert(abi.encodeWithSelector(DestinationRegistry.DestinationAlreadySet.selector));
+        vm.expectRevert(abi.encodeWithSelector(IDestinationRegistry.DestinationAlreadySet.selector));
         registry.removeFromWhitelist(destinationTypes);
     }
 
