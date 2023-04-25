@@ -21,13 +21,15 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
     error PoolIdLpTokenMismatch();
     error PoolIdStakingMismatch();
 
-    /// @notice Deposits and stakes Curve LP tokens to Convex
-    /// @dev Calls to external contract
-    /// @param booster Convex Booster address
-    /// @param lpToken Curve LP token to deposit
-    /// @param staking Convex reward contract associated with the Curve LP token
-    /// @param poolId Convex poolId for the associated Curve LP token
-    /// @param amount Quantity of Curve LP token to deposit and stake
+    /**
+     * @notice Deposits and stakes Curve LP tokens to Convex
+     * @dev Calls to external contract
+     * @param booster Convex Booster address
+     * @param lpToken Curve LP token to deposit
+     * @param staking Convex reward contract associated with the Curve LP token
+     * @param poolId Convex poolId for the associated Curve LP token
+     * @param amount Quantity of Curve LP token to deposit and stake
+     */
     function depositAndStake(
         IConvexBooster booster,
         address lpToken,
@@ -59,12 +61,14 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
         emit DeployLiquidity(lpToken, staking, poolId, amount);
     }
 
-    /// @notice Withdraws a Curve LP token from Convex
-    /// @dev Does not claim available rewards
-    /// @dev Calls to external contract
-    /// @param lpToken Curve LP token to withdraw
-    /// @param staking Convex reward contract associated with the Curve LP token
-    /// @param amount Quantity of Curve LP token to withdraw
+    /**
+     * @notice Withdraws a Curve LP token from Convex
+     * @dev Does not claim available rewards
+     * @dev Calls to external contract
+     * @param lpToken Curve LP token to withdraw
+     * @param staking Convex reward contract associated with the Curve LP token
+     * @param amount Quantity of Curve LP token to withdraw
+     */
     function withdrawStake(address lpToken, address staking, uint256 amount) external nonReentrant {
         // _validateToken(lpToken); TODO: Call to Token Registry
         if (staking == address(0)) revert InvalidAddress();

@@ -52,12 +52,14 @@ contract VelodromeStakingAdapter is IStakingAdapter, ReentrancyGuard {
         voter = IVoter(_voter);
     }
 
-    /// @notice Stakes tokens to Velodrome
-    /// @dev Calls to external contract
-    /// @param amounts amounts of corresponding tokenIds to add
-    /// @param tokenIds ids for the associated LP tokens
-    /// @param minLpMintAmount min amount to reach in result of staking (for all tokens in summary)
-    /// @param pool corresponding pool of the deposited tokens
+    /**
+     * @notice Stakes tokens to Velodrome
+     * @dev Calls to external contract
+     * @param amounts amounts of corresponding tokenIds to add
+     * @param tokenIds ids for the associated LP tokens
+     * @param minLpMintAmount min amount to reach in result of staking (for all tokens in summary)
+     * @param pool corresponding pool of the deposited tokens
+     */
     function stakeLPs(
         uint256[] calldata amounts,
         uint256[] calldata tokenIds,
@@ -92,12 +94,14 @@ contract VelodromeStakingAdapter is IStakingAdapter, ReentrancyGuard {
             );
     }
 
-    /// @notice Stakes tokens to Velodrome
-    /// @dev Calls to external contract
-    /// @param amounts amounts of corresponding tokenIds to add
-    /// @param tokenIds ids for the associated LP tokens
-    /// @param maxLpBurnAmount max amount to burn in result of unstaking (for all tokens in summary)
-    /// @param pool corresponding pool of the deposited tokens
+    /**
+     * @notice Unstakes tokens from Velodrome
+     * @dev Calls to external contract
+     * @param amounts amounts of corresponding tokenIds to add
+     * @param tokenIds ids for the associated LP tokens
+     * @param maxLpBurnAmount max amount to burn in result of unstaking (for all tokens in summary)
+     * @param pool corresponding pool of the deposited tokens
+     */
     function unstakeLPs(
         uint256[] calldata amounts,
         uint256[] calldata tokenIds,
