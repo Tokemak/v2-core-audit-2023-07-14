@@ -3,6 +3,13 @@ pragma solidity 0.8.17;
 
 import { IDestinationAdapter } from "./IDestinationAdapter.sol";
 
+/**
+ * @title IPoolAdapter
+ * @dev This is an interface to mark adapters as ones that are dedicated for liquidity deployment/withdrawal
+ *      to/from pools of a different protocols and to be registered in Destination Registry.
+ *      It shares unified functions to implement with basic params and `extraParams`
+ *      which can contain protocol or pool-specific params.
+ */
 interface IPoolAdapter is IDestinationAdapter {
     /**
      * @notice Deploy liquidity to the assosiated destination
