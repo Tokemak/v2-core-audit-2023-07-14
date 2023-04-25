@@ -120,7 +120,7 @@ contract VelodromeStakingAdapter is IStakingAdapter, ReentrancyGuard {
         uint256 lpTokenAmount = lpTokensBefore - lpTokensAfter;
         if (lpTokenAmount > maxLpBurnAmount) revert LpTokenAmountMismatch();
 
-        emit DeployLiquidity(
+        emit WithdrawLiquidity(
             amounts,
             tokenIds,
             [lpTokenAmount, lpTokensAfter, gauge.totalSupply()],
