@@ -7,14 +7,6 @@ import { Roles } from "src/libs/Roles.sol";
 
 contract AccessController is IAccessController, AccessControlEnumerable {
     // ------------------------------------------------------------
-    //                      Roles
-    // ------------------------------------------------------------
-
-    // bytes32 public constant REBALANCER_ROLE = keccak256("REBALANCER_ROLE");
-    // bytes32 public constant CREATE_POOL_ROLE = keccak256("CREATE_POOL_ROLE");
-    // bytes32 public constant REGISTRY_UPDATER = keccak256("REGISTRY_UPDATER");
-
-    // ------------------------------------------------------------
     //          Pre-initialize roles list for deployer
     // ------------------------------------------------------------
     constructor() {

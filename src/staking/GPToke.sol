@@ -14,8 +14,6 @@ import { PRBMathUD60x18 } from "prb-math/contracts/PRBMathUD60x18.sol";
 import { IGPToke } from "src/interfaces/staking/IGPToke.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
 
-// import { console2 as console } from "forge-std/console2.sol";
-
 contract GPToke is IGPToke, ERC20Votes, ReentrancyGuard, Pausable, SecurityBase {
     // variables
     uint256 public immutable startEpoch;

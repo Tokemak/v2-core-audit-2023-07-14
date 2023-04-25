@@ -5,6 +5,7 @@ import { AccessControl } from "openzeppelin-contracts/access/AccessControl.sol";
 import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 
 import { SecurityBase } from "src/security/SecurityBase.sol";
+import { Roles } from "src/libs/Roles.sol";
 
 import { IPlasmaVaultRegistry } from "src/interfaces/vault/IPlasmaVaultRegistry.sol";
 import { IPlasmaVault } from "src/interfaces/vault/IPlasmaVault.sol";
@@ -18,13 +19,10 @@ contract PlasmaVaultRegistry is IPlasmaVaultRegistry, SecurityBase {
     EnumerableSet.AddressSet private _assets;
     mapping(address => EnumerableSet.AddressSet) private _vaultsByAsset;
 
-    // solhint-disable-next-line var-name-mixedcase
-    bytes32 public immutable REGISTRY_UPDATER = keccak256("REGISTRY_UPDATER");
-
     constructor(address _accessController) SecurityBase(_accessController) { }
 
     modifier onlyUpdater() {
-        if (!_hasRole(REGISTRY_UPDATER, msg.sender)) revert PermissionDenied();
+        if (!_hasRole(Roles.REGISTRY_UPDATER, msg.sender)) revert PermissionDenied();
         _;
     }
 

@@ -7,9 +7,6 @@ import { Context } from "openzeppelin-contracts/utils/Context.sol";
 contract SecurityBase {
     AccessController public immutable accessController;
 
-    // // solhint-disable var-name-mixedcase
-    // bytes32 public immutable DEFAULT_ADMIN_ROLE;
-
     error UndefinedAddress();
 
     constructor(address _accessController) {
