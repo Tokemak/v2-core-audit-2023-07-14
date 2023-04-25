@@ -66,6 +66,7 @@ contract VelodromeStakingAdapter is IStakingAdapter, ReentrancyGuard {
     ) public nonReentrant {
         if (minLpMintAmount == 0) revert MustBeMoreThanZero();
         if (amounts.length == 0 || amounts.length != tokenIds.length) revert ArraysLengthMismatch();
+        if (pool == address(0)) revert InvalidAddress(pool);
 
         address gaugeAddress = voter.gauges(pool);
         IGauge gauge = IGauge(gaugeAddress);
@@ -105,6 +106,7 @@ contract VelodromeStakingAdapter is IStakingAdapter, ReentrancyGuard {
     ) public nonReentrant {
         if (maxLpBurnAmount == 0) revert MustBeMoreThanZero();
         if (amounts.length == 0 || amounts.length != tokenIds.length) revert ArraysLengthMismatch();
+        if (pool == address(0)) revert InvalidAddress(pool);
 
         address gaugeAddress = voter.gauges(pool);
         IGauge gauge = IGauge(gaugeAddress);
