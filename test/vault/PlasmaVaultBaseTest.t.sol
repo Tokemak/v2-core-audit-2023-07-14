@@ -7,14 +7,13 @@ import { IPlasmaVaultFactory, PlasmaVaultFactory } from "src/vault/PlasmaVaultFa
 import { IPlasmaVaultRouter, PlasmaVaultRouter } from "src/vault/PlasmaVaultRouter.sol";
 import { IPlasmaVault, PlasmaVault } from "src/vault/PlasmaVault.sol";
 import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
-// import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { MockERC20 } from "test/mocks/MockERC20.sol";
+
+import { Roles } from "src/libs/Roles.sol";
 
 import { BaseTest } from "test/BaseTest.t.sol";
 
 import { WETH9_ADDRESS } from "test/utils/Addresses.sol";
-
-// import { console2 as console } from "forge-std/console2.sol";
 
 contract PlasmaVaultBaseTest is BaseTest {
     PlasmaVaultRegistry public registry;
@@ -45,7 +44,7 @@ contract PlasmaVaultBaseTest is BaseTest {
         factory.addPoolType(factory.POOLTYPE_PLASMAPOOL(), address(0));
 
         // NOTE: deployer grants factory permission to update the registry
-        accessController.grantRole(registry.REGISTRY_UPDATER(), address(factory));
+        accessController.grantRole(Roles.REGISTRY_UPDATER, address(factory));
 
         // create router
         router = new PlasmaVaultRouter(WETH9_ADDRESS);
