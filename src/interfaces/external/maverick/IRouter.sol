@@ -9,6 +9,7 @@ import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IPool } from "./IPool.sol";
 import { IPosition } from "./IPosition.sol";
 
+//slither-disable-start similar-names
 //slither-disable-next-line name-reused
 interface IRouter {
     /// @return Returns the address of the factory
@@ -172,3 +173,4 @@ interface IRouter {
         uint256 deadline
     ) external returns (uint256 tokenAAmount, uint256 tokenBAmount, IPool.BinDelta[] memory binDeltas);
 }
+//slither-disable-end similar-names

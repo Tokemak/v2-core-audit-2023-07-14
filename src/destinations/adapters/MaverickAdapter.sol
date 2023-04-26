@@ -11,6 +11,7 @@ import { IPosition } from "../../interfaces/external/maverick/IPosition.sol";
 import { IRouter } from "../../interfaces/external/maverick/IRouter.sol";
 import { LibAdapter } from "../../libs/LibAdapter.sol";
 
+//slither-disable-start similar-names
 contract MaverickAdapter is IPoolAdapter, ReentrancyGuard {
     event DeployLiquidity(
         uint256[2] amountsDeposited,
@@ -197,3 +198,4 @@ contract MaverickAdapter is IPoolAdapter, ReentrancyGuard {
         }
     }
 }
+//slither-disable-end similar-names

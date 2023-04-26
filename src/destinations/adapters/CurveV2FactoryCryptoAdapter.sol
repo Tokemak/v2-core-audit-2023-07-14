@@ -8,6 +8,7 @@ import { IPoolAdapter } from "../../interfaces/destinations/IPoolAdapter.sol";
 import { LibAdapter } from "../../libs/LibAdapter.sol";
 import { ICryptoSwapPool, IPool } from "../../interfaces/external/curve/ICryptoSwapPool.sol";
 
+//slither-disable-start similar-names
 contract CurveV2FactoryCryptoAdapter is IPoolAdapter, ReentrancyGuard {
     address public constant CURVE_REGISTRY_ETH_ADDRESS_POINTER = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
@@ -227,22 +228,26 @@ contract CurveV2FactoryCryptoAdapter is IPoolAdapter, ReentrancyGuard {
         if (useEth) {
             // slither-disable-start arbitrary-send-eth
             if (nTokens == 2) {
-                deployed = pool.add_liquidity{value: amounts[0]}([amounts[0], amounts[1]], minLpMintAmount);
+                uint256[2] memory staticParamArray = [amounts[0], amounts[1]];
+                deployed = pool.add_liquidity{value: amounts[0]}(staticParamArray, minLpMintAmount);
             } else if (nTokens == 3) {
-                deployed = pool.add_liquidity{value: amounts[0]}([amounts[0], amounts[1], amounts[2]], minLpMintAmount);
+                uint256[3] memory staticParamArray = [amounts[0], amounts[1], amounts[2]];
+                deployed = pool.add_liquidity{value: amounts[0]}(staticParamArray, minLpMintAmount);
             } else if (nTokens == 4) {
-                deployed = pool.add_liquidity{value: amounts[0]}(
-                    [amounts[0], amounts[1], amounts[2], amounts[3]], minLpMintAmount
-                );
+                uint256[4] memory staticParamArray = [amounts[0], amounts[1], amounts[2], amounts[3]];
+                deployed = pool.add_liquidity{value: amounts[0]}(staticParamArray, minLpMintAmount);
             }
             // slither-disable-end arbitrary-send-eth
         } else {
             if (nTokens == 2) {
-                deployed = pool.add_liquidity([amounts[0], amounts[1]], minLpMintAmount);
+                uint256[2] memory staticParamArray = [amounts[0], amounts[1]];
+                deployed = pool.add_liquidity(staticParamArray, minLpMintAmount);
             } else if (nTokens == 3) {
-                deployed = pool.add_liquidity([amounts[0], amounts[1], amounts[2]], minLpMintAmount);
+                uint256[3] memory staticParamArray = [amounts[0], amounts[1], amounts[2]];
+                deployed = pool.add_liquidity(staticParamArray, minLpMintAmount);
             } else if (nTokens == 4) {
-                deployed = pool.add_liquidity([amounts[0], amounts[1], amounts[2], amounts[3]], minLpMintAmount);
+                uint256[4] memory staticParamArray = [amounts[0], amounts[1], amounts[2], amounts[3]];
+                deployed = pool.add_liquidity(staticParamArray, minLpMintAmount);
             }
         }
         if (deployed < minLpMintAmount) {
@@ -254,11 +259,14 @@ contract CurveV2FactoryCryptoAdapter is IPoolAdapter, ReentrancyGuard {
         uint256 nTokens = amounts.length;
         ICryptoSwapPool pool = ICryptoSwapPool(poolAddress);
         if (nTokens == 2) {
-            pool.remove_liquidity(maxLpBurnAmount, [amounts[0], amounts[1]]);
+            uint256[2] memory staticParamArray = [amounts[0], amounts[1]];
+            pool.remove_liquidity(maxLpBurnAmount, staticParamArray);
         } else if (nTokens == 3) {
-            pool.remove_liquidity(maxLpBurnAmount, [amounts[0], amounts[1], amounts[2]]);
+            uint256[3] memory staticParamArray = [amounts[0], amounts[1], amounts[2]];
+            pool.remove_liquidity(maxLpBurnAmount, staticParamArray);
         } else if (nTokens == 4) {
-            pool.remove_liquidity(maxLpBurnAmount, [amounts[0], amounts[1], amounts[2], amounts[3]]);
+            uint256[4] memory staticParamArray = [amounts[0], amounts[1], amounts[2], amounts[3]];
+            pool.remove_liquidity(maxLpBurnAmount, staticParamArray);
         }
     }
 
@@ -271,4 +279,5 @@ contract CurveV2FactoryCryptoAdapter is IPoolAdapter, ReentrancyGuard {
         dynamicArray = new address[](1);
         dynamicArray[0] = value;
     }
+    //slither-disable-end similar-names
 }

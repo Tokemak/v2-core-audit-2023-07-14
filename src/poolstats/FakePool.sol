@@ -4,7 +4,7 @@ pragma solidity 0.8.17;
 import { Stats } from "./PoolStats.sol";
 
 library FakePool {
-    function getStats() public view returns (Stats.PoolStats memory) {
+    function getStats() public pure returns (Stats.PoolStats memory) {
         return Stats.PoolStats({
             baseApr: 100,
             feeApr: 1,

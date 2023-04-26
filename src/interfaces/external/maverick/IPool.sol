@@ -3,6 +3,7 @@ pragma solidity 0.8.17;
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
+//slither-disable-start similar-names
 interface IPool {
     event Swap(
         address sender,
@@ -233,3 +234,4 @@ interface IPool {
      */
     function tokenBScale() external view returns (uint256);
 }
+//slither-disable-end similar-names
