@@ -204,7 +204,6 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard {
 
         // grant erc20 approval for vault to spend our tokens
         (address poolAddress,) = vault.getPool(poolId);
-        // _validateToken(poolAddress); TODO: Call to Token Registry
         LibAdapter._approve(IERC20(poolAddress), address(vault), params.bptAmount);
 
         // record balance before withdraw
@@ -288,7 +287,6 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard {
         bool hasNonZeroAmount = false;
         for (uint256 i = 0; i < tokens.length; ++i) {
             IERC20 currentToken = tokens[i];
-            // _validateToken(currentToken); TODO: Call to Token Registry
             if (currentToken != poolTokens[i]) {
                 revert TokenPoolAssetMismatch();
             }
@@ -324,8 +322,6 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard {
                 revert MustBeMoreThanZero();
             }
             // make sure asset is supported (and matches the pool's assets)
-            // _validateToken(currentToken); TODO: Call to Token Registry
-
             if (currentToken != poolAssets[i]) {
                 revert TokenPoolAssetMismatch();
             }

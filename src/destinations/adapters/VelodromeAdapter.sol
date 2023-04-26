@@ -62,8 +62,6 @@ contract VelodromeAdapter is IPoolAdapter, ReentrancyGuard {
 
         (VelodromeExtraParams memory velodromeExtraParams) = abi.decode(extraParams, (VelodromeExtraParams));
 
-        // _validateToken(IERC20(velodromeExtraParams.tokenA)); TODO: Call to Token Registry
-        // _validateToken(IERC20(velodromeExtraParams.tokenB)); TODO: Call to Token Registry
         LibAdapter._approve(IERC20(velodromeExtraParams.tokenA), address(router), amounts[0]);
         LibAdapter._approve(IERC20(velodromeExtraParams.tokenB), address(router), amounts[1]);
 

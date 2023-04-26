@@ -62,7 +62,7 @@ contract CurveV2FactoryCryptoAdapter is IPoolAdapter, ReentrancyGuard {
             address coin = ICryptoSwapPool(poolAddress).coins(i);
             tokens[i] = coin;
             if (amount > 0 && coin != CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
-                LibAdapter._validateAndApprove(coin, poolAddress, amount);
+                LibAdapter._approve(IERC20(coin), poolAddress, amount);
             }
             coinsBalancesBefore[i] = coin == CURVE_REGISTRY_ETH_ADDRESS_POINTER
                 ? address(this).balance
@@ -159,8 +159,8 @@ contract CurveV2FactoryCryptoAdapter is IPoolAdapter, ReentrancyGuard {
         if (coinAmount < minAmount) revert InvalidBalanceChange();
 
         emit WithdrawLiquidity(
-            LibAdapter._toDynamicArray(coinAmount),
-            LibAdapter._toDynamicArray(coin),
+            _toDynamicArray(coinAmount),
+            _toDynamicArray(coin),
             [lpTokenAmount, lpTokenBalanceAfter, lpToken.totalSupply()],
             poolAddress
             );
@@ -260,5 +260,15 @@ contract CurveV2FactoryCryptoAdapter is IPoolAdapter, ReentrancyGuard {
         } else if (nTokens == 4) {
             pool.remove_liquidity(maxLpBurnAmount, [amounts[0], amounts[1], amounts[2], amounts[3]]);
         }
+    }
+
+    function _toDynamicArray(uint256 value) private pure returns (uint256[] memory dynamicArray) {
+        dynamicArray = new uint256[](1);
+        dynamicArray[0] = value;
+    }
+
+    function _toDynamicArray(address value) private pure returns (address[] memory dynamicArray) {
+        dynamicArray = new address[](1);
+        dynamicArray[0] = value;
     }
 }

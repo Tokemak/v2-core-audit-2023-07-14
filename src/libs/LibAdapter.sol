@@ -15,21 +15,4 @@ library LibAdapter {
         }
         token.safeIncreaseAllowance(spender, amount);
     }
-
-    function _validateAndApprove(address coin, address spender, uint256 amount) internal {
-        // _validateToken(coin); TODO: Call to Token Registry
-        IERC20 coinErc = IERC20(coin);
-        if (coinErc.balanceOf(address(this)) < amount) revert("Insufficient balance");
-        _approve(coinErc, spender, amount);
-    }
-
-    function _toDynamicArray(uint256 value) internal pure returns (uint256[] memory dynamicArray) {
-        dynamicArray = new uint256[](1);
-        dynamicArray[0] = value;
-    }
-
-    function _toDynamicArray(address value) internal pure returns (address[] memory dynamicArray) {
-        dynamicArray = new address[](1);
-        dynamicArray[0] = value;
-    }
 }

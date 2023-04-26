@@ -34,17 +34,14 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
         uint256 poolId,
         uint256 amount
     ) external nonReentrant {
-        // _validateToken(lpToken);  TODO: Call to Token Registry
-
         if (address(booster) == address(0)) revert InvalidAddress(address(booster));
+        if (lpToken == address(0)) revert InvalidAddress(address(lpToken));
         if (staking == address(0)) revert InvalidAddress(address(staking));
         if (amount == 0) revert MustBeMoreThanZero();
 
         _validatePoolInfo(booster, poolId, lpToken, staking);
 
-        IERC20 lpTokenErc = IERC20(lpToken);
-        // _validateToken(lpTokenErc); TODO: Call to Token Registry
-        LibAdapter._approve(lpTokenErc, address(booster), amount);
+        LibAdapter._approve(IERC20(lpToken), address(booster), amount);
 
         IBaseRewardPool rewards = IBaseRewardPool(staking);
         uint256 rewardsBeforeBalance = rewards.balanceOf(address(this));
@@ -67,7 +64,7 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
      * @param amount Quantity of Curve LP token to withdraw
      */
     function withdrawStake(address lpToken, address staking, uint256 amount) external nonReentrant {
-        // _validateToken(lpToken); TODO: Call to Token Registry
+        if (lpToken == address(0)) revert InvalidAddress(lpToken);
         if (staking == address(0)) revert InvalidAddress(staking);
         if (amount == 0) revert MustBeMoreThanZero();
 
