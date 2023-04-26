@@ -9,6 +9,7 @@ import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IPool } from "./IPool.sol";
 import { IPosition } from "./IPosition.sol";
 
+//slither-disable-next-line name-reused
 interface IRouter {
     /// @return Returns the address of the factory
     function factory() external view returns (address);
