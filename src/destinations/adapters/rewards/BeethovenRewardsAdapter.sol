@@ -49,13 +49,11 @@ contract BeethovenRewardsAdapter is IClaimableRewardsAdapter, ReentrancyGuard {
         GAUGE_REWARD_HELPER.claimRewards(gaugeContract, account);
 
         // get balances after and calculate amounts claimed
-        uint256 sum = 0;
         for (uint256 i = 0; i < count; ++i) {
             uint256 balance = rewardTokens[i].balanceOf(account);
 
             uint256 claimed = balance - balancesBefore[i];
             amountsClaimed[i] = claimed;
-            sum += claimed;
         }
 
         emit RewardsClaimed(rewardTokens, amountsClaimed);
