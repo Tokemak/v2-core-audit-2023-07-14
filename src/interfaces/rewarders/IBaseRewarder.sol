@@ -2,17 +2,27 @@
 pragma solidity 0.8.17;
 
 interface IBaseRewarder {
-    error UnAuthorized();
+    error Unauthorized();
     error OperatorOnly();
     error StakeTrackerOnly();
     error RewardManagerOnly();
     error ZeroAddress();
     error ZeroAmount();
 
-    event RewardAdded(uint256 reward);
+    event RewardAdded(
+        uint256 reward,
+        uint256 rewardRate,
+        uint256 lastUpdateBlock,
+        uint256 periodInBlockFinish,
+        uint256 historicalRewards
+    );
+    event UserRewardUpdated(address indexed user, uint256 amount, uint256 rewardPerTokenStored);
     event Staked(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
     event RewardPaid(address indexed user, uint256 reward);
+    event QueuedRewardsUpdated(uint256 queuedRewards);
+    event RewardDurationUpdated(uint256 rewardDuration);
+    event NewRewardRateUpdated(uint256 newRewardRate);
 
     /**
      * @notice Claims and transfers all rewards for the specified account
@@ -27,51 +37,56 @@ interface IBaseRewarder {
     function stake(address account, uint256 amount) external;
 
     /**
-     * @dev Calculate the earned rewards for an account.
+     * @notice Calculate the earned rewards for an account.
      * @param account Address of the account.
      * @return The earned rewards for the given account.
      */
     function earned(address account) external view returns (uint256);
 
     /**
-     * @dev Calculate the reward per token.
-     * @return The calculated reward per token.
+     * @notice Calculates the rewards per token for the current block.
+     * @dev The total amount of rewards available in the system is fixed, and it needs to be distributed among the users
+     * based on their token balances and staking duration.
+     * Rewards per token represent the amount of rewards that each token is entitled to receive at the current block.
+     * The calculation takes into account the reward rate, the time duration since the last update,
+     * and the total supply of tokens in the staking pool.
+     * @return The updated rewards per token value for the current block.
      */
     function rewardToken() external view returns (address);
 
     /**
-     * @dev Get the current reward rate per block.
+     * @notice Get the current reward rate per block.
      * @return The current reward rate per block.
      */
     function rewardRate() external view returns (uint256);
 
     /**
-     * @dev Get the last block where rewards are applicable.
+     * @notice Get the last block where rewards are applicable.
      * @return The last block number where rewards are applicable.
      */
     function lastBlockRewardApplicable() external view returns (uint256);
 
     /**
-     * @dev Proxy function to get the balance of an account from the StakeTracking contract
+     * @notice Proxy function to get the balance of an account from the StakeTracking contract
      * @param account Address of the account.
      * @return The balance of staked tokens for the given account.
      */
     function balanceOf(address account) external view returns (uint256);
 
     /**
-     * @dev Proxy function to get the total supply of staked tokens from the StakeTracking contract
+     * @notice Proxy function to get the total supply of staked tokens from the StakeTracking contract
      * @return The total supply of staked tokens.
      */
     function totalSupply() external view returns (uint256);
 
     /**
-     * @dev Set the duration of reward distribution in blocks.
+     * @notice Set the duration of reward distribution in blocks.
      * @param _durationInBlock The duration in blocks.
      */
     function setDurationInBlock(uint256 _durationInBlock) external;
 
     /**
-     * @dev Queue new rewards to be distributed.
+     * @notice Queue new rewards to be distributed.
      * @param newRewards The amount of new rewards to be queued.
      */
     function queueNewRewards(uint256 newRewards) external;

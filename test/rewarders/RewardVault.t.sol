@@ -37,6 +37,9 @@ contract MainRewarderTest is Test {
     ERC20Mock private extraReward1;
     ERC20Mock private extraReward2;
 
+    uint256 private newRewardRatio = 800;
+    uint256 private durationInBlock = 100;
+
     function setUp() public {
         operator = vm.addr(1);
         mainReward = new ERC20Mock("MAIN_REWARD", "MAIN_REWARD", address(this), 0);
@@ -48,21 +51,27 @@ contract MainRewarderTest is Test {
             address(stakeTracker),
             operator,
             address(mainReward),
-            operator
+            operator,   
+            newRewardRatio,
+            durationInBlock
         );
 
         extraReward1Vault = new ExtraRewarder(
             address(stakeTracker),
             operator,
             address(extraReward1),
-            address(mainRewardVault)
+            address(mainRewardVault),
+            newRewardRatio,
+            durationInBlock
         );
 
         extraReward2Vault = new ExtraRewarder(
             address(stakeTracker),
             operator,
             address(extraReward2),
-            address(mainRewardVault)
+            address(mainRewardVault),
+            newRewardRatio,
+            durationInBlock
         );
 
         uint256 amount = 100_000;

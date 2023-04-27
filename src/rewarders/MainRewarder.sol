@@ -3,6 +3,7 @@ pragma solidity 0.8.17;
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
+import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
 import { IStakeTracking } from "../interfaces/rewarders/IStakeTracking.sol";
 import { IMainRewarder } from "../interfaces/rewarders/IMainRewarder.sol";
@@ -15,7 +16,7 @@ import { AbstractRewarder } from "./AbstractRewarder.sol";
  * manages the distribution of main rewards along with additional rewards
  * from ExtraRewarder contracts.
  */
-contract MainRewarder is AbstractRewarder, IMainRewarder {
+contract MainRewarder is AbstractRewarder, IMainRewarder, ReentrancyGuard {
     address public immutable rewardManager;
     address[] public extraRewards;
 
@@ -23,8 +24,10 @@ contract MainRewarder is AbstractRewarder, IMainRewarder {
         address _stakeTracker,
         address _operator,
         address _rewardToken,
-        address _rewardManager
-    ) AbstractRewarder(_stakeTracker, _operator, _rewardToken) {
+        address _rewardManager,
+        uint256 _newRewardRatio,
+        uint256 _durationInBlock
+    ) AbstractRewarder(_stakeTracker, _operator, _rewardToken, _newRewardRatio, _durationInBlock) {
         if (_rewardManager == address(0)) {
             revert ZeroAddress();
         }
@@ -58,7 +61,7 @@ contract MainRewarder is AbstractRewarder, IMainRewarder {
         _withdraw(account, amount);
 
         // slither-disable-start calls-loop
-        for (uint256 i = 0; i < extraRewards.length; i++) {
+        for (uint256 i = 0; i < extraRewards.length; ++i) {
             IExtraRewarder(extraRewards[i]).withdraw(account, amount);
         }
         // slither-disable-end calls-loop
@@ -72,18 +75,18 @@ contract MainRewarder is AbstractRewarder, IMainRewarder {
         _stake(account, amount);
 
         // slither-disable-start calls-loop
-        for (uint256 i = 0; i < extraRewards.length; i++) {
+        for (uint256 i = 0; i < extraRewards.length; ++i) {
             IExtraRewarder(extraRewards[i]).stake(account, amount);
         }
         // slither-disable-end calls-loop
     }
 
-    function getReward(address account, bool claimExtras) public updateReward(account) {
+    function getReward(address account, bool claimExtras) public nonReentrant updateReward(account) {
         _getReward(account);
 
         //also get rewards from linked rewards
         if (claimExtras) {
-            for (uint256 i = 0; i < extraRewards.length; i++) {
+            for (uint256 i = 0; i < extraRewards.length; ++i) {
                 // slither-disable-start calls-loop
                 IExtraRewarder(extraRewards[i]).getReward(account);
                 // slither-disable-end calls-loop

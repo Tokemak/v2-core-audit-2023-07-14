@@ -17,8 +17,10 @@ contract ExtraRewarder is AbstractRewarder, IExtraRewarder {
         address _stakeTracker,
         address _operator,
         address _rewardToken,
-        address _mainReward
-    ) AbstractRewarder(_stakeTracker, _operator, _rewardToken) {
+        address _mainReward,
+        uint256 _newRewardRatio,
+        uint256 _durationInBlock
+    ) AbstractRewarder(_stakeTracker, _operator, _rewardToken, _newRewardRatio, _durationInBlock) {
         if (_mainReward == address(0)) {
             revert ZeroAddress();
         }
