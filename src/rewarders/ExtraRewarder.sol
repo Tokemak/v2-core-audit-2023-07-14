@@ -34,11 +34,11 @@ contract ExtraRewarder is AbstractRewarder, IExtraRewarder {
         _;
     }
 
-    function stake(address account, uint256 amount) public mainRewardOnly updateReward(account) {
+    function stake(address account, uint256 amount) external mainRewardOnly updateReward(account) {
         _stake(account, amount);
     }
 
-    function withdraw(address account, uint256 amount) public mainRewardOnly updateReward(account) {
+    function withdraw(address account, uint256 amount) external mainRewardOnly updateReward(account) {
         _withdraw(account, amount);
     }
 
@@ -46,7 +46,7 @@ contract ExtraRewarder is AbstractRewarder, IExtraRewarder {
         _getReward(account);
     }
 
-    function getReward() public {
+    function getReward() external {
         getReward(msg.sender);
     }
 }
