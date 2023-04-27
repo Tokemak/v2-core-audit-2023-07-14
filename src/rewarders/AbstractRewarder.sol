@@ -3,6 +3,7 @@ pragma solidity 0.8.17;
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
+import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
 import { IStakeTracking } from "../interfaces/rewarders/IStakeTracking.sol";
 import { IBaseRewarder } from "../interfaces/rewarders/IBaseRewarder.sol";
@@ -15,7 +16,7 @@ import { IBaseRewarder } from "../interfaces/rewarders/IBaseRewarder.sol";
  * The contract is inspired by the Convex contract but uses block-based duration instead of timestamp-based duration.
  * Unlike Convex, it does not own the LP token but it interacts with an external LP token contract.
  */
-abstract contract AbstractRewarder is IBaseRewarder {
+abstract contract AbstractRewarder is IBaseRewarder, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     /**
@@ -164,7 +165,7 @@ abstract contract AbstractRewarder is IBaseRewarder {
         emit RewardAdded(reward, rewardRate, lastUpdateBlock, periodInBlockFinish, historicalRewards);
     }
 
-    function _getReward(address account) internal {
+    function _getReward(address account) internal nonReentrant {
         uint256 reward = earned(account);
         if (reward > 0) {
             rewards[account] = 0;

@@ -3,7 +3,6 @@ pragma solidity 0.8.17;
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
-import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
 import { IStakeTracking } from "../interfaces/rewarders/IStakeTracking.sol";
 import { IMainRewarder } from "../interfaces/rewarders/IMainRewarder.sol";
@@ -16,7 +15,7 @@ import { AbstractRewarder } from "./AbstractRewarder.sol";
  * manages the distribution of main rewards along with additional rewards
  * from ExtraRewarder contracts.
  */
-contract MainRewarder is AbstractRewarder, IMainRewarder, ReentrancyGuard {
+contract MainRewarder is AbstractRewarder, IMainRewarder {
     address public immutable rewardManager;
     address[] public extraRewards;
 
@@ -81,7 +80,7 @@ contract MainRewarder is AbstractRewarder, IMainRewarder, ReentrancyGuard {
         // slither-disable-end calls-loop
     }
 
-    function getReward(address account, bool claimExtras) public nonReentrant updateReward(account) {
+    function getReward(address account, bool claimExtras) public updateReward(account) {
         _getReward(account);
 
         //also get rewards from linked rewards
