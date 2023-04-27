@@ -24,6 +24,15 @@ interface ILiquidationRow {
     error TokenAlreadyAdded();
     error TokenNotFound();
 
+    struct LiquidationData {
+        uint256 totalBalanceToLiquidate;
+        uint256 balanceBefore;
+        uint256 balanceDiff;
+        uint256 pct;
+        uint256 amount;
+        uint256[] vaultsBalances;
+    }
+
     /**
      * @notice Claim rewards from a list of vaults
      * @param vaults The list of vaults to claim rewards from

@@ -22,15 +22,6 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    struct LiquidationData {
-        uint256 totalBalanceToLiquidate;
-        uint256 balanceBefore;
-        uint256 balanceDiff;
-        uint256 pct;
-        uint256 amount;
-        uint256[] vaultsBalances;
-    }
-
     EnumerableSet.AddressSet private allowedSwappers;
 
     EnumerableSet.AddressSet private rewardTokens;
@@ -51,12 +42,12 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
     mapping(address => EnumerableSet.AddressSet) private tokenVaults;
 
     /// @inheritdoc ILiquidationRow
-    function getAllowedSwappers() public view returns (address[] memory) {
+    function getAllowedSwappers() external view returns (address[] memory) {
         return allowedSwappers.values();
     }
 
     /// @inheritdoc ILiquidationRow
-    function addAllowedSwapper(address swapper) public {
+    function addAllowedSwapper(address swapper) external {
         bool success = allowedSwappers.add(swapper);
         if (!success) {
             revert SwapperAlreadyAdded();
@@ -65,7 +56,7 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
     }
 
     /// @inheritdoc ILiquidationRow
-    function removeAllowedSwapper(address swapper) public {
+    function removeAllowedSwapper(address swapper) external {
         bool success = allowedSwappers.remove(swapper);
         if (!success) {
             revert SwapperNotFound();
@@ -74,13 +65,13 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
     }
 
     /// @inheritdoc ILiquidationRow
-    function isAllowedSwapper(address swapper) public view returns (bool) {
+    function isAllowedSwapper(address swapper) external view returns (bool) {
         return allowedSwappers.contains(swapper);
     }
 
     /// @inheritdoc ILiquidationRow
-    function claimsVaultRewards(IVaultClaimableRewards[] memory vaults) public nonReentrant {
-        for (uint256 i = 0; i < vaults.length; i++) {
+    function claimsVaultRewards(IVaultClaimableRewards[] memory vaults) external nonReentrant {
+        for (uint256 i = 0; i < vaults.length; ++i) {
             if (address(vaults[i]) == address(0)) revert ZeroAddress();
             // @todo: Check if the vault is in our registry
             IVaultClaimableRewards vault = vaults[i];
@@ -88,7 +79,7 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
             (uint256[] memory amounts, IERC20[] memory tokens) = vault.claimRewards();
 
             uint256 tokensLength = tokens.length;
-            for (uint256 j = 0; j < tokensLength; j++) {
+            for (uint256 j = 0; j < tokensLength; ++j) {
                 IERC20 token = tokens[j];
                 uint256 amount = amounts[j];
                 if (amount > 0) {
@@ -100,22 +91,22 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
     }
 
     /// @inheritdoc ILiquidationRow
-    function balanceOf(address tokenAddress, address vaultAddress) public view returns (uint256) {
+    function balanceOf(address tokenAddress, address vaultAddress) external view returns (uint256) {
         return balances[tokenAddress][vaultAddress];
     }
 
     /// @inheritdoc ILiquidationRow
-    function totalBalanceOf(address tokenAddress) public view returns (uint256) {
+    function totalBalanceOf(address tokenAddress) external view returns (uint256) {
         return totalTokenBalances[tokenAddress];
     }
 
     /// @inheritdoc ILiquidationRow
-    function getTokens() public view returns (address[] memory) {
+    function getTokens() external view returns (address[] memory) {
         return rewardTokens.values();
     }
 
     /// @inheritdoc ILiquidationRow
-    function getVaultsForToken(address tokenAddress) public view returns (address[] memory) {
+    function getVaultsForToken(address tokenAddress) external view returns (address[] memory) {
         return tokenVaults[tokenAddress].values();
     }
 
@@ -125,13 +116,13 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
         address asyncSwapper,
         address[] memory vaultsToLiquidate,
         SwapParams memory params
-    ) public nonReentrant {
+    ) external nonReentrant {
         uint256 vaultsToLiquidateLength = vaultsToLiquidate.length;
         LiquidationData memory data = LiquidationData(0, 0, 0, 0, 0, new uint256[](vaultsToLiquidateLength));
 
         data.totalBalanceToLiquidate = 0;
 
-        for (uint256 i = 0; i < vaultsToLiquidateLength; i++) {
+        for (uint256 i = 0; i < vaultsToLiquidateLength; ++i) {
             address vaultAddress = vaultsToLiquidate[i];
             uint256 vaultBalance = balances[fromToken][vaultAddress];
             data.totalBalanceToLiquidate += vaultBalance;
@@ -174,7 +165,7 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
             revert InsufficientSellAmount();
         }
 
-        for (uint256 i = 0; i < vaultsToLiquidateLength; i++) {
+        for (uint256 i = 0; i < vaultsToLiquidateLength; ++i) {
             address vaultAddress = vaultsToLiquidate[i];
             uint256 vaultBalance = data.vaultsBalances[i];
 

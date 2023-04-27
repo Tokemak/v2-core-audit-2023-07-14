@@ -284,11 +284,11 @@ contract VelodromeRewardsAdapter is IClaimableRewardsAdapter, ReentrancyGuard {
         uint256 len2 = arr2.length;
         uint256[] memory result = new uint256[](len1 + len2);
 
-        for (uint256 i = 0; i < len1; i++) {
+        for (uint256 i = 0; i < len1; ++i) {
             result[i] = arr1[i];
         }
 
-        for (uint256 i = 0; i < len2; i++) {
+        for (uint256 i = 0; i < len2; ++i) {
             result[len1 + i] = arr2[i];
         }
 
@@ -303,11 +303,11 @@ contract VelodromeRewardsAdapter is IClaimableRewardsAdapter, ReentrancyGuard {
         uint256 len2 = arr2.length;
         IERC20[] memory result = new IERC20[](len1 + len2);
 
-        for (uint256 i = 0; i < len1; i++) {
+        for (uint256 i = 0; i < len1; ++i) {
             result[i] = arr1[i];
         }
 
-        for (uint256 i = 0; i < len2; i++) {
+        for (uint256 i = 0; i < len2; ++i) {
             result[len1 + i] = arr2[i];
         }
 
