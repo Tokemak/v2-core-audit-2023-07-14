@@ -10,3 +10,15 @@
 041c72e3c960865a1e9a1ef45b695da5e0f0c909:test/destinations/adapters/BalancerV2MetaStablePoolAdapter.t.sol:ethereum-rule-1:417
 041c72e3c960865a1e9a1ef45b695da5e0f0c909:test/destinations/adapters/BalancerV2MetaStablePoolAdapter.t.sol:ethereum-rule-1:458
 041c72e3c960865a1e9a1ef45b695da5e0f0c909:test/destinations/adapters/BalancerV2MetaStablePoolAdapter.t.sol:ethereum-rule-1:494
+test/destinations/adapters/BeethovenAdapter.t.sol:ethereum-rule-1:32
+test/destinations/adapters/BalancerV2MetaStablePoolAdapter.t.sol:ethereum-rule-1:312
+test/destinations/adapters/BalancerV2MetaStablePoolAdapter.t.sol:ethereum-rule-1:275
+test/destinations/adapters/BalancerV2MetaStablePoolAdapter.t.sol:ethereum-rule-1:234
+test/destinations/adapters/BalancerV2MetaStablePoolAdapter.t.sol:ethereum-rule-1:200
+test/destinations/adapters/BalancerV2MetaStablePoolAdapter.t.sol:ethereum-rule-1:161
+test/destinations/adapters/BalancerV2MetaStablePoolAdapter.t.sol:ethereum-rule-1:126
+test/destinations/adapters/BalancerV2MetaStablePoolAdapter.t.sol:ethereum-rule-1:87
+test/destinations/adapters/BeethovenAdapter.t.sol:ethereum-rule-1:139
+test/destinations/adapters/BeethovenAdapter.t.sol:ethereum-rule-1:105
+test/destinations/adapters/BeethovenAdapter.t.sol:ethereum-rule-1:66
+test/destinations/adapters/BalancerV2MetaStablePoolAdapter.t.sol:ethereum-rule-1:53

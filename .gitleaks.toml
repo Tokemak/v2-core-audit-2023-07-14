@@ -15,6 +15,7 @@ regex = '''(?:\'|"|\s|^)(?:0x)?[a-fA-F0-9]{64}(?:\'|"|\s|;|$)'''
 paths = [
     '''lib/forge-std/(.*?)''',
     '''lib/openzeppelin-contracts/(.*?)''',
+    '''lib/prb-math/(.*?)''',
     '''lib/openzeppelin-contracts-upgradeable/(.*?)''',
     '''out/(.*?)''',
     '''cache/(.*?)''',
