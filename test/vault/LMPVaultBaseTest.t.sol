@@ -1,14 +1,15 @@
-/* solhint-disable func-name-mixedcase */
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { IPlasmaVaultRegistry, PlasmaVaultRegistry } from "src/vault/PlasmaVaultRegistry.sol";
-import { IPlasmaVaultFactory, PlasmaVaultFactory } from "src/vault/PlasmaVaultFactory.sol";
-import { IPlasmaVaultRouter, PlasmaVaultRouter } from "src/vault/PlasmaVaultRouter.sol";
-import { IPlasmaVault, PlasmaVault } from "src/vault/PlasmaVault.sol";
+/* solhint-disable func-name-mixedcase */
+
 import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import { AccessController } from "src/security/AccessController.sol";
 import { MockERC20 } from "test/mocks/MockERC20.sol";
+import { ILMPVaultRegistry, LMPVaultRegistry } from "src/vault/LMPVaultRegistry.sol";
+import { ILMPVaultFactory, LMPVaultFactory } from "src/vault/LMPVaultFactory.sol";
+import { ILMPVaultRouter, LMPVaultRouter } from "src/vault/LMPVaultRouter.sol";
+import { ILMPVault, LMPVault } from "src/vault/LMPVault.sol";
 
 import { SystemRegistry } from "src/SystemRegistry.sol";
 
@@ -18,19 +19,18 @@ import { BaseTest } from "test/BaseTest.t.sol";
 
 import { WETH9_ADDRESS } from "test/utils/Addresses.sol";
 
-contract PlasmaVaultBaseTest is BaseTest {
-    PlasmaVaultRegistry public registry;
-    PlasmaVaultFactory public factory;
-    PlasmaVaultRouter public router;
-    IPlasmaVault public vault;
+contract LMPVaultBaseTest is BaseTest {
+    LMPVaultRegistry public registry;
+    LMPVaultFactory public factory;
+    LMPVaultRouter public router;
+    ILMPVault public vault;
     ERC20 public poolAsset;
-    address internal _mockPoolPrototypeAddress;
 
     function setUp() public virtual override (BaseTest) {
         BaseTest.setUp();
 
         // create registry
-        registry = new PlasmaVaultRegistry(systemRegistry);
+        registry = new LMPVaultRegistry(systemRegistry);
 
         //
         // create and initialize factory
@@ -41,19 +41,17 @@ contract PlasmaVaultBaseTest is BaseTest {
         deal(address(mockAsset), msg.sender, uint256(1_000_000_000_000_000_000_000_000));
         poolAsset = mockAsset;
 
-        factory = new PlasmaVaultFactory(address(registry), address(accessController));
-        // _mockPoolPrototypeAddress = address(new PlasmaVault());
-        // factory.addPrototype(_mockPoolPrototypeAddress);
-        factory.addPoolType(factory.POOLTYPE_PLASMAPOOL(), address(0));
+        factory = new LMPVaultFactory(address(registry), address(accessController));
 
         // NOTE: deployer grants factory permission to update the registry
         accessController.grantRole(Roles.REGISTRY_UPDATER, address(factory));
 
         // create router
-        router = new PlasmaVaultRouter(WETH9_ADDRESS);
+        router = new LMPVaultRouter(WETH9_ADDRESS);
 
         // create sample vault
-        vault = IPlasmaVault(factory.createPool(factory.POOLTYPE_PLASMAPOOL(), address(mockAsset), ""));
+        // NOTE: dummy address passed instead of strategy since that whole thing will be redone
+        vault = ILMPVault(factory.createVault(address(mockAsset), address(1), address(createMainRewarder()), ""));
     }
 
     function test_registryCreated() public view {
@@ -69,6 +67,6 @@ contract PlasmaVaultBaseTest is BaseTest {
     }
 
     function test_vaultRegistered() public view {
-        assert(registry.isPool(address(vault)));
+        assert(registry.isVault(address(vault)));
     }
 }

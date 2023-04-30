@@ -3,11 +3,15 @@ pragma solidity 0.8.17;
 
 import { Test } from "forge-std/Test.sol";
 
+import { ERC20Mock } from "openzeppelin-contracts/mocks/ERC20Mock.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import { SystemRegistry } from "src/SystemRegistry.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IAccessController, AccessController } from "src/security/AccessController.sol";
+import { StrategyFactory } from "src/strategy/StrategyFactory.sol";
+import { StakeTrackingMock } from "test/mocks/StakeTrackingMock.sol";
+import { IMainRewarder, MainRewarder } from "src/rewarders/MainRewarder.sol";
 
 contract BaseTest is Test {
     mapping(bytes => address) internal _tokens;
@@ -37,5 +41,20 @@ contract BaseTest is Test {
 
         toke = IERC20(_tokens["TOKE"]);
         usdc = IERC20(_tokens["USDC"]);
+    }
+
+    function mockAsset(string memory name, string memory symbol) public returns (ERC20Mock) {
+        return new ERC20Mock(name, symbol, address(this), 0);
+    }
+
+    function createMainRewarder() public returns (MainRewarder) {
+        return new MainRewarder(
+            address(new StakeTrackingMock()),
+            vm.addr(1),
+            address(mockAsset("MAIN_REWARD", "MAIN_REWARD")),
+            vm.addr(1),
+            800,
+            100
+        );
     }
 }

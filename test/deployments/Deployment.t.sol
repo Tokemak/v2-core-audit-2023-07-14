@@ -6,7 +6,7 @@ import { Test, StdCheats } from "forge-std/Test.sol";
 import { SystemRegistry } from "src/SystemRegistry.sol";
 import { AccessController } from "src/security/AccessController.sol";
 import { DestinationVaultRegistry } from "src/vault/DestinationVaultRegistry.sol";
-import { IPlasmaVaultRegistry } from "src/interfaces/vault/IPlasmaVaultRegistry.sol";
+import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
 import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
 import { IAccessController } from "src/interfaces/security/IAccessController.sol";
 

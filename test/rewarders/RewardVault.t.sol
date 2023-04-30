@@ -3,26 +3,16 @@
 pragma solidity 0.8.17;
 
 import { Test } from "forge-std/Test.sol";
-import "forge-std/console2.sol";
 
 import { ERC20Mock } from "openzeppelin-contracts/mocks/ERC20Mock.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import { MainRewarder } from "../../src/rewarders/MainRewarder.sol";
 import { ExtraRewarder } from "../../src/rewarders/ExtraRewarder.sol";
+import { StakeTrackingMock } from "test/mocks/StakeTrackingMock.sol";
 import { IStakeTracking } from "../../src/interfaces/rewarders/IStakeTracking.sol";
 
 import { PRANK_ADDRESS, RANDOM } from "../utils/Addresses.sol";
-
-contract StakeTrackingMock is IStakeTracking {
-    function totalSupply() external pure returns (uint256) {
-        return 100_000_000_000_000_000;
-    }
-
-    function balanceOf(address) external pure returns (uint256) {
-        return 100_000_000_000_000_000;
-    }
-}
 
 contract MainRewarderTest is Test {
     address private operator;
@@ -51,7 +41,7 @@ contract MainRewarderTest is Test {
             address(stakeTracker),
             operator,
             address(mainReward),
-            operator,   
+            operator,
             newRewardRatio,
             durationInBlock
         );

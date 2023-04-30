@@ -5,7 +5,7 @@ import { IDestinationVault } from "../vault/IDestinationVault.sol";
 import { IERC3156FlashBorrower } from "openzeppelin-contracts/interfaces/IERC3156FlashBorrower.sol";
 
 // slither-disable-next-line name-reused
-interface IStrategy {
+interface IStrategyNew {
     /// @notice gets the list of supported destination vaults for the LMP/Strategy
     /// @return destinations List of supported destination vaults
     function getDestinations() external view returns (IDestinationVault[] memory destinations);

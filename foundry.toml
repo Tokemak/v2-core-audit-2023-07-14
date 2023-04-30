@@ -17,5 +17,6 @@ wrap_comments = true
 single_line_statement_blocks = "preserve" # can force either way
 exclude = ['lib/']
 
-
+[fuzz]
+runs = 100
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

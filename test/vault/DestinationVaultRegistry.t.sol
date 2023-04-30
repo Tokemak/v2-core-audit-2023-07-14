@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.7;
 
-import { Errors } from "src/utils/errors.sol";
+import { Errors } from "src/utils/Errors.sol";
 import { SystemRegistry } from "src/SystemRegistry.sol";
 import { ISystemBound } from "src/interfaces/ISystemBound.sol";
 import { Test, StdCheats, StdUtils } from "forge-std/Test.sol";

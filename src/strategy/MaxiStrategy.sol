@@ -2,7 +2,7 @@
 pragma solidity 0.8.17;
 
 import "../access/Ownable2Step.sol";
-import "./IStrategy.sol";
+import { IStrategy } from "src/interfaces/strategy/IStrategy.sol";
 import "./BaseStrategy.sol";
 
 contract MaxiStrategy is BaseStrategy {

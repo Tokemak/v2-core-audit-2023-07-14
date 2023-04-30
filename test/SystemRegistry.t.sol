@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.7;
 
-import { Errors } from "src/utils/errors.sol";
+import { Errors } from "src/utils/Errors.sol";
 import { Test, StdCheats } from "forge-std/Test.sol";
 import { SystemRegistry } from "src/SystemRegistry.sol";
 import { ISystemBound } from "src/interfaces/ISystemBound.sol";
 import { IAccessController } from "src/interfaces/security/IAccessController.sol";
-import { IPlasmaVaultRegistry } from "src/interfaces/vault/IPlasmaVaultRegistry.sol";
+import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
 import { IDestinationRegistry } from "src/interfaces/destinations/IDestinationRegistry.sol";
 import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
 
@@ -23,7 +23,7 @@ contract SystemRegistryTest is Test {
     }
 
     /* ******************************** */
-    /* LMP Vault Registry 
+    /* LMP Vault Registry
     /* ******************************** */
 
     function testSystemRegistryLMPVaultSetOnceDuplicateValue() public {
@@ -52,7 +52,7 @@ contract SystemRegistryTest is Test {
         address lmpVault = vm.addr(3);
         mockSystemBound(lmpVault);
         _systemRegistry.setLMPVaultRegistry(lmpVault);
-        IPlasmaVaultRegistry queried = _systemRegistry.lmpVaultRegistry();
+        ILMPVaultRegistry queried = _systemRegistry.lmpVaultRegistry();
 
         assertEq(lmpVault, address(queried));
     }

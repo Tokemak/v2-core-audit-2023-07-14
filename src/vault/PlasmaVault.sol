@@ -253,7 +253,7 @@ contract PlasmaVault is IPlasmaVault, ERC20Permit, Pausable, ReentrancyGuard, Se
     }
 
     ///@dev Checks if vault is "healthy" in the sense of having assets backing the circulating shares.
-    function _isVaultCollateralized() private view returns (bool) {
+    function _isVaultCollateralized() internal view returns (bool) {
         return totalAssets() > 0 || totalSupply() == 0;
     }
 

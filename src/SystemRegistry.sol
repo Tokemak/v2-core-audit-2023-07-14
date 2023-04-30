@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { Errors } from "src/utils/errors.sol";
+import { Errors } from "src/utils/Errors.sol";
 import { Ownable2Step } from "./access/Ownable2Step.sol";
 import { ISystemRegistry } from "./interfaces/ISystemRegistry.sol";
 import { ISystemBound } from "src/interfaces/ISystemBound.sol";
 import { IAccessController } from "./interfaces/security/IAccessController.sol";
-import { IPlasmaVaultRegistry } from "./interfaces/vault/IPlasmaVaultRegistry.sol";
+import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
 import { IDestinationRegistry } from "./interfaces/destinations/IDestinationRegistry.sol";
 import { IDestinationVaultRegistry } from "./interfaces/vault/IDestinationVaultRegistry.sol";
 
@@ -17,7 +17,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     /* State Variables                  */
     /* ******************************** */
 
-    IPlasmaVaultRegistry private _lmpVaultRegistry;
+    ILMPVaultRegistry private _lmpVaultRegistry;
     IDestinationVaultRegistry private _destinationVaultRegistry;
     IAccessController private _accessController;
     IDestinationRegistry private _destinationTemplateRegistry;
@@ -43,7 +43,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     /* ******************************** */
 
     /// @inheritdoc ISystemRegistry
-    function lmpVaultRegistry() external view returns (IPlasmaVaultRegistry) {
+    function lmpVaultRegistry() external view returns (ILMPVaultRegistry) {
         return _lmpVaultRegistry;
     }
 
@@ -78,7 +78,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
 
         emit LMPVaultRegistrySet(registry);
 
-        _lmpVaultRegistry = IPlasmaVaultRegistry(registry);
+        _lmpVaultRegistry = ILMPVaultRegistry(registry);
 
         verifySystemsAgree(_lmpVaultRegistry);
     }

@@ -2,7 +2,7 @@
 pragma solidity 0.8.17;
 
 import { Test } from "forge-std/Test.sol";
-import { Errors } from "src/utils/errors.sol";
+import { Errors } from "src/utils/Errors.sol";
 import { SystemRegistry } from "src/SystemRegistry.sol";
 import { PRANK_ADDRESS, RANDOM } from "../utils/Addresses.sol";
 import { DestinationRegistry } from "../../src/destinations/DestinationRegistry.sol";

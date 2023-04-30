@@ -3,15 +3,15 @@
 pragma solidity 0.8.17;
 
 import { IERC20, SafeERC20, Address } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
-import { IPlasmaVault, IPlasmaVaultRouterBase } from "src/interfaces/vault/IPlasmaVaultRouterBase.sol";
+import { ILMPVault, ILMPVaultRouterBase } from "src/interfaces/vault/ILMPVaultRouterBase.sol";
 
 import { SelfPermit } from "src/utils/SelfPermit.sol";
 import { Multicall } from "src/utils/Multicall.sol";
 
 import { IWETH9 } from "src/interfaces/utils/IWETH9.sol";
 
-/// @title PlasmaVault Router Base Contract
-abstract contract PlasmaVaultRouterBase is IPlasmaVaultRouterBase, SelfPermit, Multicall /*, PeripheryPayments */ {
+/// @title LMPVault Router Base Contract
+abstract contract LMPVaultRouterBase is ILMPVaultRouterBase, SelfPermit, Multicall /*, PeripheryPayments */ {
     using SafeERC20 for IERC20;
 
     IWETH9 public immutable weth9;
@@ -22,9 +22,9 @@ abstract contract PlasmaVaultRouterBase is IPlasmaVaultRouterBase, SelfPermit, M
         weth9 = IWETH9(_weth9);
     }
 
-    /// @inheritdoc IPlasmaVaultRouterBase
+    /// @inheritdoc ILMPVaultRouterBase
     function mint(
-        IPlasmaVault vault,
+        ILMPVault vault,
         address to,
         uint256 shares,
         uint256 maxAmountIn
@@ -37,9 +37,9 @@ abstract contract PlasmaVaultRouterBase is IPlasmaVaultRouterBase, SelfPermit, M
         }
     }
 
-    /// @inheritdoc IPlasmaVaultRouterBase
+    /// @inheritdoc ILMPVaultRouterBase
     function deposit(
-        IPlasmaVault vault,
+        ILMPVault vault,
         address to,
         uint256 amount,
         uint256 minSharesOut
@@ -52,9 +52,9 @@ abstract contract PlasmaVaultRouterBase is IPlasmaVaultRouterBase, SelfPermit, M
         }
     }
 
-    /// @inheritdoc IPlasmaVaultRouterBase
+    /// @inheritdoc ILMPVaultRouterBase
     function withdraw(
-        IPlasmaVault vault,
+        ILMPVault vault,
         address to,
         uint256 amount,
         uint256 maxSharesOut,
@@ -71,9 +71,9 @@ abstract contract PlasmaVaultRouterBase is IPlasmaVaultRouterBase, SelfPermit, M
         }
     }
 
-    /// @inheritdoc IPlasmaVaultRouterBase
+    /// @inheritdoc ILMPVaultRouterBase
     function redeem(
-        IPlasmaVault vault,
+        ILMPVault vault,
         address to,
         uint256 shares,
         uint256 minAmountOut,
@@ -90,7 +90,7 @@ abstract contract PlasmaVaultRouterBase is IPlasmaVaultRouterBase, SelfPermit, M
         }
     }
 
-    function _processEthIn(IPlasmaVault vault) internal {
+    function _processEthIn(ILMPVault vault) internal {
         // if any eth sent, wrap it first
         if (msg.value > 0) {
             // if asset is not weth, revert

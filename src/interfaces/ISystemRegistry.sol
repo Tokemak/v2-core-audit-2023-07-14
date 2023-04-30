@@ -2,7 +2,7 @@
 pragma solidity 0.8.17;
 
 import { IAccessController } from "./security/IAccessController.sol";
-import { IPlasmaVaultRegistry } from "./vault/IPlasmaVaultRegistry.sol";
+import { ILMPVaultRegistry } from "./vault/ILMPVaultRegistry.sol";
 import { IDestinationRegistry } from "./destinations/IDestinationRegistry.sol";
 import { IDestinationVaultRegistry } from "./vault/IDestinationVaultRegistry.sol";
 
@@ -10,7 +10,7 @@ import { IDestinationVaultRegistry } from "./vault/IDestinationVaultRegistry.sol
 interface ISystemRegistry {
     /// @notice LMP Vault registry for the system
     /// @return registry instance of the registry for this system
-    function lmpVaultRegistry() external view returns (IPlasmaVaultRegistry registry);
+    function lmpVaultRegistry() external view returns (ILMPVaultRegistry registry);
 
     /// @notice Destination Vault registry for the system
     /// @return registry instance of the registry for this system

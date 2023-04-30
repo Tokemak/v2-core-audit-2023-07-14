@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { Errors } from "src/utils/errors.sol";
+import { Errors } from "src/utils/Errors.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { Ownable2Step } from "openzeppelin-contracts/access/Ownable2Step.sol";
 import { IDestinationAdapter } from "../interfaces/destinations/IDestinationAdapter.sol";

@@ -2,25 +2,25 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.8.17;
 
-import { IPlasmaVaultRouterBase, PlasmaVaultRouterBase } from "./PlasmaVaultRouterBase.sol";
+import { ILMPVaultRouterBase, LMPVaultRouterBase } from "./LMPVaultRouterBase.sol";
 
-import { IPlasmaVault, IPlasmaVaultRouter } from "src/interfaces/vault/IPlasmaVaultRouter.sol";
+import { ILMPVault, ILMPVaultRouter } from "src/interfaces/vault/ILMPVaultRouter.sol";
 
 import { IERC20, SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { IWETH9 } from "src/interfaces/utils/IWETH9.sol";
 
 /// @title ERC4626Router contract
-contract PlasmaVaultRouter is IPlasmaVaultRouter, PlasmaVaultRouterBase {
+contract LMPVaultRouter is ILMPVaultRouter, LMPVaultRouterBase {
     using SafeERC20 for IERC20;
 
-    constructor(address _weth9) PlasmaVaultRouterBase(_weth9) { }
+    constructor(address _weth9) LMPVaultRouterBase(_weth9) { }
 
     // For the below, no approval needed, assumes vault is already max approved
 
-    /// @inheritdoc IPlasmaVaultRouter
-    function depositToPool(
-        IPlasmaVault vault,
+    /// @inheritdoc ILMPVaultRouter
+    function depositToVault(
+        ILMPVault vault,
         address to,
         uint256 amount,
         uint256 minSharesOut
@@ -29,35 +29,35 @@ contract PlasmaVaultRouter is IPlasmaVaultRouter, PlasmaVaultRouterBase {
         return deposit(vault, to, amount, minSharesOut);
     }
 
-    /// @inheritdoc IPlasmaVaultRouter
+    /// @inheritdoc ILMPVaultRouter
     function withdrawToDeposit(
-        IPlasmaVault fromPool,
-        IPlasmaVault toPool,
+        ILMPVault fromVault,
+        ILMPVault toVault,
         address to,
         uint256 amount,
         uint256 maxSharesIn,
         uint256 minSharesOut
     ) external override returns (uint256 sharesOut) {
-        withdraw(fromPool, address(this), amount, maxSharesIn, false);
-        return deposit(toPool, to, amount, minSharesOut);
+        withdraw(fromVault, address(this), amount, maxSharesIn, false);
+        return deposit(toVault, to, amount, minSharesOut);
     }
 
-    /// @inheritdoc IPlasmaVaultRouter
+    /// @inheritdoc ILMPVaultRouter
     function redeemToDeposit(
-        IPlasmaVault fromPool,
-        IPlasmaVault toPool,
+        ILMPVault fromVault,
+        ILMPVault toVault,
         address to,
         uint256 shares,
         uint256 minSharesOut
     ) external override returns (uint256 sharesOut) {
         // amount out passes through so only one slippage check is needed
-        uint256 amount = redeem(fromPool, address(this), shares, 0, false);
-        return deposit(toPool, to, amount, minSharesOut);
+        uint256 amount = redeem(fromVault, address(this), shares, 0, false);
+        return deposit(toVault, to, amount, minSharesOut);
     }
 
-    /// @inheritdoc IPlasmaVaultRouter
+    /// @inheritdoc ILMPVaultRouter
     function depositMax(
-        IPlasmaVault vault,
+        ILMPVault vault,
         address to,
         uint256 minSharesOut
     ) public override returns (uint256 sharesOut) {
@@ -69,12 +69,8 @@ contract PlasmaVaultRouter is IPlasmaVaultRouter, PlasmaVaultRouterBase {
         return deposit(vault, to, amount, minSharesOut);
     }
 
-    /// @inheritdoc IPlasmaVaultRouter
-    function redeemMax(
-        IPlasmaVault vault,
-        address to,
-        uint256 minAmountOut
-    ) public override returns (uint256 amountOut) {
+    /// @inheritdoc ILMPVaultRouter
+    function redeemMax(ILMPVault vault, address to, uint256 minAmountOut) public override returns (uint256 amountOut) {
         uint256 shareBalance = vault.balanceOf(msg.sender);
         uint256 maxRedeem = vault.maxRedeem(msg.sender);
         uint256 amountShares = maxRedeem < shareBalance ? maxRedeem : shareBalance;

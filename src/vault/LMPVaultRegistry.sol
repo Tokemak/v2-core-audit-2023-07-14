@@ -7,14 +7,14 @@ import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSe
 import { SecurityBase } from "src/security/SecurityBase.sol";
 import { Roles } from "src/libs/Roles.sol";
 
-import { IPlasmaVaultRegistry } from "src/interfaces/vault/IPlasmaVaultRegistry.sol";
-import { IPlasmaVault } from "src/interfaces/vault/IPlasmaVault.sol";
+import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
+import { ILMPVault } from "src/interfaces/vault/ILMPVault.sol";
 
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 
-import { Errors } from "src/utils/errors.sol";
+import { Errors } from "src/utils/Errors.sol";
 
-contract PlasmaVaultRegistry is IPlasmaVaultRegistry, SecurityBase {
+contract LMPVaultRegistry is ILMPVaultRegistry, SecurityBase {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     ISystemRegistry public immutable systemRegistry;
@@ -38,26 +38,26 @@ contract PlasmaVaultRegistry is IPlasmaVaultRegistry, SecurityBase {
     //
     ///////////////////////////////////////////////////////////////////
 
-    function addPool(address poolAddress) external onlyUpdater {
-        if (poolAddress == address(0)) revert ZeroAddress();
+    function addVault(address vaultAddress) external onlyUpdater {
+        if (vaultAddress == address(0)) revert ZeroAddress();
 
-        address asset = IPlasmaVault(poolAddress).asset();
+        address asset = ILMPVault(vaultAddress).asset();
 
-        if (!_vaults.add(poolAddress)) revert PoolAlreadyExists(poolAddress);
+        if (!_vaults.add(vaultAddress)) revert VaultAlreadyExists(vaultAddress);
         //slither-disable-next-line unused-return
         if (!_assets.contains(asset)) _assets.add(asset);
-        if (!_vaultsByAsset[asset].add(poolAddress)) revert PoolAlreadyExists(poolAddress);
+        if (!_vaultsByAsset[asset].add(vaultAddress)) revert VaultAlreadyExists(vaultAddress);
 
-        emit PoolAdded(asset, poolAddress);
+        emit VaultAdded(asset, vaultAddress);
     }
 
-    function removePool(address poolAddress) external onlyUpdater {
-        if (poolAddress == address(0)) revert ZeroAddress();
+    function removeVault(address vaultAddress) external onlyUpdater {
+        if (vaultAddress == address(0)) revert ZeroAddress();
 
-        // remove from pools list
-        if (!_vaults.remove(poolAddress)) revert PoolNotFound(poolAddress);
+        // remove from vaults list
+        if (!_vaults.remove(vaultAddress)) revert VaultNotFound(vaultAddress);
 
-        address asset = IPlasmaVault(poolAddress).asset();
+        address asset = ILMPVault(vaultAddress).asset();
 
         // remove from assets list if this was the last vault for that asset
         if (_vaultsByAsset[asset].length() == 1) {
@@ -65,10 +65,10 @@ contract PlasmaVaultRegistry is IPlasmaVaultRegistry, SecurityBase {
             _assets.remove(asset);
         }
 
-        // remove from poolsByAsset mapping
-        if (!_vaultsByAsset[asset].remove(poolAddress)) revert PoolNotFound(poolAddress);
+        // remove from vaultsByAsset mapping
+        if (!_vaultsByAsset[asset].remove(vaultAddress)) revert VaultNotFound(vaultAddress);
 
-        emit PoolRemoved(asset, poolAddress);
+        emit VaultRemoved(asset, vaultAddress);
     }
 
     ///////////////////////////////////////////////////////////////////
@@ -77,15 +77,15 @@ contract PlasmaVaultRegistry is IPlasmaVaultRegistry, SecurityBase {
     //
     ///////////////////////////////////////////////////////////////////
 
-    function isPool(address poolAddress) external view override returns (bool) {
-        return _vaults.contains(poolAddress);
+    function isVault(address vaultAddress) external view override returns (bool) {
+        return _vaults.contains(vaultAddress);
     }
 
-    function listPools() external view returns (address[] memory) {
+    function listVaults() external view returns (address[] memory) {
         return _vaults.values();
     }
 
-    function listPoolsForAsset(address asset) external view returns (address[] memory) {
+    function listVaultsForAsset(address asset) external view returns (address[] memory) {
         return _vaultsByAsset[asset].values();
     }
 }

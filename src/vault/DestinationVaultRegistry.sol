@@ -2,7 +2,7 @@
 pragma solidity 0.8.17;
 
 import { Roles } from "src/libs/Roles.sol";
-import { Errors } from "src/utils/errors.sol";
+import { Errors } from "src/utils/Errors.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IDestinationVault } from "src/interfaces/vault/IDestinationVault.sol";

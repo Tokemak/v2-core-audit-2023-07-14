@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "../access/Ownable2Step.sol";
-import "./IStrategy.sol";
-import "./BaseStrategy.sol";
+import { Ownable2Step } from "src/access/Ownable2Step.sol";
+import { IStrategy } from "src/interfaces/strategy/IStrategy.sol";
+import { BaseStrategy } from "./BaseStrategy.sol";
 
 contract HardCodedStrategy is BaseStrategy {
     constructor(address[] memory _destinations) BaseStrategy(_destinations) { }
