@@ -25,7 +25,6 @@ interface ILiquidationRow {
     error TokenAlreadyAdded();
     error TokenNotFound();
 
-
     /**
      * @notice Claim rewards from a list of vaults
      * @param vaults The list of vaults to claim rewards from

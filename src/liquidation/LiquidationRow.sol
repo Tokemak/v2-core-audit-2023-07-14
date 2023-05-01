@@ -196,7 +196,7 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
      * @param balance The amount of the token to be updated
      */
     function _increaseBalance(address tokenAddress, address vaultAddress, uint256 balance) internal {
-        if(balance == 0) {
+        if (balance == 0) {
             revert ZeroBalance();
         }
 
