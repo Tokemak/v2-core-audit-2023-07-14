@@ -3,7 +3,6 @@ pragma solidity 0.8.17;
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
-import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
 import { IStakeTracking } from "../interfaces/rewarders/IStakeTracking.sol";
 import { IBaseRewarder } from "../interfaces/rewarders/IBaseRewarder.sol";
@@ -16,7 +15,7 @@ import { IBaseRewarder } from "../interfaces/rewarders/IBaseRewarder.sol";
  * The contract is inspired by the Convex contract but uses block-based duration instead of timestamp-based duration.
  * Unlike Convex, it does not own the LP token but it interacts with an external LP token contract.
  */
-abstract contract AbstractRewarder is IBaseRewarder, ReentrancyGuard {
+abstract contract AbstractRewarder is IBaseRewarder {
     using SafeERC20 for IERC20;
 
     /**
@@ -77,7 +76,7 @@ abstract contract AbstractRewarder is IBaseRewarder, ReentrancyGuard {
         _;
     }
 
-    modifier updateReward(address account) {
+    function _updateReward(address account) internal {
         uint256 earnedRewards = 0;
         rewardPerTokenStored = rewardPerToken();
         lastUpdateBlock = lastBlockRewardApplicable();
@@ -89,7 +88,6 @@ abstract contract AbstractRewarder is IBaseRewarder, ReentrancyGuard {
         }
 
         emit UserRewardUpdated(account, earnedRewards, rewardPerTokenStored);
-        _;
     }
 
     function totalSupply() public view returns (uint256) {
@@ -149,7 +147,8 @@ abstract contract AbstractRewarder is IBaseRewarder, ReentrancyGuard {
         emit QueuedRewardsUpdated(queuedRewards);
     }
 
-    function notifyRewardAmount(uint256 reward) internal updateReward(address(0)) {
+    function notifyRewardAmount(uint256 reward) internal {
+        _updateReward(address(0));
         historicalRewards += reward;
 
         if (block.number < periodInBlockFinish) {
@@ -165,12 +164,12 @@ abstract contract AbstractRewarder is IBaseRewarder, ReentrancyGuard {
         emit RewardAdded(reward, rewardRate, lastUpdateBlock, periodInBlockFinish, historicalRewards);
     }
 
-    function _getReward(address account) internal nonReentrant {
+    function _getReward(address account) internal {
         uint256 reward = earned(account);
         if (reward > 0) {
             rewards[account] = 0;
-            IERC20(rewardToken).safeTransfer(account, reward);
             emit RewardPaid(account, reward);
+            IERC20(rewardToken).safeTransfer(account, reward);
         }
     }
 

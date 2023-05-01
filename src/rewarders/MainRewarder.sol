@@ -3,6 +3,7 @@ pragma solidity 0.8.17;
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
+import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
 import { IStakeTracking } from "../interfaces/rewarders/IStakeTracking.sol";
 import { IMainRewarder } from "../interfaces/rewarders/IMainRewarder.sol";
@@ -15,7 +16,7 @@ import { AbstractRewarder } from "./AbstractRewarder.sol";
  * manages the distribution of main rewards along with additional rewards
  * from ExtraRewarder contracts.
  */
-contract MainRewarder is AbstractRewarder, IMainRewarder {
+contract MainRewarder is AbstractRewarder, IMainRewarder, ReentrancyGuard {
     address public immutable rewardManager;
     address[] public extraRewards;
 
@@ -56,7 +57,8 @@ contract MainRewarder is AbstractRewarder, IMainRewarder {
         delete extraRewards;
     }
 
-    function withdraw(address account, uint256 amount, bool claim) public stakeTrackerOnly updateReward(account) {
+    function withdraw(address account, uint256 amount, bool claim) public stakeTrackerOnly {
+        _updateReward(account);
         _withdraw(account, amount);
 
         // slither-disable-start calls-loop
@@ -70,7 +72,8 @@ contract MainRewarder is AbstractRewarder, IMainRewarder {
         }
     }
 
-    function stake(address account, uint256 amount) public stakeTrackerOnly updateReward(account) {
+    function stake(address account, uint256 amount) public stakeTrackerOnly {
+        _updateReward(account);
         _stake(account, amount);
 
         // slither-disable-start calls-loop
@@ -80,7 +83,8 @@ contract MainRewarder is AbstractRewarder, IMainRewarder {
         // slither-disable-end calls-loop
     }
 
-    function getReward(address account, bool claimExtras) public updateReward(account) {
+    function getReward(address account, bool claimExtras) public nonReentrant {
+        _updateReward(account);
         _getReward(account);
 
         //also get rewards from linked rewards
