@@ -11,6 +11,7 @@ interface ILiquidationRow {
     event VaultLiquidated(address indexed fromToken, address indexed toToken, uint256 totalAmountSwapped);
 
     error ZeroAddress();
+    error ZeroBalance();
     error LengthsMismatch();
     error InsufficientSellAmount();
     error SellAmountMismatch();
@@ -24,14 +25,6 @@ interface ILiquidationRow {
     error TokenAlreadyAdded();
     error TokenNotFound();
 
-    struct LiquidationData {
-        uint256 totalBalanceToLiquidate;
-        uint256 balanceBefore;
-        uint256 balanceDiff;
-        uint256 pct;
-        uint256 amount;
-        uint256[] vaultsBalances;
-    }
 
     /**
      * @notice Claim rewards from a list of vaults

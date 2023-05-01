@@ -71,6 +71,10 @@ contract LiquidationRowWrapper is LiquidationRow {
             }
         }
     }
+
+    function _increaseBalanceWrapper(address vaultAddress, address tokenAddress, uint256 tokenAmount) public {
+        _increaseBalance(tokenAddress, vaultAddress, tokenAmount);
+    }
 }
 
 // solhint-disable func-name-mixedcase
@@ -265,6 +269,14 @@ contract LiquidationRowTest is Test {
         assertFalse(isSwapperAllowed);
     }
 
+     function test_Revert_IfIBalance_Zero() public {
+        rewardToken.mint(address(liquidationRow), 100);
+
+        vm.expectRevert(ILiquidationRow.ZeroBalance.selector);
+
+        liquidationRow._increaseBalanceWrapper(vault1, address(rewardToken), 0);
+    }
+
     /**
      * @notice Test the updateBalances function with multiple vaults.
      */
@@ -439,6 +451,7 @@ contract LiquidationRowTest is Test {
         uint256 rewardTokenTotalBalance = liquidationRow.totalBalanceOf(address(rewardToken));
         assertTrue(rewardTokenTotalBalance == rewardsTokensAmounts[0][0] + rewardsTokensAmounts[1][0]);
     }
+
 
     /**
      * @notice Returns test data for the updateBalances function.

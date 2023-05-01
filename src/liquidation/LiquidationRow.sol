@@ -118,15 +118,15 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
         SwapParams memory params
     ) external nonReentrant {
         uint256 vaultsToLiquidateLength = vaultsToLiquidate.length;
-        LiquidationData memory data = LiquidationData(0, 0, 0, 0, 0, new uint256[](vaultsToLiquidateLength));
+        uint256[] memory vaultsBalances = new uint256[](vaultsToLiquidateLength);
 
-        data.totalBalanceToLiquidate = 0;
+        uint256 totalBalanceToLiquidate = 0;
 
         for (uint256 i = 0; i < vaultsToLiquidateLength; ++i) {
             address vaultAddress = vaultsToLiquidate[i];
             uint256 vaultBalance = balances[fromToken][vaultAddress];
-            data.totalBalanceToLiquidate += vaultBalance;
-            data.vaultsBalances[i] = vaultBalance;
+            totalBalanceToLiquidate += vaultBalance;
+            vaultsBalances[i] = vaultBalance;
             // Update the total balance for the token
             totalTokenBalances[fromToken] -= vaultBalance;
             // Update the balance for the vault and token
@@ -138,11 +138,11 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
             }
         }
 
-        if (data.totalBalanceToLiquidate == 0) {
+        if (totalBalanceToLiquidate == 0) {
             revert NothingToLiquidate();
         }
 
-        if (data.totalBalanceToLiquidate != params.sellAmount) {
+        if (totalBalanceToLiquidate != params.sellAmount) {
             revert SellAmountMismatch();
         }
 
@@ -154,28 +154,27 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
             }
         }
 
-        data.balanceBefore = IERC20(params.buyTokenAddress).balanceOf(address(this));
+        uint256 balanceBefore = IERC20(params.buyTokenAddress).balanceOf(address(this));
 
         _swapTokens(asyncSwapper, params);
 
         /// @todo integrate pricing to confirm that our specified minimum token is within a reasonable price
-        data.balanceDiff = IERC20(params.buyTokenAddress).balanceOf(address(this)) - data.balanceBefore;
+        uint256 balanceDiff = IERC20(params.buyTokenAddress).balanceOf(address(this)) - balanceBefore;
 
-        if (data.balanceDiff < params.buyAmount) {
+        if (balanceDiff < params.buyAmount) {
             revert InsufficientSellAmount();
         }
 
         for (uint256 i = 0; i < vaultsToLiquidateLength; ++i) {
             address vaultAddress = vaultsToLiquidate[i];
-            uint256 vaultBalance = data.vaultsBalances[i];
+            uint256 vaultBalance = vaultsBalances[i];
 
-            data.pct = vaultBalance * data.totalBalanceToLiquidate;
-            data.amount = data.balanceDiff * vaultBalance / data.totalBalanceToLiquidate;
+            uint256 amount = balanceDiff * vaultBalance / totalBalanceToLiquidate;
 
-            IERC20(params.buyTokenAddress).safeTransfer(vaultAddress, data.amount);
+            IERC20(params.buyTokenAddress).safeTransfer(vaultAddress, amount);
         }
 
-        emit VaultLiquidated(fromToken, params.buyTokenAddress, data.balanceDiff);
+        emit VaultLiquidated(fromToken, params.buyTokenAddress, balanceDiff);
     }
 
     /**
@@ -197,6 +196,10 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
      * @param balance The amount of the token to be updated
      */
     function _increaseBalance(address tokenAddress, address vaultAddress, uint256 balance) internal {
+        if(balance == 0) {
+            revert ZeroBalance();
+        }
+
         uint256 currentBalance = balances[tokenAddress][vaultAddress];
         uint256 totalBalance = totalTokenBalances[tokenAddress];
         uint256 newTotalBalance = totalBalance + balance;
