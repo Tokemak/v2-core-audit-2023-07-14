@@ -52,7 +52,7 @@ interface IBaseRewarder {
      * and the total supply of tokens in the staking pool.
      * @return The updated rewards per token value for the current block.
      */
-    function rewardToken() external view returns (address);
+    function rewardPerToken() external view returns (uint256);
 
     /**
      * @notice Get the current reward rate per block.
