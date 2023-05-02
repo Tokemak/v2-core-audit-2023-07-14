@@ -25,6 +25,14 @@ interface IAsyncSwapper {
     error InsufficientBuyAmount();
     error InsufficientBalance(uint256 balanceNeeded, uint256 balanceAvailable);
 
+    event Swapped(
+        address indexed sellTokenAddress,
+        address indexed buyTokenAddress,
+        uint256 sellAmount,
+        uint256 buyAmount,
+        uint256 buyTokenAmountReceived
+    );
+
     /**
      * @notice Swaps sellToken for buyToken
      * @param swapParams Encoded swap data

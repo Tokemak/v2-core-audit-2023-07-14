@@ -50,6 +50,14 @@ contract BaseAsyncSwapper is IAsyncSwapper, ReentrancyGuard {
         if (buyTokenAmountReceived < swapParams.buyAmount) {
             revert InsufficientBuyAmountReceived(buyTokenAmountReceived, swapParams.buyAmount);
         }
+
+        emit Swapped(
+            swapParams.sellTokenAddress,
+            swapParams.buyTokenAddress,
+            swapParams.sellAmount,
+            swapParams.buyAmount,
+            buyTokenAmountReceived
+        );
     }
     // slither-disable-end calls-loop
 }

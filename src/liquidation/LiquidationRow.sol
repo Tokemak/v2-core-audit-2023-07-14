@@ -71,6 +71,10 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
 
     /// @inheritdoc ILiquidationRow
     function claimsVaultRewards(IVaultClaimableRewards[] memory vaults) external nonReentrant {
+        if(vaults.length == 0) {
+            revert NoVaults();
+        }
+
         for (uint256 i = 0; i < vaults.length; ++i) {
             if (address(vaults[i]) == address(0)) revert ZeroAddress();
             // @todo: Check if the vault is in our registry
@@ -117,6 +121,9 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
         address[] memory vaultsToLiquidate,
         SwapParams memory params
     ) external nonReentrant {
+        if(vaultsToLiquidate.length == 0) {
+            revert NoVaults();
+        }
         uint256 vaultsToLiquidateLength = vaultsToLiquidate.length;
         uint256[] memory vaultsBalances = new uint256[](vaultsToLiquidateLength);
 
@@ -172,9 +179,9 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
             uint256 amount = balanceDiff * vaultBalance / totalBalanceToLiquidate;
 
             IERC20(params.buyTokenAddress).safeTransfer(vaultAddress, amount);
-        }
 
-        emit VaultLiquidated(fromToken, params.buyTokenAddress, balanceDiff);
+            emit VaultLiquidated(vaultAddress, fromToken, params.buyTokenAddress, balanceDiff);
+        }
     }
 
     /**

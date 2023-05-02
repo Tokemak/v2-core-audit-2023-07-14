@@ -180,12 +180,12 @@ contract LiquidationRowTest is Test {
     }
 
     /**
-     * @notice Test if a revert occurs when there's nothing to liquidate.
+     * @notice Test if a revert occurs when there's no vaults.
      */
-    function test_Revert_IfNothingToLiquidate() public {
+    function test_Revert_IfNoVaults() public {
         address[] memory vaults = liquidationRow.getVaultsForToken(address(rewardToken));
 
-        vm.expectRevert(ILiquidationRow.NothingToLiquidate.selector);
+        vm.expectRevert(ILiquidationRow.NoVaults.selector);
         liquidationRow.liquidateVaultsForToken(
             address(rewardToken),
             address(asyncSwapper),
