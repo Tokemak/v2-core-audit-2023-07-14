@@ -71,7 +71,7 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
 
     /// @inheritdoc ILiquidationRow
     function claimsVaultRewards(IVaultClaimableRewards[] memory vaults) external nonReentrant {
-        if(vaults.length == 0) {
+        if (vaults.length == 0) {
             revert NoVaults();
         }
 
@@ -121,7 +121,7 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
         address[] memory vaultsToLiquidate,
         SwapParams memory params
     ) external nonReentrant {
-        if(vaultsToLiquidate.length == 0) {
+        if (vaultsToLiquidate.length == 0) {
             revert NoVaults();
         }
         uint256 vaultsToLiquidateLength = vaultsToLiquidate.length;
