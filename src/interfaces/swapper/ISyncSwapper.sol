@@ -6,6 +6,7 @@ interface ISyncSwapper {
 
     /**
      * @notice Swaps sellToken for buyToken
+     * @param pool The address of the pool for the swapper
      * @param sellTokenAddress The address of the token to sell
      * @param sellAmount The amount of sellToken to sell
      * @param buyTokenAddress The address of the token to buy
@@ -13,6 +14,7 @@ interface ISyncSwapper {
      * @return actualBuyAmount The actual amount received from the swap
      */
     function swap(
+        address pool,
         address sellTokenAddress,
         uint256 sellAmount,
         address buyTokenAddress,
