@@ -180,7 +180,7 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
 
             IERC20(params.buyTokenAddress).safeTransfer(vaultAddress, amount);
 
-            emit VaultLiquidated(vaultAddress, fromToken, params.buyTokenAddress, balanceDiff);
+            emit VaultLiquidated(vaultAddress, fromToken, params.buyTokenAddress, amount);
         }
     }
 
