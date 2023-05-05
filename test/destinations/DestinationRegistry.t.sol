@@ -2,6 +2,7 @@
 pragma solidity 0.8.17;
 
 import { Test } from "forge-std/Test.sol";
+import { SystemRegistry } from "src/SystemRegistry.sol";
 import { DestinationRegistry } from "../../src/destinations/DestinationRegistry.sol";
 import { IDestinationRegistry } from "../../src/interfaces/destinations/IDestinationRegistry.sol";
 import { IDestinationAdapter } from "../../src/interfaces/destinations/IDestinationAdapter.sol";
@@ -20,7 +21,7 @@ contract DestinationRegistryTest is Test {
     bytes32 private constant CURVE_V2_FACTORY_CRYPTO_ADAPTER = keccak256("CurveV2FactoryCryptoAdapter");
 
     function setUp() public {
-        registry = new DestinationRegistry();
+        registry = new DestinationRegistry(new SystemRegistry());
     }
 
     // Register

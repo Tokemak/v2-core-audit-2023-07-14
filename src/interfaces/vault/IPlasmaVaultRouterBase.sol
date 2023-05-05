@@ -49,7 +49,7 @@ interface IPlasmaVaultRouterBase {
 
     /**
      * @notice deposit `amount` to an ERC4626 vault.
-     * @param vault The PlasmaVaultt to deposit assets to.
+     * @param vault The PlasmaVault to deposit assets to.
      * @param to The destination of ownership shares.
      * @param amount The amount of assets to deposit to `vault`.
      * @param minSharesOut The min amount of `vault` shares received by `to`.

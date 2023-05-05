@@ -10,16 +10,22 @@ import { Roles } from "src/libs/Roles.sol";
 import { IPlasmaVaultRegistry } from "src/interfaces/vault/IPlasmaVaultRegistry.sol";
 import { IPlasmaVault } from "src/interfaces/vault/IPlasmaVault.sol";
 
+import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
+
 import { Errors } from "src/utils/errors.sol";
 
 contract PlasmaVaultRegistry is IPlasmaVaultRegistry, SecurityBase {
     using EnumerableSet for EnumerableSet.AddressSet;
 
+    ISystemRegistry public immutable systemRegistry;
+
     EnumerableSet.AddressSet private _vaults;
     EnumerableSet.AddressSet private _assets;
     mapping(address => EnumerableSet.AddressSet) private _vaultsByAsset;
 
-    constructor(address _accessController) SecurityBase(_accessController) { }
+    constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
+        systemRegistry = _systemRegistry;
+    }
 
     modifier onlyUpdater() {
         if (!_hasRole(Roles.REGISTRY_UPDATER, msg.sender)) revert PermissionDenied();

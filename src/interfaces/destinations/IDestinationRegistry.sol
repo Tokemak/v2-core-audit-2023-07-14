@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+import { ISystemBound } from "src/interfaces/ISystemBound.sol";
 import { IDestinationAdapter } from "./IDestinationAdapter.sol";
 
-interface IDestinationRegistry {
+interface IDestinationRegistry is ISystemBound {
     event Register(bytes32[] indexed destinationTypes, address[] indexed targets);
     event Replace(bytes32[] indexed destinationTypes, address[] indexed targets);
     event Unregister(bytes32[] indexed destinationTypes);
@@ -41,6 +42,7 @@ interface IDestinationRegistry {
 
     /**
      * @notice Gives an address of the given destination type
+     * @dev Should revert on missing destination
      * @param destination One from the destination type whitelist
      */
     function getAdapter(bytes32 destination) external returns (IDestinationAdapter);

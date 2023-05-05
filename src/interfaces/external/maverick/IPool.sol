@@ -66,7 +66,7 @@ interface IPool {
      * @param reserveA amount of A token in bin
      * @param reserveB amount of B token in bin
      * @param totalSupply total amount of LP tokens in this bin
-     * @param mergeBinBalance LP token balance that this bin posseses of the merge bin
+     * @param mergeBinBalance LP token balance that this bin possesses of the merge bin
      */
     struct BinState {
         uint128 reserveA;
@@ -182,7 +182,7 @@ interface IPool {
 
     /**
      * @notice Migrate bins up the linked list of merged bins so that its
-     *         mergeId is the currrent active bin.
+     *         mergeId is the current active bin.
      * @param binId is an array of the binIds to be migrated
      * @param maxRecursion is the maximum recursion depth of the migration. set to
      *        zero to recurse until the active bin is found.
@@ -221,7 +221,7 @@ interface IPool {
     /**
      * @notice tokenA scale value
      * @dev msb is a flag to indicate whether tokenA has more or less than 18
-     *      decimals. Scale is used in conjuction with Math.toScale/Math.fromScale
+     *      decimals. Scale is used in conjunction with Math.toScale/Math.fromScale
      *      functions to convert from token amounts to D18 scale internal pool accounting.
      */
     function tokenAScale() external view returns (uint256);
@@ -229,7 +229,7 @@ interface IPool {
     /**
      * @notice tokenB scale value
      * @dev msb is a flag to indicate whether tokenA has more or less than 18 decimals.
-     *      Scale is used in conjuction with Math.toScale/Math.fromScale
+     *      Scale is used in conjunction with Math.toScale/Math.fromScale
      *      functions to convert from token amounts to D18 scale internal pool accounting.
      */
     function tokenBScale() external view returns (uint256);

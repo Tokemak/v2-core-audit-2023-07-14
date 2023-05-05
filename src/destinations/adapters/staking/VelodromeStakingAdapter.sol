@@ -23,7 +23,7 @@ contract VelodromeStakingAdapter is IStakingAdapter, ReentrancyGuard {
         // 2 - lpTotalSupply
         uint256[3] lpAmounts,
         address pool,
-        address guageAddress,
+        address gaugeAddress,
         address staking
     );
 
@@ -35,7 +35,7 @@ contract VelodromeStakingAdapter is IStakingAdapter, ReentrancyGuard {
         // 2 - lpTotalSupply
         uint256[3] lpAmounts,
         address pool,
-        address guageAddress,
+        address gaugeAddress,
         address staking
     );
 

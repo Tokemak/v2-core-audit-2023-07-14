@@ -7,7 +7,10 @@ import { IPlasmaVaultFactory, PlasmaVaultFactory } from "src/vault/PlasmaVaultFa
 import { IPlasmaVaultRouter, PlasmaVaultRouter } from "src/vault/PlasmaVaultRouter.sol";
 import { IPlasmaVault, PlasmaVault } from "src/vault/PlasmaVault.sol";
 import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
+import { AccessController } from "src/security/AccessController.sol";
 import { MockERC20 } from "test/mocks/MockERC20.sol";
+
+import { SystemRegistry } from "src/SystemRegistry.sol";
 
 import { Roles } from "src/libs/Roles.sol";
 
@@ -27,7 +30,7 @@ contract PlasmaVaultBaseTest is BaseTest {
         BaseTest.setUp();
 
         // create registry
-        registry = new PlasmaVaultRegistry(address(accessController));
+        registry = new PlasmaVaultRegistry(systemRegistry);
 
         //
         // create and initialize factory

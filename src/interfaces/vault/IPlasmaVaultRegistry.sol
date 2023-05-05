@@ -1,8 +1,10 @@
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+import { ISystemBound } from "src/interfaces/ISystemBound.sol";
+
 /// @title Keep track of Pools created through the Pool Factory
-interface IPlasmaVaultRegistry {
+interface IPlasmaVaultRegistry is ISystemBound {
     ///////////////////////////////////////////////////////////////////
     //                        Errors
     ///////////////////////////////////////////////////////////////////

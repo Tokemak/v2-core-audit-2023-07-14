@@ -5,11 +5,14 @@ import { Test } from "forge-std/Test.sol";
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
+import { SystemRegistry } from "src/SystemRegistry.sol";
+import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IAccessController, AccessController } from "src/security/AccessController.sol";
 
 contract BaseTest is Test {
     mapping(bytes => address) internal _tokens;
 
+    SystemRegistry public systemRegistry;
     IAccessController public accessController;
 
     // -- tokens -- //
@@ -22,8 +25,11 @@ contract BaseTest is Test {
         vm.selectFork(mainnetFork);
         // assertEq(vm.activeFork(), mainnetFork, "forks don't match");
 
+        systemRegistry = new SystemRegistry();
+
         // set up central permissions registry
-        accessController = new AccessController();
+        accessController = new AccessController(address(systemRegistry));
+        systemRegistry.setAccessController(address(accessController));
 
         // TODO: export addresses to separate config
         _tokens["USDC"] = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;

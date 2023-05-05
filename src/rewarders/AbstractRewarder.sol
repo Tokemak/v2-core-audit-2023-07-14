@@ -153,6 +153,7 @@ abstract contract AbstractRewarder is IBaseRewarder {
 
         if (block.number < periodInBlockFinish) {
             uint256 remaining = periodInBlockFinish - block.number;
+            // slither-disable-next-line divide-before-multiply
             uint256 leftover = remaining * rewardRate;
             reward += leftover;
         }

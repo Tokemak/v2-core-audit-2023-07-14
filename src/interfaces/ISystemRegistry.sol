@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { IPlasmaVaultRegistry } from "./vault/IPlasmaVaultRegistry.sol";
-import { IDestinationVaultRegistry } from "./vault/IDestinationVaultRegistry.sol";
 import { IAccessController } from "./security/IAccessController.sol";
+import { IPlasmaVaultRegistry } from "./vault/IPlasmaVaultRegistry.sol";
+import { IDestinationRegistry } from "./destinations/IDestinationRegistry.sol";
+import { IDestinationVaultRegistry } from "./vault/IDestinationVaultRegistry.sol";
 
 /// @notice Root most registry contract for the system
 interface ISystemRegistry {
@@ -18,4 +19,8 @@ interface ISystemRegistry {
     /// @notice Access Controller for the system
     /// @return controller instance of the access controller for this system
     function accessController() external view returns (IAccessController controller);
+
+    /// @notice Destination template registry for the system
+    /// @return registry instance of the registry for this system
+    function destinationTemplateRegistry() external view returns (IDestinationRegistry registry);
 }

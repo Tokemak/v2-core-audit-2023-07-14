@@ -8,5 +8,6 @@ library Roles {
 
     bytes32 public constant REBALANCER_ROLE = keccak256("REBALANCER_ROLE");
     bytes32 public constant CREATE_POOL_ROLE = keccak256("CREATE_POOL_ROLE");
+    bytes32 public constant CREATE_DESTINATION_VAULT_ROLE = keccak256("CREATE_DESTINATION_VAULT_ROLE");
     bytes32 public constant REGISTRY_UPDATER = keccak256("REGISTRY_UPDATER");
 }

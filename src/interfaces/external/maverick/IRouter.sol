@@ -58,9 +58,9 @@ interface IRouter {
 
     /**
      * @notice create a pool and add liquidity to it
-     * @param poolParams paramters of a pool
+     * @param poolParams parameters of a pool
      * @param tokenId nft id of token that will hold lp balance, use 0 to mint a new token
-     * @param addParams paramters of liquidity addition
+     * @param addParams parameters of liquidity addition
      * @param minTokenAAmount minimum amount of token A to add, revert if not met
      * @param minTokenBAmount minimum amount of token B to add, revert if not met
      * @param deadline epoch timestamp in seconds
@@ -86,7 +86,7 @@ interface IRouter {
      * @notice add liquidity to a pool
      * @param pool pool to add liquidity to
      * @param tokenId nft id of token that will hold lp balance, use 0 to mint a new token
-     * @param params paramters of liquidity addition
+     * @param params parameters of liquidity addition
      * @param minTokenAAmount minimum amount of token A to add, revert if not met
      * @param minTokenBAmount minimum amount of token B to add, revert if not met
      * @param deadline epoch timestamp in seconds
@@ -112,7 +112,7 @@ interface IRouter {
      * @notice add liquidity to a pool with active tick limits
      * @param pool pool to add liquidity to
      * @param tokenId nft id of token that will hold lp balance, use 0 to mint a new token
-     * @param params paramters of liquidity addition
+     * @param params parameters of liquidity addition
      * @param minTokenAAmount minimum amount of token A to add, revert if not met
      * @param minTokenBAmount minimum amount of token B to add, revert if not met
      * @param minActiveTick lowest activeTick (inclusive) of pool that will permit transaction to pass
@@ -158,7 +158,7 @@ interface IRouter {
      * @param pool pool to remove from
      * @param recipient address where proceeds are sent; use zero or router address to leave tokens in router
      * @param tokenId ID of position NFT that holds liquidity
-     * @param params paramters of liquidity removal
+     * @param params parameters of liquidity removal
      * @param minTokenAAmount minimum amount of token A to receive, revert if not met
      * @param minTokenBAmount minimum amount of token B to receive, revert if not met
      * @param deadline epoch timestamp in seconds

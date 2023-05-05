@@ -12,20 +12,20 @@ import { IDestinationAdapter } from "./IDestinationAdapter.sol";
  */
 interface IPoolAdapter is IDestinationAdapter {
     /**
-     * @notice Deploy liquidity to the assosiated destination
+     * @notice Deploy liquidity to the associated destination
      * @dev Calls into external contract
      * @param amounts Amounts of corresponding tokens to deploy
      * @param minLpMintAmount Min amount of LP tokens to mint in the deployment
-     * @param extraParams Encoded params that are specific to the given destinaion
+     * @param extraParams Encoded params that are specific to the given destination
      */
     function addLiquidity(uint256[] calldata amounts, uint256 minLpMintAmount, bytes calldata extraParams) external;
 
     /**
-     * @notice Withdraw liquidity from the assosiated destination
+     * @notice Withdraw liquidity from the associated destination
      * @dev Calls into external contract
      * @param amounts Amounts of corresponding tokens to withdraw
      * @param maxLpBurnAmount Max amount of LP tokens to burn in the withdrawal
-     * @param extraParams Encoded params that are specific to the given destinaion
+     * @param extraParams Encoded params that are specific to the given destination
      */
     function removeLiquidity(
         uint256[] calldata amounts,

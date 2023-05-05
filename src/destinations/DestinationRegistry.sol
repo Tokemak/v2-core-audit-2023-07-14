@@ -1,14 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+import { Errors } from "src/utils/errors.sol";
+import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { Ownable2Step } from "openzeppelin-contracts/access/Ownable2Step.sol";
-
-import { IDestinationRegistry } from "../interfaces/destinations/IDestinationRegistry.sol";
 import { IDestinationAdapter } from "../interfaces/destinations/IDestinationAdapter.sol";
+import { IDestinationRegistry } from "../interfaces/destinations/IDestinationRegistry.sol";
 
 contract DestinationRegistry is IDestinationRegistry, Ownable2Step {
+    ISystemRegistry public immutable systemRegistry;
+
     mapping(bytes32 => IDestinationAdapter) public destinations;
     mapping(bytes32 => bool) public allowedTypes;
+
+    constructor(ISystemRegistry _systemRegistry) {
+        // TODO: Decide the access control here
+        //SecurityBase(address(_systemRegistry.accessController())) {
+
+        Errors.verifyNotZero(address(_systemRegistry), "_systemRegistry");
+        systemRegistry = _systemRegistry;
+    }
 
     modifier arrayLengthMatch(bytes32[] calldata destinationTypes, address[] calldata targets) {
         if (destinationTypes.length != targets.length) {
