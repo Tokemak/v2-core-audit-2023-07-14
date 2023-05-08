@@ -62,6 +62,13 @@ contract DestinationVaultRegistryBaseTests is Test {
         vm.stopPrank();
     }
 
+    function testZeroAddressVaultCantBeRegistered() public {
+        vm.startPrank(factory);
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "newDestinationVault"));
+        registry.register(address(0));
+        vm.stopPrank();
+    }
+
     function testVaultRegistrationEmitsEvent() public {
         address newVault = generateDestinationVault(systemRegistry);
         vm.startPrank(factory);

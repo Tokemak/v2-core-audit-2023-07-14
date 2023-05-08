@@ -44,6 +44,8 @@ contract DestinationVaultRegistry is IDestinationVaultRegistry, SecurityBase {
 
     /// @inheritdoc IDestinationVaultRegistry
     function register(address newDestinationVault) external onlyFactory {
+        Errors.verifyNotZero(newDestinationVault, "newDestinationVault");
+
         if (!vaults.add(newDestinationVault)) {
             revert AlreadyRegistered(newDestinationVault);
         }
