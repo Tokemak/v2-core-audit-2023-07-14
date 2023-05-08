@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.7;
 
+import { Errors } from "src/utils/errors.sol";
 import { Test, StdCheats } from "forge-std/Test.sol";
 import { SystemRegistry } from "src/SystemRegistry.sol";
 import { ISystemBound } from "src/interfaces/ISystemBound.sol";
@@ -43,7 +44,7 @@ contract SystemRegistryTest is Test {
     }
 
     function testSystemRegistryLMPVaultZeroNotAllowed() public {
-        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.ZeroAddress.selector, "lmpVaultRegistry"));
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "lmpVaultRegistry"));
         _systemRegistry.setLMPVaultRegistry(address(0));
     }
 
@@ -107,7 +108,7 @@ contract SystemRegistryTest is Test {
     }
 
     function testSystemRegistryDestinationVaultZeroNotAllowed() public {
-        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.ZeroAddress.selector, "destinationVaultRegistry"));
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "destinationVaultRegistry"));
         _systemRegistry.setDestinationVaultRegistry(address(0));
     }
 
@@ -173,7 +174,7 @@ contract SystemRegistryTest is Test {
     }
 
     function testSystemRegistryDestinationTemplateZeroNotAllowed() public {
-        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.ZeroAddress.selector, "destinationTemplateRegistry"));
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "destinationTemplateRegistry"));
         _systemRegistry.setDestinationTemplateRegistry(address(0));
     }
 
@@ -239,7 +240,7 @@ contract SystemRegistryTest is Test {
     }
 
     function testSystemRegistryAccessControllerVaultZeroNotAllowed() public {
-        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.ZeroAddress.selector, "accessController"));
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "accessController"));
         _systemRegistry.setAccessController(address(0));
     }
 

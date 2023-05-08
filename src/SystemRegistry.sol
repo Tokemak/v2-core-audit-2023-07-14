@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+import { Errors } from "src/utils/errors.sol";
 import { Ownable2Step } from "./access/Ownable2Step.sol";
 import { ISystemRegistry } from "./interfaces/ISystemRegistry.sol";
 import { ISystemBound } from "src/interfaces/ISystemBound.sol";
@@ -34,7 +35,6 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     /* Errors                           */
     /* ******************************** */
 
-    error ZeroAddress(string param);
     error AlreadySet(string param);
     error SystemMismatch(address ours, address theirs);
 
@@ -66,13 +66,12 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     /* Function                         */
     /* ******************************** */
 
-    /// @notice Retrieve the LMP Vault Registry for this instance of the system
+    /// @notice Set the LMP Vault Registry for this instance of the system
     /// @dev Should only be able to set this value one time
     /// @param registry Address of the registry
     function setLMPVaultRegistry(address registry) external onlyOwner {
-        if (registry == address(0)) {
-            revert ZeroAddress("lmpVaultRegistry");
-        }
+        Errors.verifyNotZero(registry, "lmpVaultRegistry");
+
         if (address(_lmpVaultRegistry) != address(0)) {
             revert AlreadySet("lmpVaultRegistry");
         }
@@ -84,13 +83,12 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         verifySystemsAgree(_lmpVaultRegistry);
     }
 
-    /// @notice Retrieve the Destination Vault Registry for this instance of the system
+    /// @notice Set the Destination Vault Registry for this instance of the system
     /// @dev Should only be able to set this value one time
     /// @param registry Address of the registry
     function setDestinationVaultRegistry(address registry) external onlyOwner {
-        if (registry == address(0)) {
-            revert ZeroAddress("destinationVaultRegistry");
-        }
+        Errors.verifyNotZero(registry, "destinationVaultRegistry");
+
         if (address(_destinationVaultRegistry) != address(0)) {
             revert AlreadySet("destinationVaultRegistry");
         }
@@ -102,13 +100,12 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         verifySystemsAgree(_destinationVaultRegistry);
     }
 
-    /// @notice Retrieve the Access Controller for this instance of the system
+    /// @notice Set the Access Controller for this instance of the system
     /// @dev Should only be able to set this value one time
     /// @param controller Address of the access controller
     function setAccessController(address controller) external onlyOwner {
-        if (controller == address(0)) {
-            revert ZeroAddress("accessController");
-        }
+        Errors.verifyNotZero(controller, "accessController");
+
         if (address(_accessController) != address(0)) {
             revert AlreadySet("accessController");
         }
@@ -120,13 +117,12 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         verifySystemsAgree(_accessController);
     }
 
-    /// @notice Retrieve the Destination Template Registry for this instance of the system
+    /// @notice Set the Destination Template Registry for this instance of the system
     /// @dev Should only be able to set this value one time
     /// @param registry Address of the registry
     function setDestinationTemplateRegistry(address registry) external onlyOwner {
-        if (registry == address(0)) {
-            revert ZeroAddress("destinationTemplateRegistry");
-        }
+        Errors.verifyNotZero(registry, "destinationTemplateRegistry");
+
         if (address(_destinationTemplateRegistry) != address(0)) {
             revert AlreadySet("destinationTemplateRegistry");
         }
