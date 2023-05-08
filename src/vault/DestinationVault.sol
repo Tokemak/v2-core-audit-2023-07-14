@@ -156,6 +156,9 @@ abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
             uint256 currentDebtValue = debtValue();
 
             // If our take is greater than the entire debt value, tweak the numbers so we take it all
+            // If currentDebtValue is used in any way than just passing it to reclaimDebt re-evaluate
+            // this operation as it probably won't make sense. reclaimDebt uses the numbers as a ratio
+            // and we want it to 1:1
             if (remaining > currentDebtValue) {
                 currentDebtValue = remaining;
             }
