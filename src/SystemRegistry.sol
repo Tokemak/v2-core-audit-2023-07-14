@@ -134,9 +134,13 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         verifySystemsAgree(_destinationTemplateRegistry);
     }
 
+    /// @notice Verifies that a system bound contract matches this contract
+    /// @dev All system bound contracts match a registry contract. Will revert on mismatch
+    /// @param dep The contract to check
     function verifySystemsAgree(ISystemBound dep) internal view {
-        if (address(dep.systemRegistry()) != address(this)) {
-            revert SystemMismatch(address(this), address(dep.systemRegistry()));
+        address depRegistry = address(dep.systemRegistry());
+        if (depRegistry != address(this)) {
+            revert SystemMismatch(address(this), depRegistry);
         }
     }
 }

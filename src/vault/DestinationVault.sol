@@ -7,8 +7,8 @@ import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IDestinationVault } from "src/interfaces/vault/IDestinationVault.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
-import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { Initializable } from "openzeppelin-contracts/proxy/utils/Initializable.sol";
+import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 // TODO: Ensure that baseAsset decimals are the same as the Vaults decimals
 // TODO: Evaluate the conditions to burn destination vault shares

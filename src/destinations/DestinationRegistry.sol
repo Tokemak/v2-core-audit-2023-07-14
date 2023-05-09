@@ -28,12 +28,6 @@ contract DestinationRegistry is IDestinationRegistry, Ownable2Step {
         _;
     }
 
-    function ensureTargetNotZero(address target) private pure {
-        if (target == address(0)) {
-            revert InvalidAddress(target);
-        }
-    }
-
     function ensureDestinationIsPresent(IDestinationAdapter destination) private pure {
         if (address(destination) == address(0)) {
             revert DestinationNotPresent();
@@ -50,7 +44,7 @@ contract DestinationRegistry is IDestinationRegistry, Ownable2Step {
                 revert NotAllowedDestination();
             }
             address target = targets[i];
-            ensureTargetNotZero(target);
+            Errors.verifyNotZero(target, "target");
 
             if (address(destinations[destination]) != address(0)) {
                 revert DestinationAlreadySet();
@@ -66,7 +60,7 @@ contract DestinationRegistry is IDestinationRegistry, Ownable2Step {
     ) public override onlyOwner arrayLengthMatch(destinationTypes, targets) {
         for (uint256 i = 0; i < destinationTypes.length; ++i) {
             address target = targets[i];
-            ensureTargetNotZero(target);
+            Errors.verifyNotZero(target, "target");
 
             bytes32 destination = destinationTypes[i];
             IDestinationAdapter existingDestination = destinations[destination];
