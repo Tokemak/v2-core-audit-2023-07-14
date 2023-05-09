@@ -43,23 +43,23 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     /* ******************************** */
 
     /// @inheritdoc ISystemRegistry
-    function lmpVaultRegistry() external view returns (IPlasmaVaultRegistry registry) {
-        registry = _lmpVaultRegistry;
+    function lmpVaultRegistry() external view returns (IPlasmaVaultRegistry) {
+        return _lmpVaultRegistry;
     }
 
     /// @inheritdoc ISystemRegistry
-    function destinationVaultRegistry() external view returns (IDestinationVaultRegistry registry) {
-        registry = _destinationVaultRegistry;
+    function destinationVaultRegistry() external view returns (IDestinationVaultRegistry) {
+        return _destinationVaultRegistry;
     }
 
     /// @inheritdoc ISystemRegistry
-    function accessController() external view returns (IAccessController controller) {
-        controller = _accessController;
+    function accessController() external view returns (IAccessController) {
+        return _accessController;
     }
 
     /// @inheritdoc ISystemRegistry
-    function destinationTemplateRegistry() external view returns (IDestinationRegistry registry) {
-        registry = _destinationTemplateRegistry;
+    function destinationTemplateRegistry() external view returns (IDestinationRegistry) {
+        return _destinationTemplateRegistry;
     }
 
     /* ******************************** */
