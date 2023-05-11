@@ -332,6 +332,8 @@ contract LMPVault is ILMPVault, LMPStorage, ERC20Permit, SecurityBase, Pausable,
         address[] calldata destinations,
         bool onlyDoTracked
     ) private {
+        // slither-disable-start reentrancy-no-eth
+
         // check for param numbers match
         if (!(tokens.length > 0) || tokens.length != amounts.length || tokens.length != destinations.length) {
             revert Errors.InvalidParams();
@@ -367,6 +369,8 @@ contract LMPVault is ILMPVault, LMPStorage, ERC20Permit, SecurityBase, Pausable,
             // slither-disable-next-line reentrancy-events
             token.safeTransfer(destination, amount);
         }
+
+        // slither-disable-end reentrancy-no-eth
     }
 
     // solhint-disable-next-line no-unused-vars
@@ -380,6 +384,8 @@ contract LMPVault is ILMPVault, LMPStorage, ERC20Permit, SecurityBase, Pausable,
         // TODO: do we need slippage parameter?
         withdraw(amount, address(this), address(this));
         // deposit to new vault
+        // TODO: slippage should be added below to compare expected shares?
+        // slither-disable-next-line unused-return
         newVault.deposit(amount, msg.sender);
 
         // TODO: pull all assets in from destinations

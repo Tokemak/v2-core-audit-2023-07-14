@@ -5,7 +5,7 @@ import { Ownable2Step } from "src/access/Ownable2Step.sol";
 import { IStrategy } from "src/interfaces/strategy/IStrategy.sol";
 import { LMPStorage } from "src/vault/LMPStorage.sol";
 
-contract BaseStrategy is IStrategy, LMPStorage, Ownable2Step {
+contract BaseStrategy is IStrategy, Ownable2Step {
     uint32 public constant MAX_PERCENTAGE = 100_000;
 
     address[] public destinations;
