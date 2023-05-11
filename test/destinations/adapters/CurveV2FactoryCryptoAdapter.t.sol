@@ -18,9 +18,11 @@ import {
     SETH_MAINNET,
     FRXETH_MAINNET,
     STETH_MAINNET,
+    WETH9_OPTIMISM,
     SETH_OPTIMISM,
     WSTETH_OPTIMISM,
-    WSTETH_ARBITRUM
+    WSTETH_ARBITRUM,
+    WETH_ARBITRUM
 } from "../../utils/Addresses.sol";
 
 contract CurveV2FactoryCryptoAdapterTest is Test {
@@ -41,14 +43,7 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         assertEq(vm.activeFork(), mainnetFork);
 
         adapter = new CurveV2FactoryCryptoAdapter();
-    }
-
-    function forkOptimism() private {
-        string memory endpoint = vm.envString("OPTIMISM_MAINNET_RPC_URL");
-        uint256 forkId = vm.createFork(endpoint);
-        vm.selectFork(forkId);
-        assertEq(vm.activeFork(), forkId);
-        adapter = new CurveV2FactoryCryptoAdapter();
+        adapter.initialize(WETH_MAINNET);
     }
 
     function forkArbitrum() private {
@@ -57,6 +52,54 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         vm.selectFork(forkId);
         assertEq(vm.activeFork(), forkId);
         adapter = new CurveV2FactoryCryptoAdapter();
+        adapter.initialize(WETH_ARBITRUM);
+    }
+
+    function forkOptimism() private {
+        string memory endpoint = vm.envString("OPTIMISM_MAINNET_RPC_URL");
+        uint256 forkId = vm.createFork(endpoint);
+        vm.selectFork(forkId);
+        assertEq(vm.activeFork(), forkId);
+        adapter = new CurveV2FactoryCryptoAdapter();
+        adapter.initialize(WETH9_OPTIMISM);
+    }
+
+    function testInitializeWithValidWethAddressOnEth() public {
+        adapter = new CurveV2FactoryCryptoAdapter();
+        adapter.initialize(WETH_MAINNET);
+        assertEq(address(adapter.weth()), WETH_MAINNET);
+    }
+
+    function testInitializeWithValidWethAddressOnArb() public {
+        forkArbitrum();
+        adapter = new CurveV2FactoryCryptoAdapter();
+        adapter.initialize(WETH_ARBITRUM);
+        assertEq(address(adapter.weth()), WETH_ARBITRUM);
+    }
+
+    function testInitializeWithValidWethAddressOnOpt() public {
+        forkOptimism();
+        adapter = new CurveV2FactoryCryptoAdapter();
+        adapter.initialize(WETH9_OPTIMISM);
+        assertEq(address(adapter.weth()), WETH9_OPTIMISM);
+    }
+
+    function testRevertOnInitializeWithNonContractAsWethAddress() public {
+        adapter = new CurveV2FactoryCryptoAdapter();
+        vm.expectRevert(CurveV2FactoryCryptoAdapter.InvalidWethAddress.selector);
+        adapter.initialize(RANDOM);
+    }
+
+    function testRevertOnInitializeWithWrongContractAsWethAddress() public {
+        adapter = new CurveV2FactoryCryptoAdapter();
+        vm.expectRevert(CurveV2FactoryCryptoAdapter.InvalidWethAddress.selector);
+        adapter.initialize(0xB90B9B1F91a01Ea22A182CD84C1E22222e39B415);
+    }
+
+    function testRevertOnInitializeWithWrongErc20AsWethAddress() public {
+        adapter = new CurveV2FactoryCryptoAdapter();
+        vm.expectRevert(CurveV2FactoryCryptoAdapter.InvalidWethAddress.selector);
+        adapter.initialize(SETH_MAINNET);
     }
 
     function testAddLiquidityWethStEth() public {
@@ -218,18 +261,22 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         bytes memory extraParams = abi.encode(poolAddress, address(lpToken), true);
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
-        uint256 preBalance = IERC20(FRXETH_MAINNET).balanceOf(address(adapter));
+        uint256 preBalance1 = IERC20(FRXETH_MAINNET).balanceOf(address(adapter));
+        // we track WETH as we auto-wrap on receiving Ether
+        uint256 preBalance2 = IERC20(WETH_MAINNET).balanceOf(address(adapter));
         uint256 preLpBalance = lpToken.balanceOf(address(adapter));
 
         uint256[] memory withdrawAmounts = new uint256[](2);
         withdrawAmounts[0] = 0.5 * 1e18;
-        withdrawAmounts[1] = 0 * 1e18;
+        withdrawAmounts[1] = 0.5 * 1e18;
         adapter.removeLiquidity(withdrawAmounts, preLpBalance, extraParams);
 
-        uint256 afterBalance = IERC20(FRXETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalance1 = IERC20(FRXETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalance2 = IERC20(WETH_MAINNET).balanceOf(address(adapter));
         uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
 
-        assert(afterBalance > preBalance);
+        assert(afterBalance1 > preBalance1);
+        assert(afterBalance2 > preBalance2);
         assert(aftrerLpBalance < preLpBalance);
     }
 
@@ -273,8 +320,8 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         IERC20 lpToken = IERC20(0xA3D87FffcE63B53E0d54fAa1cc983B7eB0b74A9c);
 
         uint256[] memory amounts = new uint256[](2);
-        amounts[0] = 0.5 * 1e18;
-        amounts[1] = 0.5 * 1e18;
+        amounts[0] = 1.5 * 1e18;
+        amounts[1] = 1.5 * 1e18;
 
         vm.deal(address(adapter), 3 ether);
 
@@ -290,18 +337,23 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         bytes memory extraParams = abi.encode(poolAddress, address(lpToken), true);
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
-        uint256 preBalance = IERC20(SETH_MAINNET).balanceOf(address(adapter));
+        uint256 preBalance1 = IERC20(SETH_MAINNET).balanceOf(address(adapter));
+        // we track WETH as we auto-wrap on receiving Ether
+        uint256 preBalance2 = IERC20(WETH_MAINNET).balanceOf(address(adapter));
         uint256 preLpBalance = lpToken.balanceOf(address(adapter));
 
         uint256[] memory withdrawAmounts = new uint256[](2);
         withdrawAmounts[0] = 0.5 * 1e18;
-        withdrawAmounts[1] = 0 * 1e18;
+        withdrawAmounts[1] = 0.5 * 1e18;
         adapter.removeLiquidity(withdrawAmounts, preLpBalance, extraParams);
 
-        uint256 afterBalance = IERC20(SETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalance1 = IERC20(SETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalance2 = IERC20(WETH_MAINNET).balanceOf(address(adapter));
+
         uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
 
-        assert(afterBalance > preBalance);
+        assert(afterBalance1 > preBalance1);
+        assert(afterBalance2 > preBalance2);
         assert(aftrerLpBalance < preLpBalance);
     }
 
@@ -367,7 +419,9 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         bytes memory extraParams = abi.encode(poolAddress, address(lpToken), true);
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
-        uint256 preBalance = IERC20(SETH_OPTIMISM).balanceOf(address(adapter));
+        uint256 preBalance1 = IERC20(SETH_OPTIMISM).balanceOf(address(adapter));
+        // we track WETH as we auto-wrap on receiving Ether
+        uint256 preBalance2 = IERC20(WETH9_OPTIMISM).balanceOf(address(adapter));
         uint256 preLpBalance = lpToken.balanceOf(address(adapter));
 
         uint256[] memory withdrawAmounts = new uint256[](2);
@@ -375,10 +429,12 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         withdrawAmounts[1] = 0.5 * 1e18;
         adapter.removeLiquidity(withdrawAmounts, preLpBalance, extraParams);
 
-        uint256 afterBalance = IERC20(SETH_OPTIMISM).balanceOf(address(adapter));
+        uint256 afterBalance1 = IERC20(SETH_OPTIMISM).balanceOf(address(adapter));
+        uint256 afterBalance2 = IERC20(WETH9_OPTIMISM).balanceOf(address(adapter));
         uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
 
-        assert(afterBalance > preBalance);
+        assert(afterBalance1 > preBalance1);
+        assert(afterBalance2 > preBalance2);
         assert(aftrerLpBalance < preLpBalance);
     }
 
@@ -432,7 +488,9 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         bytes memory extraParams = abi.encode(poolAddress, address(lpToken), true);
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
-        uint256 preBalance = IERC20(WSTETH_OPTIMISM).balanceOf(address(adapter));
+        uint256 preBalance1 = IERC20(WSTETH_OPTIMISM).balanceOf(address(adapter));
+        // we track WETH as we auto-wrap on receiving Ether
+        uint256 preBalance2 = IERC20(WETH9_OPTIMISM).balanceOf(address(adapter));
         uint256 preLpBalance = lpToken.balanceOf(address(adapter));
 
         uint256[] memory withdrawAmounts = new uint256[](2);
@@ -440,10 +498,12 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         withdrawAmounts[1] = 0.5 * 1e18;
         adapter.removeLiquidity(withdrawAmounts, preLpBalance, extraParams);
 
-        uint256 afterBalance = IERC20(WSTETH_OPTIMISM).balanceOf(address(adapter));
+        uint256 afterBalance1 = IERC20(WSTETH_OPTIMISM).balanceOf(address(adapter));
+        uint256 afterBalance2 = IERC20(WETH9_OPTIMISM).balanceOf(address(adapter));
         uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
 
-        assert(afterBalance > preBalance);
+        assert(afterBalance1 > preBalance1);
+        assert(afterBalance2 > preBalance2);
         assert(aftrerLpBalance < preLpBalance);
     }
 
@@ -497,7 +557,9 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         bytes memory extraParams = abi.encode(poolAddress, address(lpToken), true);
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
-        uint256 preBalance = IERC20(WSTETH_ARBITRUM).balanceOf(address(adapter));
+        uint256 preBalance1 = IERC20(WSTETH_ARBITRUM).balanceOf(address(adapter));
+        // we track WETH as we auto-wrap on receiving Ether
+        uint256 preBalance2 = IERC20(WETH_ARBITRUM).balanceOf(address(adapter));
         uint256 preLpBalance = lpToken.balanceOf(address(adapter));
 
         uint256[] memory withdrawAmounts = new uint256[](2);
@@ -505,10 +567,12 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         withdrawAmounts[1] = 0.5 * 1e18;
         adapter.removeLiquidity(withdrawAmounts, preLpBalance, extraParams);
 
-        uint256 afterBalance = IERC20(WSTETH_ARBITRUM).balanceOf(address(adapter));
+        uint256 afterBalance1 = IERC20(WSTETH_ARBITRUM).balanceOf(address(adapter));
+        uint256 afterBalance2 = IERC20(WETH_ARBITRUM).balanceOf(address(adapter));
         uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
 
-        assert(afterBalance > preBalance);
+        assert(afterBalance1 > preBalance1);
+        assert(afterBalance2 > preBalance2);
         assert(aftrerLpBalance < preLpBalance);
     }
 }

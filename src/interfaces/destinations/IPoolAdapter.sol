@@ -26,10 +26,11 @@ interface IPoolAdapter is IDestinationAdapter {
      * @param amounts Amounts of corresponding tokens to withdraw
      * @param maxLpBurnAmount Max amount of LP tokens to burn in the withdrawal
      * @param extraParams Encoded params that are specific to the given destination
+     * @return actualAmounts Amounts of tokens that were actually withdrawn
      */
     function removeLiquidity(
         uint256[] calldata amounts,
         uint256 maxLpBurnAmount,
         bytes calldata extraParams
-    ) external;
+    ) external returns (uint256[] memory actualAmounts);
 }

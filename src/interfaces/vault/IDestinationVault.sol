@@ -83,5 +83,5 @@ interface IDestinationVault is IBaseAssetVault, IERC20 {
 
     /// @notice Pull any non-tracked token to the specified destination
     /// @dev Should be limited to TOKEN_RECOVERY_ROLE
-    function recover(address[] calldata tokens, address[] calldata amounts, address[] calldata destination) external;
+    function recover(address[] calldata tokens, uint256[] calldata amounts, address[] calldata destinations) external;
 }

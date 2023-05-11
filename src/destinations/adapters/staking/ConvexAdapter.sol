@@ -33,7 +33,7 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
         address staking,
         uint256 poolId,
         uint256 amount
-    ) external nonReentrant {
+    ) public nonReentrant {
         if (address(booster) == address(0)) revert InvalidAddress(address(booster));
         if (lpToken == address(0)) revert InvalidAddress(address(lpToken));
         if (staking == address(0)) revert InvalidAddress(address(staking));
@@ -63,10 +63,12 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
      * @param staking Convex reward contract associated with the Curve LP token
      * @param amount Quantity of Curve LP token to withdraw
      */
-    function withdrawStake(address lpToken, address staking, uint256 amount) external nonReentrant {
+    function withdrawStake(address lpToken, address staking, uint256 amount) public nonReentrant {
+        // slither-disable-start incorrect-equality
         if (lpToken == address(0)) revert InvalidAddress(lpToken);
         if (staking == address(0)) revert InvalidAddress(staking);
         if (amount == 0) revert MustBeMoreThanZero();
+        // slither-disable-end incorrect-equality
 
         IERC20 lpTokenErc = IERC20(lpToken);
         uint256 beforeLpBalance = lpTokenErc.balanceOf(address(this));

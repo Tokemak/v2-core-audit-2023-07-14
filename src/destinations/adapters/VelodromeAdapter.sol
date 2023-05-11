@@ -95,7 +95,7 @@ contract VelodromeAdapter is IPoolAdapter, ReentrancyGuard {
         uint256[] calldata amounts,
         uint256 maxLpBurnAmount,
         bytes calldata extraParams
-    ) external nonReentrant {
+    ) external nonReentrant returns (uint256[] memory actualAmounts) {
         if (maxLpBurnAmount == 0) revert MustBeMoreThanZero();
         if (amounts.length != 2) revert ArraysLengthMismatch();
         if (amounts[0] == 0 && amounts[1] == 0) revert NoNonZeroAmountProvided();
@@ -117,6 +117,10 @@ contract VelodromeAdapter is IPoolAdapter, ReentrancyGuard {
         }
         if (amountA < amounts[0]) revert InvalidBalanceChange();
         if (amountB < amounts[1]) revert InvalidBalanceChange();
+
+        actualAmounts = new uint256[](2);
+        actualAmounts[0] = amountA;
+        actualAmounts[1] = amountB;
 
         emit WithdrawLiquidity(
             [amountA, amountB],

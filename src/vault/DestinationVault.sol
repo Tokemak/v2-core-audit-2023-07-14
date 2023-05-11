@@ -1,19 +1,29 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { Errors } from "src/utils/Errors.sol";
 import { Math } from "openzeppelin-contracts/utils/math/Math.sol";
 import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
-import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
-import { IDestinationVault } from "src/interfaces/vault/IDestinationVault.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import { Initializable } from "openzeppelin-contracts/proxy/utils/Initializable.sol";
 import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
+
+import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
+import { IDestinationVault } from "src/interfaces/vault/IDestinationVault.sol";
+import { Roles } from "src/libs/Roles.sol";
+import { Errors } from "src/utils/Errors.sol";
 
 // TODO: Ensure that baseAsset decimals are the same as the Vaults decimals
 // TODO: Evaluate the conditions to burn destination vault shares
 abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
     using SafeERC20 for IERC20;
+
+    event ClaimedVested(uint256 indexed amount);
+    event Recovered(address[] tokens, uint256[] amounts, address[] destinations);
+
+    error ArrayLengthMismatch();
+    error PullingNonTrackedToken(address token);
+    error RecoveringTrackedToken(address token);
+    error RecoveringMoreThanAvailable(address token, uint256 amount, uint256 availableAmount);
 
     /* ******************************** */
     /* State Variables                  */
@@ -33,6 +43,11 @@ abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
     ISystemRegistry public systemRegistry;
 
     constructor() ERC20("", "") { }
+
+    modifier onlyOperator() {
+        // if (!_hasRole(Roles.DESTINATION_VAULT_OPERATOR_ROLE, msg.sender)) revert Errors.AccessDenied();
+        _;
+    }
 
     function initialize(
         ISystemRegistry _systemRegistry,
@@ -66,10 +81,16 @@ abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
     function rewardValue() public view virtual returns (uint256 value);
 
     /// @inheritdoc IDestinationVault
-    function claimVested() public virtual returns (uint256 amount) {
+    function claimVested() public virtual onlyOperator returns (uint256 amount) {
         amount = claimVested_();
         idle += amount;
+        emit ClaimedVested(amount);
     }
+
+    /// @notice Checks if given token is tracked by Vault
+    /// @param token Address to verify
+    /// @return bool True if token is within Vault's tracked assets
+    function isTrackedToken_(address token) internal view virtual returns (bool);
 
     /// @notice Claims any rewards that have been previously claimed and are vesting
     /// @dev Should not update idle
@@ -84,7 +105,7 @@ abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
     function reclaimDebt(
         uint256 pctNumerator,
         uint256 pctDenominator
-    ) internal returns (uint256 amount, uint256 loss) {
+    ) internal onlyOperator returns (uint256 amount, uint256 loss) {
         (amount, loss) = reclaimDebt_(pctNumerator, pctDenominator);
         debt -= Math.mulDiv(debt, pctNumerator, pctDenominator, Math.Rounding.Up);
     }
@@ -101,7 +122,7 @@ abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
     ) internal virtual returns (uint256 amount, uint256 loss);
 
     /// @inheritdoc IDestinationVault
-    function donate(uint256 amount) external {
+    function donate(uint256 amount) external onlyOperator {
         idle += amount;
 
         emit Donated(msg.sender, amount);
@@ -120,6 +141,7 @@ abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
     function freeUpAssets(uint256 amount)
         internal
         virtual
+        onlyOperator
         returns (uint256 totalActual, uint256 loss, uint256 fromIdle, uint256 fromDebt)
     {
         // Now we figure out where to take it from.
@@ -189,7 +211,7 @@ abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
         uint256 targetAmount,
         uint256 ownerPctNumerator,
         uint256 ownerPctDenominator
-    ) external virtual returns (uint256 amount, uint256 loss) {
+    ) external virtual onlyOperator returns (uint256 amount, uint256 loss) {
         uint256 originalTarget = targetAmount;
         uint256 sharesCanBurn = balanceOf(msg.sender);
         if (sharesCanBurn == 0) {
@@ -254,5 +276,31 @@ abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
         if (totalActual > 0) {
             baseAsset.safeTransfer(msg.sender, totalActual);
         }
+    }
+
+    function recover(
+        address[] calldata tokens,
+        uint256[] calldata amounts,
+        address[] calldata destinations
+    ) external override onlyOperator {
+        uint256 length = tokens.length;
+        if (length == 0 || length != amounts.length || length != destinations.length) {
+            revert ArrayLengthMismatch();
+        }
+        emit Recovered(tokens, amounts, destinations);
+
+        //slither-disable-start calls-loop
+        for (uint256 i = 0; i < tokens.length; ++i) {
+            IERC20 token = IERC20(tokens[i]);
+
+            // Check if it's a really non-tracked token
+            if (isTrackedToken_(tokens[i])) revert RecoveringTrackedToken(tokens[i]);
+
+            uint256 tokenBalance = token.balanceOf(address(this));
+            if (tokenBalance < amounts[i]) revert RecoveringMoreThanAvailable(tokens[i], amounts[i], tokenBalance);
+
+            token.safeTransfer(destinations[i], amounts[i]);
+        }
+        //slither-disable-end calls-loop
     }
 }

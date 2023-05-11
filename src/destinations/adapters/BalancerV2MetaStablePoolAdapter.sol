@@ -141,12 +141,12 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard {
         uint256[] calldata amounts,
         uint256 maxLpBurnAmount,
         bytes calldata extraParams
-    ) external nonReentrant {
+    ) external nonReentrant returns (uint256[] memory actualAmounts) {
         (BalancerExtraParams memory balancerExtraParams) = abi.decode(extraParams, (BalancerExtraParams));
         // encode withdraw request
         bytes memory userData = abi.encode(ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amounts, maxLpBurnAmount);
 
-        _withdraw(
+        actualAmounts = _withdraw(
             WithdrawParams({
                 poolId: balancerExtraParams.poolId,
                 bptAmount: maxLpBurnAmount,
@@ -182,8 +182,8 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard {
         );
     }
 
-    function _withdraw(WithdrawParams memory params) private {
-        uint256[] memory amountsOut = params.amountsOut;
+    function _withdraw(WithdrawParams memory params) private returns (uint256[] memory amountsOut) {
+        amountsOut = params.amountsOut;
         bytes32 poolId = params.poolId;
 
         uint256 nTokens = params.tokens.length;

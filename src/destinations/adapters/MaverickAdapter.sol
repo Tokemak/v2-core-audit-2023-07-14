@@ -117,7 +117,7 @@ contract MaverickAdapter is IPoolAdapter, ReentrancyGuard {
         uint256[] calldata amounts,
         uint256 maxLpBurnAmount,
         bytes calldata extraParams
-    ) external nonReentrant {
+    ) external nonReentrant returns (uint256[] memory actualAmounts) {
         if (maxLpBurnAmount == 0) revert MustBeMoreThanZero();
         if (amounts.length != 2) revert ArraysLengthMismatch();
         if (amounts[0] == 0 && amounts[1] == 0) revert NoNonZeroAmountProvided();
@@ -127,15 +127,8 @@ contract MaverickAdapter is IPoolAdapter, ReentrancyGuard {
 
         router.position().approve(address(router), maverickExtraParams.tokenId);
 
-        (uint256 tokenAAmount, uint256 tokenBAmount, IPool.BinDelta[] memory binDeltas) = router.removeLiquidity(
-            IPool(maverickExtraParams.poolAddress),
-            address(this),
-            maverickExtraParams.tokenId,
-            maverickExtraParams.maverickParams,
-            amounts[0],
-            amounts[1],
-            maverickExtraParams.deadline
-        );
+        (uint256 tokenAAmount, uint256 tokenBAmount, IPool.BinDelta[] memory binDeltas) =
+            _runWithdrawal(amounts, maverickExtraParams);
 
         // Collect deployed bins data
         (
@@ -149,6 +142,10 @@ contract MaverickAdapter is IPoolAdapter, ReentrancyGuard {
         if (tokenAAmount < amounts[0]) revert InvalidBalanceChange();
         if (tokenBAmount < amounts[1]) revert InvalidBalanceChange();
 
+        actualAmounts = new uint256[](2);
+        actualAmounts[0] = tokenAAmount;
+        actualAmounts[1] = tokenBAmount;
+
         emit WithdrawLiquidity(
             [tokenAAmount, tokenBAmount],
             [
@@ -159,6 +156,22 @@ contract MaverickAdapter is IPoolAdapter, ReentrancyGuard {
             maverickExtraParams.poolAddress,
             maverickExtraParams.tokenId,
             deployedBinIds
+        );
+    }
+
+    ///@dev Adoiding stack-too-deep-errors
+    function _runWithdrawal(
+        uint256[] calldata amounts,
+        MaverickWithdrawalExtraParams memory maverickExtraParams
+    ) private returns (uint256 tokenAAmount, uint256 tokenBAmount, IPool.BinDelta[] memory binDeltas) {
+        (tokenAAmount, tokenBAmount, binDeltas) = router.removeLiquidity(
+            IPool(maverickExtraParams.poolAddress),
+            address(this),
+            maverickExtraParams.tokenId,
+            maverickExtraParams.maverickParams,
+            amounts[0],
+            amounts[1],
+            maverickExtraParams.deadline
         );
     }
 
