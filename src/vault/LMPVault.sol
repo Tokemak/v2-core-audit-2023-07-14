@@ -118,9 +118,6 @@ contract LMPVault is ILMPVault, LMPStorage, ERC20Permit, SecurityBase, Pausable,
 
         _transferAndMint(assets, shares, receiver);
 
-        // add to idle funds counter
-        totalIdle += assets;
-
         // set a stake in rewarder
         rewarder.stake(receiver, shares);
     }
