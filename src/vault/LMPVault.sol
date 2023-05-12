@@ -18,12 +18,11 @@ import { SecurityBase } from "src/security/SecurityBase.sol";
 import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 import { Pausable } from "openzeppelin-contracts/security/Pausable.sol";
 
-import { LMPStorage } from "src/vault/LMPStorage.sol";
-
+import { VaultTypes } from "src/vault/VaultTypes.sol";
 import { Roles } from "src/libs/Roles.sol";
 import { Errors } from "src/utils/Errors.sol";
 
-contract LMPVault is ILMPVault, LMPStorage, ERC20Permit, SecurityBase, Pausable, ReentrancyGuard {
+contract LMPVault is ILMPVault, ERC20Permit, SecurityBase, Pausable, ReentrancyGuard {
     using Math for uint256;
     using SafeERC20 for ERC20;
     using SafeERC20 for IERC20;
@@ -31,6 +30,17 @@ contract LMPVault is ILMPVault, LMPStorage, ERC20Permit, SecurityBase, Pausable,
     using EnumerableSet for EnumerableSet.AddressSet;
 
     IERC20 internal immutable _asset;
+
+    // slither-disable-next-line immutable-states
+    bytes32 public vaultType = VaultTypes.LST;
+
+    // slither-disable-next-line constable-states
+    uint256 public totalIdle = 0;
+    // slither-disable-next-line constable-states
+    uint256 public totalDebt = 0;
+    IDestinationVault[] public withdrawalQueue;
+
+    EnumerableSet.AddressSet internal _trackedAssets;
 
     IStrategy public immutable strategy;
     IMainRewarder public immutable rewarder;
@@ -412,17 +422,6 @@ contract LMPVault is ILMPVault, LMPStorage, ERC20Permit, SecurityBase, Pausable,
     //                 delete withdrawalQueue[i];
     //             }
     //         }
-    //     }
-
-    //     // solhint-disable-next-line no-unused-vars
-    //     function setStrategy(IStrategy _strategy) public onlyOwner {
-    //         // NOTE: changing of strategies not implemented yet (since math has to change)
-    //         revert Errors.NotImplemented();
-    //
-    //         // TODO: update _trackedAssets
-    //         // TODO: strategy = _strategy;
-    //         // TODO: update withdrawal queue
-    //         // TODO: emit StrategySet(address(_strategy));
     //     }
 
     /**

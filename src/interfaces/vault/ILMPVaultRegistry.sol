@@ -9,10 +9,8 @@ interface ILMPVaultRegistry is ISystemBound {
     //                        Errors
     ///////////////////////////////////////////////////////////////////
 
-    error ZeroAddress();
     error VaultNotFound(address vaultAddress);
     error VaultAlreadyExists(address vaultAddress);
-    error PermissionDenied();
 
     ///////////////////////////////////////////////////////////////////
     //                        Events
@@ -42,4 +40,8 @@ interface ILMPVaultRegistry is ISystemBound {
     /// @notice Returns a list of all registered vaults for a given asset
     /// @param asset Asset address
     function listVaultsForAsset(address asset) external view returns (address[] memory);
+
+    /// @notice Returns a list of all registered vaults for a given type
+    /// @param _vaultType Vault type
+    function listVaultsForType(bytes32 _vaultType) external view returns (address[] memory);
 }

@@ -31,6 +31,9 @@ interface ILMPVault is IERC4626, IERC20Permit {
     /// @notice Gets the strategy used by the rewarder for this vault to allocate assets
     function strategy() external view returns (IStrategy);
 
+    /// @notice Query the type of vault
+    function vaultType() external view returns (bytes32);
+
     /// @notice Placeholder for updating strategy
     /// @dev not implemented until the re-allocation math is finalized
     // function setStrategy(IStrategy _strategy) external;

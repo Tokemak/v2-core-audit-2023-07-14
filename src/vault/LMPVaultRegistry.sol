@@ -6,6 +6,7 @@ import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSe
 
 import { SecurityBase } from "src/security/SecurityBase.sol";
 import { Roles } from "src/libs/Roles.sol";
+import { VaultTypes } from "src/vault/VaultTypes.sol";
 
 import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
 import { ILMPVault } from "src/interfaces/vault/ILMPVault.sol";
@@ -21,14 +22,18 @@ contract LMPVaultRegistry is ILMPVaultRegistry, SecurityBase {
 
     EnumerableSet.AddressSet private _vaults;
     EnumerableSet.AddressSet private _assets;
+
+    // registry of vaults for a given asset
     mapping(address => EnumerableSet.AddressSet) private _vaultsByAsset;
+    // registry of vaults for a given type
+    mapping(bytes32 => EnumerableSet.AddressSet) private _vaultsByType;
 
     constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
         systemRegistry = _systemRegistry;
     }
 
     modifier onlyUpdater() {
-        if (!_hasRole(Roles.REGISTRY_UPDATER, msg.sender)) revert PermissionDenied();
+        if (!_hasRole(Roles.REGISTRY_UPDATER, msg.sender)) revert Errors.AccessDenied();
         _;
     }
 
@@ -39,20 +44,25 @@ contract LMPVaultRegistry is ILMPVaultRegistry, SecurityBase {
     ///////////////////////////////////////////////////////////////////
 
     function addVault(address vaultAddress) external onlyUpdater {
-        if (vaultAddress == address(0)) revert ZeroAddress();
+        if (vaultAddress == address(0)) revert Errors.ZeroAddress("vaultAddress");
 
-        address asset = ILMPVault(vaultAddress).asset();
+        ILMPVault vault = ILMPVault(vaultAddress);
+
+        address asset = vault.asset();
+        bytes32 vaultType = vault.vaultType();
 
         if (!_vaults.add(vaultAddress)) revert VaultAlreadyExists(vaultAddress);
         //slither-disable-next-line unused-return
         if (!_assets.contains(asset)) _assets.add(asset);
+
         if (!_vaultsByAsset[asset].add(vaultAddress)) revert VaultAlreadyExists(vaultAddress);
+        if (!_vaultsByType[vaultType].add(vaultAddress)) revert VaultAlreadyExists(vaultAddress);
 
         emit VaultAdded(asset, vaultAddress);
     }
 
     function removeVault(address vaultAddress) external onlyUpdater {
-        if (vaultAddress == address(0)) revert ZeroAddress();
+        if (vaultAddress == address(0)) revert Errors.ZeroAddress("vaultAddress");
 
         // remove from vaults list
         if (!_vaults.remove(vaultAddress)) revert VaultNotFound(vaultAddress);
@@ -87,5 +97,9 @@ contract LMPVaultRegistry is ILMPVaultRegistry, SecurityBase {
 
     function listVaultsForAsset(address asset) external view returns (address[] memory) {
         return _vaultsByAsset[asset].values();
+    }
+
+    function listVaultsForType(bytes32 _vaultType) external view returns (address[] memory) {
+        return _vaultsByType[_vaultType].values();
     }
 }
