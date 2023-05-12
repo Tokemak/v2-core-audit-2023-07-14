@@ -259,8 +259,9 @@ contract LMPVault is ILMPVault, LMPStorage, ERC20Permit, SecurityBase, Pausable,
         // so proceed with withdrawal (but withhold the costs / il charged)
         returnedAssets = assetsFromIdle + assetsPulled; // keeps loss out?
 
+        // subtract what's taken out of idle from totalIdle
         // slither-disable-next-line events-maths
-        totalIdle -= returnedAssets;
+        totalIdle -= assetsFromIdle;
 
         //
         // do the actual withdrawal (going off of total # requested)
