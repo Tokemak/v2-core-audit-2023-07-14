@@ -13,7 +13,6 @@ interface ILMPVaultFactory {
      */
     function createVault(
         address _vaultAsset,
-        address _strategy,
         address _rewarder,
         bytes calldata extraParams
     ) external returns (address newVaultAddress);

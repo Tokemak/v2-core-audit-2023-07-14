@@ -12,6 +12,7 @@ library Roles {
     bytes32 public constant REGISTRY_UPDATER = keccak256("REGISTRY_UPDATER");
 
     bytes32 public constant TOKEN_RECOVERY_ROLE = keccak256("TOKEN_RECOVERY_ROLE");
+    bytes32 public constant DESTINATION_VAULTS_UPDATER = keccak256("DESTINATION_VAULTS_UPDATER");
     bytes32 public constant SET_WITHDRAWAL_QUEUE_ROLE = keccak256("SET_WITHDRAWAL_QUEUE_ROLE");
 
     bytes32 public constant DESTINATION_VAULT_OPERATOR_ROLE = keccak256("DESTINATION_VAULT_OPERATOR_ROLE");

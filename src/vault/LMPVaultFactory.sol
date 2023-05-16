@@ -3,6 +3,7 @@ pragma solidity 0.8.17;
 
 import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 
+import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { ILMPVaultFactory } from "src/interfaces/vault/ILMPVaultFactory.sol";
 import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
 import { ILMPVault, LMPVault } from "src/vault/LMPVault.sol";
@@ -15,16 +16,19 @@ import { Errors } from "src/utils/Errors.sol";
 contract LMPVaultFactory is ILMPVaultFactory, SecurityBase {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
-    mapping(bytes32 => address) public vaultTypeToPrototype;
+    ISystemRegistry public immutable systemRegistry;
     ILMPVaultRegistry public immutable vaultRegistry;
+    mapping(bytes32 => address) public vaultTypeToPrototype;
 
-    constructor(address _vaultRegistry, address _accessController) SecurityBase(_accessController) {
-        vaultRegistry = ILMPVaultRegistry(_vaultRegistry);
+    constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
+        Errors.verifyNotZero(address(_systemRegistry), "systemRegistry");
+
+        systemRegistry = _systemRegistry;
+        vaultRegistry = systemRegistry.lmpVaultRegistry();
     }
 
     function createVault(
         address _vaultAsset,
-        address _strategy,
         address _rewarder,
         bytes calldata /*extraParams*/
     ) external returns (address newVaultAddress) {
@@ -33,15 +37,15 @@ contract LMPVaultFactory is ILMPVaultFactory, SecurityBase {
         }
 
         // verify params
-        if (_vaultAsset == address(0)) revert Errors.ZeroAddress("vaultAsset");
+        Errors.verifyNotZero(_vaultAsset, "vaultAsset");
 
         // create new and initialize
         newVaultAddress = address(
             new LMPVault(
-            _vaultAsset,
-            address(accessController),
-            _strategy,
-            _rewarder
+                systemRegistry,
+                _vaultAsset,
+                address(accessController),
+                _rewarder
             )
         );
 

@@ -1,35 +1,21 @@
+/* solhint-disable unused-parameter, state-mutability, no-unused-vars */
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { IDestinationVault } from "../vault/IDestinationVault.sol";
+import { IDestinationVault } from "src/interfaces/vault/IDestinationVault.sol";
 import { IERC3156FlashBorrower } from "openzeppelin-contracts/interfaces/IERC3156FlashBorrower.sol";
+import { Errors } from "src/utils/Errors.sol";
 
-interface IStrategy {
-    /* ******************************** */
-    /*      Events                      */
-    /* ******************************** */
-    event DestinationVaultAdded(address destination);
-    event DestinationVaultRemoved(address destination);
-    event WithdrawalQueueSet(address[] destinations);
-
-    /// @notice gets the list of supported destination vaults for the LMP/Strategy
-    /// @return _destinations List of supported destination vaults
-    function getDestinations() external view returns (address[] memory _destinations);
-
-    /// @notice add supported destination vaults for the LMP/Strategy
-    /// @param _destinations The list of destination vaults to add
-    function addDestinations(address[] calldata _destinations) external;
-
-    /// @notice remove supported destination vaults for the LMP/Strategy
-    /// @param _destinations The list of destination vaults to remove
-    function removeDestinations(address[] calldata _destinations) external;
-
+library LMPStrategy {
     /// @notice rebalance the LMP from the tokenOut (decrease) to the tokenIn (increase)
     /// @param tokenIn The address of the destination vault that will increase
     /// @param tokenOut The address of the destination vault that will decrease
     /// @param amountIn The amount of the destination vault LP tokens that will be received
     /// @param amountOut The amount of the destination vault LP tokens that will be sent to the swapper
-    function rebalance(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut) external;
+    // solhint-disable-next-line no-unused-vars
+    function rebalance(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut) internal {
+        revert Errors.NotImplemented();
+    }
 
     /// @notice rebalance the LMP from the tokenOut (decrease) to the tokenIn (increase)
     /// This uses a flash loan to receive the tokenOut to reduce the working capital requirements of the swapper
@@ -47,7 +33,9 @@ interface IStrategy {
         uint256 amountIn,
         uint256 amountOut,
         bytes calldata data
-    ) external;
+    ) internal {
+        revert Errors.NotImplemented();
+    }
 
     /// @notice verify that a rebalance (swap between destinations) meets all the strategy constraints
     /// @param tokenIn The address of the destination vault that will increase
@@ -61,5 +49,7 @@ interface IStrategy {
         address tokenOut,
         uint256 amountIn,
         uint256 amountOut
-    ) external view returns (bool success, string memory message);
+    ) internal view returns (bool success, string memory message) {
+        revert Errors.NotImplemented();
+    }
 }

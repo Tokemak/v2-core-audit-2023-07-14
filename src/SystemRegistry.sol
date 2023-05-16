@@ -2,16 +2,23 @@
 pragma solidity 0.8.17;
 
 import { Errors } from "src/utils/Errors.sol";
-import { Ownable2Step } from "src/access/Ownable2Step.sol";
+import { Ownable2Step } from "./access/Ownable2Step.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
 import { IAccessController } from "src/interfaces/security/IAccessController.sol";
+import { ISystemBound } from "src/interfaces/ISystemBound.sol";
 import { IDestinationRegistry } from "src/interfaces/destinations/IDestinationRegistry.sol";
 import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
+import { ILMPVaultFactory } from "src/interfaces/vault/ILMPVaultFactory.sol";
+import { ILMPVaultRouter } from "src/interfaces/vault/ILMPVaultRouter.sol";
+
+import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 
 /// @notice Root contract of the system instance.
 /// @dev All contracts in this instance of the system should be reachable from this contract
 contract SystemRegistry is ISystemRegistry, Ownable2Step {
+    using EnumerableSet for EnumerableSet.Bytes32Set;
+
     /* ******************************** */
     /* State Variables                  */
     /* ******************************** */
@@ -20,6 +27,10 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     IDestinationVaultRegistry private _destinationVaultRegistry;
     IAccessController private _accessController;
     IDestinationRegistry private _destinationTemplateRegistry;
+    ILMPVaultRouter private _lmpVaultRouter;
+
+    mapping(bytes32 => ILMPVaultFactory) private _lmpVaultFactoryByType;
+    EnumerableSet.Bytes32Set private _lmpVaultFactoryTypes;
 
     /* ******************************** */
     /* Events                           */
@@ -29,6 +40,10 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     event DestinationVaultRegistrySet(address newAddress);
     event AccessControllerSet(address newAddress);
     event DestinationTemplateRegistrySet(address newAddress);
+    event LMPVaultRouterSet(address newAddress);
+
+    event LMPVaultFactorySet(bytes32 vaultType, address factoryAddress);
+    event LMPVaultFactoryRemoved(bytes32 vaultType, address factoryAddress);
 
     /* ******************************** */
     /* Errors                           */
@@ -62,6 +77,20 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         return _destinationTemplateRegistry;
     }
 
+    /// @inheritdoc ISystemRegistry
+    function lmpVaultRouter() external view returns (ILMPVaultRouter router) {
+        return _lmpVaultRouter;
+    }
+
+    /// @inheritdoc ISystemRegistry
+    function getLMPVaultFactoryByType(bytes32 vaultType) external view returns (ILMPVaultFactory vaultFactory) {
+        if (!_lmpVaultFactoryTypes.contains(vaultType)) {
+            revert Errors.ItemNotFound();
+        }
+
+        return _lmpVaultFactoryByType[vaultType];
+    }
+
     /* ******************************** */
     /* Function                         */
     /* ******************************** */
@@ -81,6 +110,17 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         _lmpVaultRegistry = ILMPVaultRegistry(registry);
 
         verifySystemsAgree(address(_lmpVaultRegistry));
+    }
+
+    /// @notice Set the LMP Vault Router for this instance of the system
+    /// @dev allows setting multiple times
+    /// @param router Address of the LMP Vault Router
+    function setLMPVaultRouter(address router) external onlyOwner {
+        Errors.verifyNotZero(router, "lmpVaultRouter");
+
+        _lmpVaultRouter = ILMPVaultRouter(router);
+
+        emit LMPVaultRouterSet(router);
     }
 
     /// @notice Set the Destination Vault Registry for this instance of the system
@@ -150,5 +190,36 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         } else {
             revert InvalidContract(dep);
         }
+    }
+
+    /* ******************************** */
+    /* LMP Vault Factories                  */
+    /* ******************************** */
+    function setLMPVaultFactory(bytes32 vaultType, address factoryAddress) external onlyOwner {
+        Errors.verifyNotZero(factoryAddress, "factoryAddress");
+        Errors.verifyNotZero(vaultType, "vaultType");
+
+        if (!_lmpVaultFactoryTypes.contains(vaultType)) {
+            _lmpVaultFactoryTypes.add(vaultType);
+        }
+
+        _lmpVaultFactoryByType[vaultType] = ILMPVaultFactory(factoryAddress);
+
+        emit LMPVaultFactorySet(vaultType, factoryAddress);
+    }
+
+    function removeLMPVaultFactory(bytes32 vaultType) external onlyOwner {
+        Errors.verifyNotZero(vaultType, "vaultType");
+
+        if (!_lmpVaultFactoryTypes.contains(vaultType)) {
+            revert Errors.ItemNotFound();
+        }
+
+        address factoryAddress = address(_lmpVaultFactoryByType[vaultType]);
+
+        _lmpVaultFactoryTypes.remove(vaultType);
+        _lmpVaultFactoryByType[vaultType] = ILMPVaultFactory(address(0)); // set to empty to wipe
+
+        emit LMPVaultFactoryRemoved(vaultType, factoryAddress);
     }
 }

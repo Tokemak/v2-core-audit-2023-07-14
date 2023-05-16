@@ -1,18 +1,21 @@
+/* solhint-disable unused-parameter, state-mutability, no-unused-vars */
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
 import { IERC4626 } from "openzeppelin-contracts/interfaces/IERC4626.sol";
-import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
+import { IERC20, ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
+import { IERC3156FlashBorrower } from "openzeppelin-contracts/interfaces/IERC3156FlashBorrower.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import { ERC20Permit } from "openzeppelin-contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
 import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 import { Math } from "openzeppelin-contracts/utils/math/Math.sol";
 
+import { ISystemRegistry, IDestinationVaultRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { ILMPVault } from "src/interfaces/vault/ILMPVault.sol";
 import { IDestinationVault } from "src/interfaces/vault/IDestinationVault.sol";
 import { IStrategy } from "src/interfaces/strategy/IStrategy.sol";
 import { IMainRewarder } from "src/interfaces/rewarders/IMainRewarder.sol";
+import { LMPStrategy } from "src/strategy/LMPStrategy.sol";
 
 import { SecurityBase } from "src/security/SecurityBase.sol";
 import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
@@ -22,12 +25,14 @@ import { VaultTypes } from "src/vault/VaultTypes.sol";
 import { Roles } from "src/libs/Roles.sol";
 import { Errors } from "src/utils/Errors.sol";
 
-contract LMPVault is ILMPVault, ERC20Permit, SecurityBase, Pausable, ReentrancyGuard {
+contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, ReentrancyGuard {
     using Math for uint256;
     using SafeERC20 for ERC20;
     using SafeERC20 for IERC20;
 
     using EnumerableSet for EnumerableSet.AddressSet;
+
+    ISystemRegistry public systemRegistry;
 
     IERC20 internal immutable _asset;
 
@@ -38,17 +43,20 @@ contract LMPVault is ILMPVault, ERC20Permit, SecurityBase, Pausable, ReentrancyG
     uint256 public totalIdle = 0;
     // slither-disable-next-line constable-states
     uint256 public totalDebt = 0;
+
+    EnumerableSet.AddressSet internal destinations;
+    EnumerableSet.AddressSet internal removalQueue;
+
     IDestinationVault[] public withdrawalQueue;
 
     EnumerableSet.AddressSet internal _trackedAssets;
 
-    IStrategy public immutable strategy;
     IMainRewarder public immutable rewarder;
 
     constructor(
+        ISystemRegistry _systemRegistry,
         address _vaultAsset,
         address _accessController,
-        address _strategy,
         address _rewarder
     )
         ERC20(
@@ -56,16 +64,18 @@ contract LMPVault is ILMPVault, ERC20Permit, SecurityBase, Pausable, ReentrancyG
             string(abi.encodePacked("lmp", ERC20(_vaultAsset).symbol()))
         )
         ERC20Permit(string(abi.encodePacked("lmp", ERC20(_vaultAsset).symbol())))
-        SecurityBase(_accessController)
+        SecurityBase(address(_systemRegistry.accessController()))
     {
-        if (_vaultAsset == address(0)) revert Errors.ZeroAddress("token");
+        systemRegistry = _systemRegistry;
+
+        Errors.verifyNotZero(_vaultAsset, "token");
         _asset = IERC20(_vaultAsset);
 
-        if (_strategy == address(0)) revert Errors.ZeroAddress("strategy");
-        if (_rewarder == address(0)) revert Errors.ZeroAddress("rewarder");
+        Errors.verifyNotZero(_rewarder, "rewarder");
 
-        strategy = IStrategy(_strategy);
         rewarder = IMainRewarder(_rewarder);
+
+        // TODO: trackedAssets!
 
         // // fill out tracked assets collection
         // NOTE: this code will be moved to strategy in the upcoming strategy work update
@@ -117,9 +127,6 @@ contract LMPVault is ILMPVault, ERC20Permit, SecurityBase, Pausable, ReentrancyG
         uint256 assets,
         address receiver
     ) public virtual override whenNotPaused nonReentrant returns (uint256 shares) {
-        // make sure we have strategy set
-        if (address(strategy) == address(0)) revert StrategyNotSet();
-
         if (assets > maxDeposit(receiver)) {
             revert ERC4626DepositExceedsMax(assets, maxDeposit(receiver));
         }
@@ -187,7 +194,7 @@ contract LMPVault is ILMPVault, ERC20Permit, SecurityBase, Pausable, ReentrancyG
     }
 
     //////////////////////////////////////////////////////////////////////
-    //								Withdraw								//
+    //								Withdraw							//
     //////////////////////////////////////////////////////////////////////
 
     /// @dev See {IERC4626-withdraw}.
@@ -302,31 +309,24 @@ contract LMPVault is ILMPVault, ERC20Permit, SecurityBase, Pausable, ReentrancyG
     function pullTokens(
         address[] calldata tokens,
         uint256[] calldata amounts,
-        address[] calldata destinations
-    ) public virtual override {
-        // only rebalancer can pull tokens
-        if (!_hasRole(Roles.REBALANCER_ROLE, msg.sender)) revert Errors.NotAuthorized();
+        address[] calldata _destinations
+    ) public virtual override hasRole(Roles.REBALANCER_ROLE) {
+        _bulkMoveTokens(tokens, amounts, _destinations, true);
 
-        _bulkMoveTokens(tokens, amounts, destinations, true);
-
-        emit TokensPulled(tokens, amounts, destinations);
+        emit TokensPulled(tokens, amounts, _destinations);
     }
 
     function recover(
         address[] calldata tokens,
         uint256[] calldata amounts,
-        address[] calldata destinations
-    ) public virtual override {
-        if (!_hasRole(Roles.TOKEN_RECOVERY_ROLE, msg.sender)) revert Errors.NotAuthorized();
+        address[] calldata _destinations
+    ) public virtual override hasRole(Roles.TOKEN_RECOVERY_ROLE) {
+        _bulkMoveTokens(tokens, amounts, _destinations, false);
 
-        _bulkMoveTokens(tokens, amounts, destinations, false);
-
-        emit TokensRecovered(tokens, amounts, destinations);
+        emit TokensRecovered(tokens, amounts, _destinations);
     }
 
-    function updateDebt(uint256 newDebt) public virtual override {
-        if (!_hasRole(Roles.REBALANCER_ROLE, msg.sender)) revert Errors.NotAuthorized();
-
+    function updateDebt(uint256 newDebt) public virtual override hasRole(Roles.REBALANCER_ROLE) {
         // update debt
         uint256 oldDebt = totalDebt;
         totalDebt = newDebt;
@@ -337,13 +337,13 @@ contract LMPVault is ILMPVault, ERC20Permit, SecurityBase, Pausable, ReentrancyG
     function _bulkMoveTokens(
         address[] calldata tokens,
         uint256[] calldata amounts,
-        address[] calldata destinations,
+        address[] calldata _destinations,
         bool onlyDoTracked
     ) private {
         // slither-disable-start reentrancy-no-eth
 
         // check for param numbers match
-        if (!(tokens.length > 0) || tokens.length != amounts.length || tokens.length != destinations.length) {
+        if (!(tokens.length > 0) || tokens.length != amounts.length || tokens.length != _destinations.length) {
             revert Errors.InvalidParams();
         }
 
@@ -351,7 +351,7 @@ contract LMPVault is ILMPVault, ERC20Permit, SecurityBase, Pausable, ReentrancyG
         // Actually pull / recover tokens
         //
         for (uint256 i = 0; i < tokens.length; ++i) {
-            (address tokenAddress, uint256 amount, address destination) = (tokens[i], amounts[i], destinations[i]);
+            (address tokenAddress, uint256 amount, address destination) = (tokens[i], amounts[i], _destinations[i]);
 
             if (
                 (onlyDoTracked && !_trackedAssets.contains(tokenAddress))
@@ -401,29 +401,6 @@ contract LMPVault is ILMPVault, ERC20Permit, SecurityBase, Pausable, ReentrancyG
         revert Errors.NotImplemented();
     }
 
-    /// @dev Order is set as list of interfaces to minimize gas used by users using the system
-    // NOTE: this will be moved to the upcoming Strategy effort
-    //     function setWithdrawalQueue(address[] calldata destinations) public virtual override whenNotPaused
-    // nonReentrant {
-    //         if (!_hasRole(Roles.SET_WITHDRAWAL_QUEUE_ROLE, msg.sender)) revert Errors.NotAuthorized();
-    //
-    //         // populate new target destination vault locations (and clear the previous data)
-    //         // NOTE: due to limitations of how EVM treats arrays of interfaces, we can't just set length to 0,
-    //         //       so need to overwrite what's there and delete the rest of elements to sync up to new version
-    //         uint256 i;
-    //         for (i = 0; i < destinations.length; ++i) {
-    //             if (destinations[i] == address(0)) revert Errors.ZeroAddress("destination");
-    //
-    //             withdrawalQueue[i] = destinations[i];
-    //         }
-    //         // if still space left from previous array, delete those values
-    //         if (i < withdrawalQueue.length - 1) {
-    //             for (; i < withdrawalQueue.length; ++i) {
-    //                 delete withdrawalQueue[i];
-    //             }
-    //         }
-    //     }
-
     /**
      * @dev Internal conversion function (from assets to shares) with support for rounding direction.
      *
@@ -472,5 +449,130 @@ contract LMPVault is ILMPVault, ERC20Permit, SecurityBase, Pausable, ReentrancyG
     ///@dev Checks if vault is "healthy" in the sense of having assets backing the circulating shares.
     function _isVaultCollateralized() internal view returns (bool) {
         return totalAssets() > 0 || totalSupply() == 0;
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    //                                                                      //
+    //							Strategy Related   							//
+    //                                                                      //
+    //////////////////////////////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////
+    //							  Destinations     							//
+    //////////////////////////////////////////////////////////////////////////
+
+    function getDestinations() public view override returns (address[] memory) {
+        return destinations.values();
+    }
+
+    function addDestinations(address[] calldata _destinations) public hasRole(Roles.DESTINATION_VAULTS_UPDATER) {
+        IDestinationVaultRegistry destinationRegistry = systemRegistry.destinationVaultRegistry();
+
+        address dAddress;
+        for (uint256 i = 0; i < _destinations.length; ++i) {
+            dAddress = _destinations[i];
+
+            if (dAddress == address(0) || !destinationRegistry.isRegistered(dAddress)) revert Errors.InvalidParams();
+            if (destinations.contains(dAddress)) revert Errors.ItemExists();
+
+            destinations.add(dAddress);
+
+            emit DestinationVaultAdded(dAddress);
+        }
+    }
+
+    function removeDestinations(address[] calldata _destinations) public hasRole(Roles.DESTINATION_VAULTS_UPDATER) {
+        for (uint256 i = 0; i < _destinations.length; ++i) {
+            address dAddress = _destinations[i];
+            IDestinationVault destination = IDestinationVault(dAddress);
+
+            if (!destinations.contains(dAddress)) revert Errors.ItemNotFound();
+
+            if (destination.balanceOf(address(this)) > 0) {
+                // we still have funds in it! move it to removalQueue for rebalancer to handle it later
+                removalQueue.add(dAddress);
+            }
+
+            destinations.remove(dAddress);
+
+            emit DestinationVaultRemoved(dAddress);
+        }
+    }
+
+    function getRemovalQueue() public view override hasRole(Roles.REBALANCER_ROLE) returns (address[] memory) {
+        return removalQueue.values();
+    }
+
+    function removeFromRemovalQueue(address vaultToRemove) public override hasRole(Roles.REBALANCER_ROLE) {
+        removalQueue.remove(vaultToRemove);
+    }
+
+    // @dev Order is set as list of interfaces to minimize gas for our users
+    // TODO: is the manual process really more gas efficient than just setting the new array?
+    function setWithdrawalQueue(address[] calldata _destinations)
+        public
+        override
+        hasRole(Roles.SET_WITHDRAWAL_QUEUE_ROLE)
+    {
+        (uint256 oldLength, uint256 newLength) = (withdrawalQueue.length, _destinations.length);
+
+        // run through new destinations list and propagate the values to our existing collection
+        uint256 i;
+        for (i = 0; i < newLength; ++i) {
+            address destAddress = _destinations[i];
+            Errors.verifyNotZero(destAddress, "destination");
+
+            IDestinationVault destination = IDestinationVault(destAddress);
+
+            // if we're still overwriting, just set the value
+            if (i < oldLength) {
+                // only write if values differ
+                if (withdrawalQueue[i] != destination) {
+                    withdrawalQueue[i] = destination;
+                }
+            } else {
+                // if already past old bounds, append new values
+                withdrawalQueue.push(destination);
+            }
+        }
+
+        // if old list was larger than new list, pop the remaining values
+        if (i < (oldLength - 1)) {
+            for (; i < oldLength; ++i) {
+                // slither-disable-next-line costly-loop
+                withdrawalQueue.pop();
+            }
+        }
+
+        emit WithdrawalQueueSet(_destinations);
+    }
+
+    function getWithdrawalQueue() public view override returns (IDestinationVault[] memory withdrawalDestinations) {
+        return withdrawalQueue;
+    }
+
+    function rebalance(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut) public onlyOwner {
+        LMPStrategy.rebalance(tokenIn, tokenOut, amountIn, amountOut);
+    }
+
+    function flashRebalance(
+        IERC3156FlashBorrower receiver,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 amountOut,
+        bytes calldata data
+    ) public onlyOwner {
+        LMPStrategy.flashRebalance(receiver, tokenIn, tokenOut, amountIn, amountOut, data);
+    }
+
+    function verifyRebalance(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 amountOut
+    ) public view returns (bool success, string memory message) {
+        // slither-disable-next-line unused-return
+        LMPStrategy.verifyRebalance(tokenIn, tokenOut, amountIn, amountOut);
     }
 }

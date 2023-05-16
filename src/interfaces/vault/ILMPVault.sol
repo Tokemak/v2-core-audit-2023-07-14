@@ -3,13 +3,13 @@ pragma solidity 0.8.17;
 
 import { IERC4626 } from "openzeppelin-contracts/interfaces/IERC4626.sol";
 import { IERC20Permit } from "openzeppelin-contracts/token/ERC20/extensions/draft-IERC20Permit.sol";
+import { IDestinationVault } from "src/interfaces/vault/IDestinationVault.sol";
 import { IStrategy } from "src/interfaces/strategy/IStrategy.sol";
 
 interface ILMPVault is IERC4626, IERC20Permit {
     /* ******************************** */
     /*      Events                      */
     /* ******************************** */
-    event StrategySet(address strategy);
     event TokensPulled(address[] tokens, uint256[] amounts, address[] destinations);
     event TokensRecovered(address[] tokens, uint256[] amounts, address[] destinations);
     event DebtUpdated(uint256 oldDebt, uint256 newDebt);
@@ -18,7 +18,6 @@ interface ILMPVault is IERC4626, IERC20Permit {
     /*      Errors                      */
     /* ******************************** */
 
-    error StrategyNotSet();
     error ERC4626MintExceedsMax(uint256 shares, uint256 maxMint);
     error ERC4626DepositExceedsMax(uint256 assets, uint256 maxDeposit);
     error AmountExceedsAllowance(uint256 shares, uint256 allowed);
@@ -28,15 +27,8 @@ interface ILMPVault is IERC4626, IERC20Permit {
     error InsufficientFundsInDestinations(uint256 deficit);
     error WithdrawalIncomplete();
 
-    /// @notice Gets the strategy used by the rewarder for this vault to allocate assets
-    function strategy() external view returns (IStrategy);
-
     /// @notice Query the type of vault
     function vaultType() external view returns (bytes32);
-
-    /// @notice Placeholder for updating strategy
-    /// @dev not implemented until the re-allocation math is finalized
-    // function setStrategy(IStrategy _strategy) external;
 
     /// @notice Allow Rebalancer to move tracked assets
     function pullTokens(
@@ -61,4 +53,17 @@ interface ILMPVault is IERC4626, IERC20Permit {
 
     /// @notice Claim Accrued Rewards
     function claimRewards() external;
+
+    /// @notice Set the withdrawal queue to be used when taking out Assets
+    /// @param _destinations The ordered list of destination vaults to go for withdrawals
+    function setWithdrawalQueue(address[] calldata _destinations) external;
+
+    /// @notice Get the withdrawal queue to be used when taking out Assets
+    function getWithdrawalQueue() external returns (IDestinationVault[] memory _destinations);
+
+    /// @notice Get a list of destination vaults with pending assets to clear out
+    function getRemovalQueue() external returns (address[] memory);
+
+    /// @notice Remove emptied destination vault from pending removal queue
+    function removeFromRemovalQueue(address vaultToRemove) external;
 }

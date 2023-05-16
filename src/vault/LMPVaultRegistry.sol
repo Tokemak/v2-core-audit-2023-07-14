@@ -44,7 +44,7 @@ contract LMPVaultRegistry is ILMPVaultRegistry, SecurityBase {
     ///////////////////////////////////////////////////////////////////
 
     function addVault(address vaultAddress) external onlyUpdater {
-        if (vaultAddress == address(0)) revert Errors.ZeroAddress("vaultAddress");
+        Errors.verifyNotZero(vaultAddress, "vaultAddress");
 
         ILMPVault vault = ILMPVault(vaultAddress);
 
@@ -62,7 +62,7 @@ contract LMPVaultRegistry is ILMPVaultRegistry, SecurityBase {
     }
 
     function removeVault(address vaultAddress) external onlyUpdater {
-        if (vaultAddress == address(0)) revert Errors.ZeroAddress("vaultAddress");
+        Errors.verifyNotZero(vaultAddress, "vaultAddress");
 
         // remove from vaults list
         if (!_vaults.remove(vaultAddress)) revert VaultNotFound(vaultAddress);

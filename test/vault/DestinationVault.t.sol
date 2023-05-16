@@ -8,6 +8,9 @@ import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 
+import { TestERC20 } from "test/mocks/TestERC20.sol";
+import { TestDestinationVault } from "test/mocks/TestDestinationVault.sol";
+
 contract DestinationVaultBaseTests is Test {
     address private testUser1;
     address private testUser2;
@@ -106,7 +109,7 @@ contract DestinationVaultBaseTests is Test {
     }
 
     /* ******************************** */
-    /* Profit    
+    /* Profit
     /* ******************************** */
 
     function testWithdrawBaseAssetGivesPortionOfProfitFromIdle() public {
@@ -870,14 +873,6 @@ struct WithdrawBaseAssetTest {
     uint256 resultingDebt;
 }
 
-contract TestERC20 is ERC20 {
-    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) { }
-
-    function mint(address account, uint256 amount) external {
-        _mint(account, amount);
-    }
-}
-
 /// @notice TODO: Set these tests up to run on every implementation
 contract BaseDestinationVaultTests is Test {
     function setUp() public { }
@@ -901,69 +896,4 @@ contract BaseDestinationVaultTests is Test {
     function testReclaimDebtReportsAmountAndLoss() public { }
 
     function testReclaimDebtReportsAmount() public { }
-}
-
-contract TestDestinationVault is DestinationVault {
-    using EnumerableSet for EnumerableSet.AddressSet;
-
-    uint256 private _debtVault;
-    uint256 private _rewardValue;
-    uint256 private _claimVested;
-    uint256 private _reclaimDebtAmount;
-    uint256 private _reclaimDebtLoss;
-    EnumerableSet.AddressSet private _trackedTokens;
-
-    constructor(address token) {
-        initialize(ISystemRegistry(address(0)), IERC20(token), "ABC", abi.encode(""));
-    }
-
-    function mint(address to, uint256 amount) public {
-        _mint(to, amount);
-    }
-
-    function debtValue() public view override returns (uint256 value) {
-        return _debtVault;
-    }
-
-    function rewardValue() public view override returns (uint256 value) {
-        return _rewardValue;
-    }
-
-    function claimVested_() internal view override returns (uint256 amount) {
-        return _claimVested;
-    }
-
-    function isTrackedToken_(address token) internal view override returns (bool) {
-        return _trackedTokens.contains(token);
-    }
-
-    function reclaimDebt_(uint256, uint256) internal view override returns (uint256 amount, uint256 loss) {
-        return (_reclaimDebtAmount, _reclaimDebtLoss);
-    }
-
-    function setDebtValue(uint256 val) public {
-        _debtVault = val;
-    }
-
-    function setRewardValue(uint256 val) public {
-        _rewardValue = val;
-    }
-
-    function setClaimVested(uint256 val) public {
-        _claimVested = val;
-    }
-
-    function setReclaimDebtAmount(uint256 val) public {
-        _reclaimDebtAmount = val;
-    }
-
-    function setReclaimDebtLoss(uint256 val) public {
-        _reclaimDebtLoss = val;
-    }
-
-    function setDebt(uint256 val) public {
-        debt = val;
-    }
-
-    function reset() external { }
 }

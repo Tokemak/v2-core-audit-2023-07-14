@@ -3,6 +3,7 @@ pragma solidity 0.8.17;
 
 import { IAccessController } from "src/interfaces/security/IAccessController.sol";
 import { Context } from "openzeppelin-contracts/utils/Context.sol";
+import { Errors } from "src/utils/Errors.sol";
 
 contract SecurityBase {
     IAccessController public immutable accessController;
@@ -17,6 +18,11 @@ contract SecurityBase {
 
     modifier onlyOwner() {
         accessController.verifyOwner(msg.sender);
+        _;
+    }
+
+    modifier hasRole(bytes32 role) {
+        if (!accessController.hasRole(role, msg.sender)) revert Errors.NotAuthorized();
         _;
     }
 

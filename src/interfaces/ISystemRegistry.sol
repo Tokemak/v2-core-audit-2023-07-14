@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { ILMPVaultRegistry } from "./vault/ILMPVaultRegistry.sol";
-import { IAccessController } from "./security/IAccessController.sol";
-import { IDestinationRegistry } from "./destinations/IDestinationRegistry.sol";
-import { IDestinationVaultRegistry } from "./vault/IDestinationVaultRegistry.sol";
+import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
+import { IAccessController } from "src/interfaces/security/IAccessController.sol";
+import { IDestinationRegistry } from "src/interfaces/destinations/IDestinationRegistry.sol";
+import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
+
+import { ILMPVaultFactory } from "src/interfaces/vault/ILMPVaultFactory.sol";
+import { ILMPVaultRouter } from "src/interfaces/vault/ILMPVaultRouter.sol";
 
 /// @notice Root most registry contract for the system
 interface ISystemRegistry {
@@ -23,4 +26,12 @@ interface ISystemRegistry {
     /// @notice Get the destination template registry for this system
     /// @return registry instance of the registry for this system
     function destinationTemplateRegistry() external view returns (IDestinationRegistry registry);
+
+    /// @notice LMP Vault Router
+    /// @return router instance of the lmp vault router
+    function lmpVaultRouter() external view returns (ILMPVaultRouter router);
+
+    /// @notice Vault factory lookup by type
+    /// @return vaultFactory instance of the vault factory for this vault type
+    function getLMPVaultFactoryByType(bytes32 vaultType) external view returns (ILMPVaultFactory vaultFactory);
 }
