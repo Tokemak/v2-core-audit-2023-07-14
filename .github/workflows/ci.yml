@@ -25,7 +25,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly-a44159a5c23d2699d3a390e6d4889b89a0e5a5e0
+          version: nightly-e15e33a07c0920189fc336391f538c3dad53da73
 
       - name: Install NodeJS
         uses: actions/setup-node@v3
