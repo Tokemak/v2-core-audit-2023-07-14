@@ -38,7 +38,8 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         vm.selectFork(mainnetFork);
         assertEq(vm.activeFork(), mainnetFork);
 
-        adapter = new BalancerV2MetaStablePoolAdapter(IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8));
+        adapter = new BalancerV2MetaStablePoolAdapter();
+        adapter.initialize(IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8));
     }
 
     function forkArbitrum() private {
@@ -46,7 +47,9 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         uint256 forkId = vm.createFork(endpoint);
         vm.selectFork(forkId);
         assertEq(vm.activeFork(), forkId);
-        adapter = new BalancerV2MetaStablePoolAdapter(IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8));
+
+        adapter = new BalancerV2MetaStablePoolAdapter();
+        adapter.initialize(IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8));
     }
 
     function testAddLiquidityWstEthCbEth() public {

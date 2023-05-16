@@ -25,7 +25,8 @@ contract BeethovenAdapterTest is Test {
         uint256 forkId = vm.createFork(endpoint);
         vm.selectFork(forkId);
         assertEq(vm.activeFork(), forkId);
-        adapter = new BeethovenAdapter(IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8));
+        adapter = new BeethovenAdapter();
+        adapter.initialize(IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8));
     }
 
     function testAddLiquidityWstEthWeth() public {

@@ -3,14 +3,16 @@ pragma solidity 0.8.17;
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
+import { Initializable } from "openzeppelin-contracts/proxy/utils/Initializable.sol";
 import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
-import { IPoolAdapter } from "../../interfaces/destinations/IPoolAdapter.sol";
-import { IAsset } from "../../interfaces/external/balancer/IAsset.sol";
-import { IVault } from "../../interfaces/external/balancer/IVault.sol";
-import { LibAdapter } from "../../libs/LibAdapter.sol";
+import { IPoolAdapter } from "src/interfaces/destinations/IPoolAdapter.sol";
+import { IAsset } from "src/interfaces/external/balancer/IAsset.sol";
+import { IVault } from "src/interfaces/external/balancer/IVault.sol";
+import { LibAdapter } from "src/libs/LibAdapter.sol";
+import { Errors } from "src/utils/Errors.sol";
 
-contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard {
+contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initializable {
     using SafeERC20 for IERC20;
 
     event DeployLiquidity(
@@ -69,11 +71,10 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard {
         IERC20[] tokens;
     }
 
-    IVault public immutable vault;
+    IVault public vault;
 
-    constructor(IVault _vault) {
-        if (address(_vault) == address(0)) revert InvalidAddress(address(_vault));
-
+    function initialize(IVault _vault) public virtual initializer {
+        Errors.verifyNotZero(address(_vault), "_vault");
         vault = _vault;
     }
 
@@ -81,7 +82,7 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard {
         uint256[] calldata amounts,
         uint256 minLpMintAmount,
         bytes calldata extraParams
-    ) external nonReentrant {
+    ) public nonReentrant {
         (BalancerExtraParams memory balancerExtraParams) = abi.decode(extraParams, (BalancerExtraParams));
         if (balancerExtraParams.tokens.length == 0 || balancerExtraParams.tokens.length != amounts.length) {
             revert ArraysLengthMismatch();
@@ -141,7 +142,7 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard {
         uint256[] calldata amounts,
         uint256 maxLpBurnAmount,
         bytes calldata extraParams
-    ) external nonReentrant returns (uint256[] memory actualAmounts) {
+    ) public nonReentrant returns (uint256[] memory actualAmounts) {
         (BalancerExtraParams memory balancerExtraParams) = abi.decode(extraParams, (BalancerExtraParams));
         // encode withdraw request
         bytes memory userData = abi.encode(ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amounts, maxLpBurnAmount);
@@ -165,13 +166,13 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard {
     function removeLiquidityImbalance(
         bytes32 poolId,
         uint256 poolAmountIn,
-        IERC20[] calldata tokens,
-        uint256[] calldata minAmountsOut
-    ) external nonReentrant {
+        IERC20[] memory tokens,
+        uint256[] memory minAmountsOut
+    ) public nonReentrant returns (uint256[] memory amountsOut) {
         // encode withdraw request
         bytes memory userData = abi.encode(ExitKind.EXACT_BPT_IN_FOR_TOKENS_OUT, poolAmountIn);
 
-        _withdraw(
+        amountsOut = _withdraw(
             WithdrawParams({
                 poolId: poolId,
                 bptAmount: poolAmountIn,
@@ -191,6 +192,7 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard {
         if (nTokens != amountsOutLen) {
             revert ArraysLengthMismatch();
         }
+        // slither-disable-next-line incorrect-equality
         if (nTokens == 0) revert MustBeMoreThanZero();
 
         (IERC20[] memory poolTokens,,) = vault.getPoolTokens(poolId);

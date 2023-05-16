@@ -10,6 +10,4 @@ import { IVault } from "../../interfaces/external/balancer/IVault.sol";
  * @dev This contract implements an adapter for interacting with Beethoven X's system.
  * We're using Balancer Adapter's interfaces for this purpose as Beethoven is a Balancer fork.
  */
-contract BeethovenAdapter is BalancerV2MetaStablePoolAdapter {
-    constructor(IVault _vault) BalancerV2MetaStablePoolAdapter(_vault) { }
-}
+contract BeethovenAdapter is BalancerV2MetaStablePoolAdapter { }
