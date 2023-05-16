@@ -110,7 +110,7 @@ contract MaverickAdapter is IPoolAdapter, ReentrancyGuard {
             maverickExtraParams.poolAddress,
             receivingTokenId,
             deployedBinIds
-            );
+        );
     }
 
     function removeLiquidity(
@@ -159,7 +159,7 @@ contract MaverickAdapter is IPoolAdapter, ReentrancyGuard {
             maverickExtraParams.poolAddress,
             maverickExtraParams.tokenId,
             deployedBinIds
-            );
+        );
     }
 
     function _approveTokens(MaverickDeploymentExtraParams memory maverickExtraParams) private {

@@ -99,7 +99,7 @@ abstract contract LMPVaultRouterBase is ILMPVaultRouterBase, SelfPermit, Multica
             }
 
             // wrap eth
-            weth9.deposit{value: msg.value}();
+            weth9.deposit{ value: msg.value }();
         }
     }
 

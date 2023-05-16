@@ -57,7 +57,7 @@ contract BaseAsyncSwapper is IAsyncSwapper, ReentrancyGuard {
             swapParams.sellAmount,
             swapParams.buyAmount,
             buyTokenAmountReceived
-            );
+        );
     }
     // slither-disable-end calls-loop
 }

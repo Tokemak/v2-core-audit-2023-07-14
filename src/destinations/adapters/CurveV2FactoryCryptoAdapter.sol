@@ -80,7 +80,7 @@ contract CurveV2FactoryCryptoAdapter is IPoolAdapter, ReentrancyGuard {
             tokens,
             [deployed, lpToken.balanceOf(address(this)), lpToken.totalSupply()],
             poolAddress
-            );
+        );
     }
 
     function removeLiquidity(
@@ -121,7 +121,7 @@ contract CurveV2FactoryCryptoAdapter is IPoolAdapter, ReentrancyGuard {
             tokens,
             [lpTokenAmount, lpTokenBalanceAfter, IERC20(curveExtraParams.lpTokenAddress).totalSupply()],
             curveExtraParams.poolAddress
-            );
+        );
     }
 
     /// @notice Withdraw liquidity from Curve pool
@@ -164,7 +164,7 @@ contract CurveV2FactoryCryptoAdapter is IPoolAdapter, ReentrancyGuard {
             _toDynamicArray(coin),
             [lpTokenAmount, lpTokenBalanceAfter, lpToken.totalSupply()],
             poolAddress
-            );
+        );
     }
 
     /// @dev Validate to have at least one `amount` > 0 provided and `amounts` is <=4
@@ -229,13 +229,13 @@ contract CurveV2FactoryCryptoAdapter is IPoolAdapter, ReentrancyGuard {
             // slither-disable-start arbitrary-send-eth
             if (nTokens == 2) {
                 uint256[2] memory staticParamArray = [amounts[0], amounts[1]];
-                deployed = pool.add_liquidity{value: amounts[0]}(staticParamArray, minLpMintAmount);
+                deployed = pool.add_liquidity{ value: amounts[0] }(staticParamArray, minLpMintAmount);
             } else if (nTokens == 3) {
                 uint256[3] memory staticParamArray = [amounts[0], amounts[1], amounts[2]];
-                deployed = pool.add_liquidity{value: amounts[0]}(staticParamArray, minLpMintAmount);
+                deployed = pool.add_liquidity{ value: amounts[0] }(staticParamArray, minLpMintAmount);
             } else if (nTokens == 4) {
                 uint256[4] memory staticParamArray = [amounts[0], amounts[1], amounts[2], amounts[3]];
-                deployed = pool.add_liquidity{value: amounts[0]}(staticParamArray, minLpMintAmount);
+                deployed = pool.add_liquidity{ value: amounts[0] }(staticParamArray, minLpMintAmount);
             }
             // slither-disable-end arbitrary-send-eth
         } else {

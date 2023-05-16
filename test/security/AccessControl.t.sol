@@ -6,7 +6,7 @@ pragma solidity 0.8.17;
 import { BaseTest } from "test/BaseTest.t.sol";
 
 contract AccessControlTest is BaseTest {
-    function setUp() public virtual override (BaseTest) {
+    function setUp() public virtual override(BaseTest) {
         BaseTest.setUp();
     }
 

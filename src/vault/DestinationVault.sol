@@ -50,12 +50,12 @@ abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
     }
 
     /// @inheritdoc ERC20
-    function name() public view virtual override (ERC20, IERC20) returns (string memory) {
+    function name() public view virtual override(ERC20, IERC20) returns (string memory) {
         return _name;
     }
 
     /// @inheritdoc ERC20
-    function symbol() public view virtual override (ERC20, IERC20) returns (string memory) {
+    function symbol() public view virtual override(ERC20, IERC20) returns (string memory) {
         return _symbol;
     }
 

@@ -85,7 +85,7 @@ contract VelodromeStakingAdapter is IStakingAdapter, ReentrancyGuard {
             pool,
             address(gauge),
             address(gauge.stake())
-            );
+        );
     }
 
     /**
@@ -129,6 +129,6 @@ contract VelodromeStakingAdapter is IStakingAdapter, ReentrancyGuard {
             pool,
             address(gauge),
             address(gauge.stake())
-            );
+        );
     }
 }

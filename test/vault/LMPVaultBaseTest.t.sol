@@ -26,7 +26,7 @@ contract LMPVaultBaseTest is BaseTest {
     ILMPVault public vault;
     ERC20 public poolAsset;
 
-    function setUp() public virtual override (BaseTest) {
+    function setUp() public virtual override(BaseTest) {
         BaseTest.setUp();
 
         // create registry

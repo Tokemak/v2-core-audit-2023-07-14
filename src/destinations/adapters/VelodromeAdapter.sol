@@ -88,7 +88,7 @@ contract VelodromeAdapter is IPoolAdapter, ReentrancyGuard {
             [velodromeExtraParams.tokenA, velodromeExtraParams.tokenB],
             [liquidity, pair.balanceOf(address(this)), pair.totalSupply()],
             address(pair)
-            );
+        );
     }
 
     function removeLiquidity(
@@ -123,7 +123,7 @@ contract VelodromeAdapter is IPoolAdapter, ReentrancyGuard {
             [velodromeExtraParams.tokenA, velodromeExtraParams.tokenB],
             [lpTokenAmount, lpTokensAfter, pair.totalSupply()],
             address(pair)
-            );
+        );
     }
 
     function _runWithdrawal(

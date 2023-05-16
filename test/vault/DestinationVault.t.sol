@@ -818,7 +818,7 @@ contract DestinationVaultBaseTests is Test {
             settings.expectedClaimLoss,
             settings.expectedFromIdle,
             settings.expectedFromDebt
-            );
+        );
 
         (uint256 amount, uint256 loss) =
             testVault.withdrawBaseAsset(settings.requestedAmount, ownerNumerator, ownerDenominator);
