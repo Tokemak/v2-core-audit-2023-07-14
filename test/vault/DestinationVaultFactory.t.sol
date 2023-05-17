@@ -163,13 +163,13 @@ contract DestinationVaultFactoryBaseTests is Test {
 
     function generateTemplateRegistry(ISystemRegistry sysRegistry) internal returns (address) {
         address reg = vm.addr(1001);
-        vm.mockCall(reg, abi.encodeWithSelector(ISystemBound.systemRegistry.selector), abi.encode(sysRegistry));
+        vm.mockCall(reg, abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector), abi.encode(sysRegistry));
         return reg;
     }
 
     function generateVaultRegistry(ISystemRegistry sysRegistry) internal returns (address) {
         address reg = vm.addr(1002);
-        vm.mockCall(reg, abi.encodeWithSelector(ISystemBound.systemRegistry.selector), abi.encode(sysRegistry));
+        vm.mockCall(reg, abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector), abi.encode(sysRegistry));
         return reg;
     }
 }

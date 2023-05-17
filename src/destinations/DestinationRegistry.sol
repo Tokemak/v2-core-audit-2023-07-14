@@ -8,7 +8,7 @@ import { IDestinationAdapter } from "../interfaces/destinations/IDestinationAdap
 import { IDestinationRegistry } from "../interfaces/destinations/IDestinationRegistry.sol";
 
 contract DestinationRegistry is IDestinationRegistry, Ownable2Step {
-    ISystemRegistry public immutable systemRegistry;
+    ISystemRegistry private immutable systemRegistry;
 
     mapping(bytes32 => IDestinationAdapter) public destinations;
     mapping(bytes32 => bool) public allowedTypes;
@@ -117,5 +117,9 @@ contract DestinationRegistry is IDestinationRegistry, Ownable2Step {
 
     function isWhitelistedDestination(bytes32 destinationType) public view override returns (bool) {
         return allowedTypes[destinationType];
+    }
+
+    function getSystemRegistry() external view returns (address) {
+        return address(systemRegistry);
     }
 }

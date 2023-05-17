@@ -124,14 +124,14 @@ contract DestinationVaultRegistryBaseTests is Test {
 
     function generateFactory(ISystemRegistry sysRegistry) internal returns (address) {
         address f = vm.addr(7);
-        vm.mockCall(f, abi.encodeWithSelector(ISystemBound.systemRegistry.selector), abi.encode(sysRegistry));
+        vm.mockCall(f, abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector), abi.encode(sysRegistry));
         return f;
     }
 
     function generateDestinationVault(ISystemRegistry sysRegistry) internal returns (address) {
         destinationVaultCounter++;
         address vault = vm.addr(destinationVaultCounter);
-        vm.mockCall(vault, abi.encodeWithSelector(ISystemBound.systemRegistry.selector), abi.encode(sysRegistry));
+        vm.mockCall(vault, abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector), abi.encode(sysRegistry));
         return vault;
     }
 }

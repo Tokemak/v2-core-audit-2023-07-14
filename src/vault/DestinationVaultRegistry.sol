@@ -14,7 +14,7 @@ import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaul
 contract DestinationVaultRegistry is IDestinationVaultRegistry, SecurityBase {
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    ISystemRegistry public immutable systemRegistry;
+    ISystemRegistry private immutable systemRegistry;
 
     IDestinationVaultFactory public factory;
     EnumerableSet.AddressSet private vaults;
@@ -65,10 +65,14 @@ contract DestinationVaultRegistry is IDestinationVaultRegistry, SecurityBase {
 
         emit FactorySet(newAddress);
 
-        ISystemRegistry factorySystem = factory.systemRegistry();
+        ISystemRegistry factorySystem = ISystemRegistry(factory.getSystemRegistry());
 
         if (factorySystem != systemRegistry) {
             revert SystemMismatch(address(systemRegistry), address(factorySystem));
         }
+    }
+
+    function getSystemRegistry() external view returns (address) {
+        return address(systemRegistry);
     }
 }

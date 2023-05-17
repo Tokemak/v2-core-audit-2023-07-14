@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { AccessController } from "src/security/AccessController.sol";
+import { IAccessController } from "src/interfaces/security/IAccessController.sol";
 import { Context } from "openzeppelin-contracts/utils/Context.sol";
 
 contract SecurityBase {
-    AccessController public immutable accessController;
+    IAccessController public immutable accessController;
 
     error UndefinedAddress();
 
     constructor(address _accessController) {
         if (_accessController == address(0)) revert UndefinedAddress();
 
-        accessController = AccessController(_accessController);
+        accessController = IAccessController(_accessController);
     }
 
     modifier onlyOwner() {

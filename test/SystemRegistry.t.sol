@@ -5,8 +5,8 @@ import { Errors } from "src/utils/Errors.sol";
 import { Test, StdCheats } from "forge-std/Test.sol";
 import { SystemRegistry } from "src/SystemRegistry.sol";
 import { ISystemBound } from "src/interfaces/ISystemBound.sol";
-import { IAccessController } from "src/interfaces/security/IAccessController.sol";
 import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
+import { IAccessController } from "src/interfaces/security/IAccessController.sol";
 import { IDestinationRegistry } from "src/interfaces/destinations/IDestinationRegistry.sol";
 import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
 
@@ -23,7 +23,7 @@ contract SystemRegistryTest is Test {
     }
 
     /* ******************************** */
-    /* LMP Vault Registry
+    /* LMP Vault Registry 
     /* ******************************** */
 
     function testSystemRegistryLMPVaultSetOnceDuplicateValue() public {
@@ -79,11 +79,24 @@ contract SystemRegistryTest is Test {
     function testSystemRegistryLMPVaultSystemsMatch() public {
         address lmpVault = vm.addr(1);
         address fakeRegistry = vm.addr(2);
-        vm.mockCall(lmpVault, abi.encodeWithSelector(ISystemBound.systemRegistry.selector), abi.encode(fakeRegistry));
+        bytes memory registry = abi.encode(fakeRegistry);
+        vm.mockCall(lmpVault, abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector), registry);
         vm.expectRevert(
             abi.encodeWithSelector(SystemRegistry.SystemMismatch.selector, address(_systemRegistry), fakeRegistry)
         );
         _systemRegistry.setLMPVaultRegistry(lmpVault);
+    }
+
+    function testSystemRegistryLMPVaultInvalidContractCaught() public {
+        // When its not a contract
+        address fakeRegistry = vm.addr(2);
+        vm.expectRevert();
+        _systemRegistry.setLMPVaultRegistry(fakeRegistry);
+
+        // When it is a contract, just incorrect
+        address emptyContract = address(new EmptyContract());
+        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.InvalidContract.selector, emptyContract));
+        _systemRegistry.setLMPVaultRegistry(emptyContract);
     }
 
     /* ******************************** */
@@ -144,12 +157,24 @@ contract SystemRegistryTest is Test {
         address destinationVault = vm.addr(1);
         address fakeRegistry = vm.addr(2);
         vm.mockCall(
-            destinationVault, abi.encodeWithSelector(ISystemBound.systemRegistry.selector), abi.encode(fakeRegistry)
+            destinationVault, abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector), abi.encode(fakeRegistry)
         );
         vm.expectRevert(
             abi.encodeWithSelector(SystemRegistry.SystemMismatch.selector, address(_systemRegistry), fakeRegistry)
         );
         _systemRegistry.setDestinationVaultRegistry(destinationVault);
+    }
+
+    function testSystemRegistryDestinationVaultInvalidContractCaught() public {
+        // When its not a contract
+        address fakeRegistry = vm.addr(2);
+        vm.expectRevert();
+        _systemRegistry.setDestinationVaultRegistry(fakeRegistry);
+
+        // When it is a contract, just incorrect
+        address emptyContract = address(new EmptyContract());
+        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.InvalidContract.selector, emptyContract));
+        _systemRegistry.setDestinationVaultRegistry(emptyContract);
     }
 
     /* ******************************** */
@@ -210,12 +235,26 @@ contract SystemRegistryTest is Test {
         address destinationTemplate = vm.addr(1);
         address fakeRegistry = vm.addr(2);
         vm.mockCall(
-            destinationTemplate, abi.encodeWithSelector(ISystemBound.systemRegistry.selector), abi.encode(fakeRegistry)
+            destinationTemplate,
+            abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector),
+            abi.encode(fakeRegistry)
         );
         vm.expectRevert(
             abi.encodeWithSelector(SystemRegistry.SystemMismatch.selector, address(_systemRegistry), fakeRegistry)
         );
         _systemRegistry.setDestinationTemplateRegistry(destinationTemplate);
+    }
+
+    function testSystemRegistryDestinationTemplateInvalidContractCaught() public {
+        // When its not a contract
+        address fakeRegistry = vm.addr(2);
+        vm.expectRevert();
+        _systemRegistry.setDestinationTemplateRegistry(fakeRegistry);
+
+        // When it is a contract, just incorrect
+        address emptyContract = address(new EmptyContract());
+        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.InvalidContract.selector, emptyContract));
+        _systemRegistry.setDestinationTemplateRegistry(emptyContract);
     }
 
     /* ******************************** */
@@ -273,15 +312,27 @@ contract SystemRegistryTest is Test {
     }
 
     function testSystemRegistryAccessControllerSystemsMatch() public {
-        address accessController = vm.addr(1);
-        address fakeRegistry = vm.addr(2);
+        address controller = vm.addr(1);
+        address fakeController = vm.addr(2);
         vm.mockCall(
-            accessController, abi.encodeWithSelector(ISystemBound.systemRegistry.selector), abi.encode(fakeRegistry)
+            controller, abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector), abi.encode(fakeController)
         );
         vm.expectRevert(
-            abi.encodeWithSelector(SystemRegistry.SystemMismatch.selector, address(_systemRegistry), fakeRegistry)
+            abi.encodeWithSelector(SystemRegistry.SystemMismatch.selector, address(_systemRegistry), fakeController)
         );
-        _systemRegistry.setAccessController(accessController);
+        _systemRegistry.setAccessController(controller);
+    }
+
+    function testSystemRegistryAccessControllerInvalidContractCaught() public {
+        // When its not a contract
+        address fakeController = vm.addr(2);
+        vm.expectRevert();
+        _systemRegistry.setAccessController(fakeController);
+
+        // When it is a contract, just incorrect
+        address emptyContract = address(new EmptyContract());
+        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.InvalidContract.selector, emptyContract));
+        _systemRegistry.setAccessController(emptyContract);
     }
 
     /* ******************************** */
@@ -289,6 +340,8 @@ contract SystemRegistryTest is Test {
     /* ******************************** */
 
     function mockSystemBound(address addr) internal {
-        vm.mockCall(addr, abi.encodeWithSelector(ISystemBound.systemRegistry.selector), abi.encode(_systemRegistry));
+        vm.mockCall(addr, abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector), abi.encode(_systemRegistry));
     }
 }
+
+contract EmptyContract { }

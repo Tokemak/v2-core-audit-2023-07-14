@@ -7,8 +7,8 @@ import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IAccessController } from "src/interfaces/security/IAccessController.sol";
 import { AccessControlEnumerable } from "openzeppelin-contracts/access/AccessControlEnumerable.sol";
 
-contract AccessController is IAccessController, AccessControlEnumerable {
-    ISystemRegistry public immutable systemRegistry;
+contract AccessController is AccessControlEnumerable, IAccessController {
+    ISystemRegistry private immutable systemRegistry;
 
     // ------------------------------------------------------------
     //          Pre-initialize roles list for deployer
@@ -40,5 +40,9 @@ contract AccessController is IAccessController, AccessControlEnumerable {
         if (!hasRole(DEFAULT_ADMIN_ROLE, account)) {
             revert AccessDenied();
         }
+    }
+
+    function getSystemRegistry() external view returns (address) {
+        return address(systemRegistry);
     }
 }

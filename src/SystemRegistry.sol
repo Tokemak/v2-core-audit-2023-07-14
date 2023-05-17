@@ -2,13 +2,12 @@
 pragma solidity 0.8.17;
 
 import { Errors } from "src/utils/Errors.sol";
-import { Ownable2Step } from "./access/Ownable2Step.sol";
-import { ISystemRegistry } from "./interfaces/ISystemRegistry.sol";
-import { ISystemBound } from "src/interfaces/ISystemBound.sol";
-import { IAccessController } from "./interfaces/security/IAccessController.sol";
+import { Ownable2Step } from "src/access/Ownable2Step.sol";
+import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
-import { IDestinationRegistry } from "./interfaces/destinations/IDestinationRegistry.sol";
-import { IDestinationVaultRegistry } from "./interfaces/vault/IDestinationVaultRegistry.sol";
+import { IAccessController } from "src/interfaces/security/IAccessController.sol";
+import { IDestinationRegistry } from "src/interfaces/destinations/IDestinationRegistry.sol";
+import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
 
 /// @notice Root contract of the system instance.
 /// @dev All contracts in this instance of the system should be reachable from this contract
@@ -37,6 +36,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
 
     error AlreadySet(string param);
     error SystemMismatch(address ours, address theirs);
+    error InvalidContract(address addr);
 
     /* ******************************** */
     /* Views                            */
@@ -80,7 +80,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
 
         _lmpVaultRegistry = ILMPVaultRegistry(registry);
 
-        verifySystemsAgree(_lmpVaultRegistry);
+        verifySystemsAgree(address(_lmpVaultRegistry));
     }
 
     /// @notice Set the Destination Vault Registry for this instance of the system
@@ -97,7 +97,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
 
         _destinationVaultRegistry = IDestinationVaultRegistry(registry);
 
-        verifySystemsAgree(_destinationVaultRegistry);
+        verifySystemsAgree(address(_destinationVaultRegistry));
     }
 
     /// @notice Set the Access Controller for this instance of the system
@@ -114,7 +114,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
 
         _accessController = IAccessController(controller);
 
-        verifySystemsAgree(_accessController);
+        verifySystemsAgree(address(_accessController));
     }
 
     /// @notice Set the Destination Template Registry for this instance of the system
@@ -131,16 +131,24 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
 
         _destinationTemplateRegistry = IDestinationRegistry(registry);
 
-        verifySystemsAgree(_destinationTemplateRegistry);
+        verifySystemsAgree(address(_destinationTemplateRegistry));
     }
 
     /// @notice Verifies that a system bound contract matches this contract
-    /// @dev All system bound contracts match a registry contract. Will revert on mismatch
+    /// @dev All system bound contracts must match a registry contract. Will revert on mismatch
     /// @param dep The contract to check
-    function verifySystemsAgree(ISystemBound dep) internal view {
-        address depRegistry = address(dep.systemRegistry());
-        if (depRegistry != address(this)) {
-            revert SystemMismatch(address(this), depRegistry);
+    function verifySystemsAgree(address dep) internal view {
+        // slither-disable-start low-level-calls
+        // solhint-disable-next-line avoid-low-level-calls
+        (bool success, bytes memory data) = dep.staticcall(abi.encodeWithSignature("getSystemRegistry()"));
+        // slither-disable-end low-level-calls
+        if (success) {
+            address depRegistry = abi.decode(data, (address));
+            if (depRegistry != address(this)) {
+                revert SystemMismatch(address(this), depRegistry);
+            }
+        } else {
+            revert InvalidContract(dep);
         }
     }
 }

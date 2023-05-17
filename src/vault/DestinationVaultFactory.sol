@@ -15,7 +15,7 @@ import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/ext
 contract DestinationVaultFactory is IDestinationVaultFactory, SecurityBase {
     using Clones for address;
 
-    ISystemRegistry public immutable systemRegistry;
+    ISystemRegistry private immutable systemRegistry;
 
     modifier onlyVaultCreator() {
         if (!_hasRole(Roles.CREATE_DESTINATION_VAULT_ROLE, msg.sender)) {
@@ -57,5 +57,9 @@ contract DestinationVaultFactory is IDestinationVaultFactory, SecurityBase {
 
         // Add the vault to the registry
         systemRegistry.destinationVaultRegistry().register(newVault);
+    }
+
+    function getSystemRegistry() external view returns (address) {
+        return address(systemRegistry);
     }
 }

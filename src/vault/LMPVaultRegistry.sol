@@ -18,7 +18,7 @@ import { Errors } from "src/utils/Errors.sol";
 contract LMPVaultRegistry is ILMPVaultRegistry, SecurityBase {
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    ISystemRegistry public immutable systemRegistry;
+    ISystemRegistry private immutable systemRegistry;
 
     EnumerableSet.AddressSet private _vaults;
     EnumerableSet.AddressSet private _assets;
@@ -101,5 +101,9 @@ contract LMPVaultRegistry is ILMPVaultRegistry, SecurityBase {
 
     function listVaultsForType(bytes32 _vaultType) external view returns (address[] memory) {
         return _vaultsByType[_vaultType].values();
+    }
+
+    function getSystemRegistry() external view returns (address) {
+        return address(systemRegistry);
     }
 }
