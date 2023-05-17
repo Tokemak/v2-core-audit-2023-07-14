@@ -11,6 +11,7 @@ interface ISyncSwapper {
      * @param sellAmount The amount of sellToken to sell
      * @param buyTokenAddress The address of the token to buy
      * @param minBuyAmount The minimum amount of buyToken expected
+     * @param data Additional data used differently by the different swappers
      * @return actualBuyAmount The actual amount received from the swap
      */
     function swap(
@@ -18,6 +19,7 @@ interface ISyncSwapper {
         address sellTokenAddress,
         uint256 sellAmount,
         address buyTokenAddress,
-        uint256 minBuyAmount
+        uint256 minBuyAmount,
+        bytes memory data
     ) external returns (uint256 actualBuyAmount);
 }
