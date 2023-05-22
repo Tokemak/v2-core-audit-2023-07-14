@@ -2,9 +2,7 @@
 pragma solidity 0.8.17;
 
 interface ICamelotPair {
-    /**
-     * @notice Gets reserves of Camelot pool.
-     */
+    /// @notice Gets reserves of Camelot pool.
     // slither-disable-start similar-names
     function getReserves()
         external

@@ -8,11 +8,13 @@ library Denominations {
     address public constant BTC = 0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB;
     address public constant STETH_MAINNET = 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84;
 
-    // Placeholder used in unique situation where eth needs to be priced in USD.
-    //    This is only applicable when an asset's price is only available in USD,
-    //    `BaseValueProviderDenominations.sol` contract will get Eth in USD as well as
-    //    asset price in USD in order to convert the price to an eth quote.  In all
-    //    other parts of the system we want eth to be priced as 1e18.
+    /**
+     * Placeholder used in unique situation where eth needs to be priced in USD.
+     * This is only applicable when an asset's price is only available in USD,
+     * `BaseValueProviderDenominations.sol` contract will get Eth in USD as well as
+     * asset price in USD in order to convert the price to an eth quote.  In all
+     * other parts of the system we want eth to be priced as 1e18.
+     */
     address public constant ETH_IN_USD = address(bytes20("ETH_IN_USD"));
 
     // Fiat currencies follow https://en.wikipedia.org/wiki/ISO_4217

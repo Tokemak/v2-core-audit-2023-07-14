@@ -4,9 +4,7 @@ pragma solidity 0.8.17;
 import "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 interface IBalancerPool is IERC20Metadata {
-    /**
-     * @notice returns total supply of Balancer pool
-     */
+    /// @notice returns total supply of Balancer pool
     function totalSupply() external view returns (uint256);
 
     /**

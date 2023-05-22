@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { BaseValueProviderLP, IERC20Metadata, TokemakPricingPrecision } from "./BaseValueProviderLP.sol";
-import { IPairUniV2 } from "../../../interfaces/external/uniswap/IPairUniV2.sol";
+import {
+    BaseValueProviderLP,
+    IERC20Metadata,
+    TokemakPricingPrecision
+} from "src/pricing/value-providers/base/BaseValueProviderLP.sol";
+import { IPairUniV2 } from "src/interfaces/external/uniswap/IPairUniV2.sol";
 
-/**
- * @title Contains functionality to get pricing from protocols that use UniV2 based pool contracts
- */
+/// @title Contains functionality to get pricing from protocols that use UniV2 based pool contracts
 abstract contract BaseValueProviderUniV2LP is BaseValueProviderLP {
     constructor(address _ethValueOracle) BaseValueProviderLP(_ethValueOracle) { }
 

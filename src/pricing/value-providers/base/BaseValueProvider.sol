@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { IEthValueOracle } from "../../../interfaces/pricing/IEthValueOracle.sol";
+import { IEthValueOracle } from "src/interfaces/pricing/IEthValueOracle.sol";
+import { Errors } from "src/utils/errors.sol";
 
 import { Ownable } from "openzeppelin-contracts/access/Ownable.sol";
 
@@ -13,19 +14,10 @@ import { Ownable } from "openzeppelin-contracts/access/Ownable.sol";
 abstract contract BaseValueProvider is Ownable {
     IEthValueOracle public ethValueOracle;
 
-    /**
-     * @notice Used for when something cannot be equal to the zero address.
-     */
-    error CannotBeZeroAddress();
-
-    /**
-     * @notice Used to revert when address must be address of `EthValueOracle.sol` but isn't.
-     */
+    /// @notice Used to revert when address must be address of `EthValueOracle.sol` but isn't.
     error MustBeEthValueOracle();
 
-    /**
-     * @notice Emitted when `ethValueOracle` state variable is changed.
-     */
+    /// @notice Emitted when `ethValueOracle` state variable is changed.
     event EthValueOracleSet(address ethValueOracle);
 
     constructor(address _ethValueOracle) Ownable() {
@@ -49,7 +41,7 @@ abstract contract BaseValueProvider is Ownable {
      * @param _ethValueOracle Address of EthValueOracle.sol contract to set.
      */
     function setEthValueOracle(address _ethValueOracle) public onlyOwner {
-        if (_ethValueOracle == address(0)) revert CannotBeZeroAddress();
+        Errors.verifyNotZero(_ethValueOracle, "ethValueOracle");
         ethValueOracle = IEthValueOracle(_ethValueOracle);
 
         emit EthValueOracleSet(_ethValueOracle);

@@ -9,8 +9,9 @@ import { BAL_VAULT, PRANK_ADDRESS } from "../utils/Addresses.sol";
 import {
     BaseValueProviderBalancerLP,
     BaseValueProvider
-} from "../../src/pricing/value-providers/base/BaseValueProviderBalancerLP.sol";
-import { BalancerV2LPValueProvider } from "../../src/pricing/value-providers/BalancerV2LPValueProvider.sol";
+} from "src/pricing/value-providers/base/BaseValueProviderBalancerLP.sol";
+import { BalancerV2LPValueProvider } from "src/pricing/value-providers/BalancerV2LPValueProvider.sol";
+import { Errors } from "src/utils/errors.sol";
 
 contract BaseValueProviderBalancerLPTest is Test {
     BaseValueProviderBalancerLP public baseBalancerProvider;
@@ -36,7 +37,7 @@ contract BaseValueProviderBalancerLPTest is Test {
     }
 
     function test_RevertZeroAddress() external {
-        vm.expectRevert(BaseValueProvider.CannotBeZeroAddress.selector);
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "balancerVault"));
         baseBalancerProvider.setBalancerVault(address(0));
     }
 

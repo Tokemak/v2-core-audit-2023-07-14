@@ -4,14 +4,18 @@ pragma solidity 0.8.17;
 // solhint-disable func-name-mixedcase
 
 import { Test } from "forge-std/Test.sol";
-import { WSTETH_MAINNET } from "../utils/Addresses.sol";
+import { WSTETH_MAINNET } from "test/utils/Addresses.sol";
 
-import { WstEthValueProvider } from "../../src/pricing/value-providers/WstEthValueProvider.sol";
+import { WstEthValueProvider } from "src/pricing/value-providers/WstEthValueProvider.sol";
 
 contract WstEthValueProviderTest is Test {
     error MustBeEthValueOracle();
 
     event WstEthSet(address _wstEth);
+
+    function setUp() external {
+        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"));
+    }
 
     function test_Constructor() external {
         vm.expectEmit(false, false, false, true);

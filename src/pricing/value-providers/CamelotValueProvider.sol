@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { ICamelotPair } from "../../interfaces/external/camelot/ICamelotPair.sol";
+import { ICamelotPair } from "src/interfaces/external/camelot/ICamelotPair.sol";
 
-import { BaseValueProviderUniV2LP } from "./base/BaseValueProviderUniV2LP.sol";
+import { BaseValueProviderUniV2LP } from "src/pricing/value-providers/base/BaseValueProviderUniV2LP.sol";
 
 /**
  * @title Gets value of Camelot LP tokens.

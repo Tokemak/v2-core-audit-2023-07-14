@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { BaseValueProviderDenominations, Denominations } from "./base/BaseValueProviderDenominations.sol";
-import { IEthValueOracle } from "../../interfaces/pricing/IEthValueOracle.sol";
+import {
+    BaseValueProviderDenominations,
+    Denominations
+} from "src/pricing/value-providers/base/BaseValueProviderDenominations.sol";
+import { IEthValueOracle } from "src/interfaces/pricing/IEthValueOracle.sol";
+import { Errors } from "src/utils/Errors.sol";
 
 import { UsingTellor } from "usingtellor/UsingTellor.sol";
 
@@ -18,37 +22,45 @@ contract TellorValueProvider is BaseValueProviderDenominations, UsingTellor {
      */
     mapping(address => bytes32) private tokenQueryIds;
 
-    /**
-     * @notice Emitted when a query Id is set or removed.
-     */
+    /// @notice Emitted when a query Id is set or removed.
     event QueryIdSet(address token, bytes32 _queryId);
 
-    /**
-     * @notice Revert used when a query Id is not set and bytes(0) is returned from `tokenQueryIds` mapping.
-     */
+    event QueryIdRemoved(address token, bytes32 queryId);
+
+    /// @notice Revert used when a query Id is not set and bytes(0) is returned from `tokenQueryIds` mapping.
     error QueryIdNotSet();
 
-    /**
-     *  Tellor requires payable address
-     */
+    // Tellor requires payable address
     constructor(
         address _tellorOracleAddress,
         address _ethValueOracle
     ) UsingTellor(payable(_tellorOracleAddress)) BaseValueProviderDenominations(_ethValueOracle) {
-        if (_tellorOracleAddress == address(0)) revert CannotBeZeroAddress();
+        Errors.verifyNotZero(_tellorOracleAddress, "tellor");
     }
 
     /**
      * @notice Allows permissioned address to set _queryId.
-     * @dev query Id can be bytes32(0) to allow removal of query Id.
-     * @param token Address of token to set queryId for.  Will be token to get price of
-     *      not denomination.
+     * @param token Address of token to set queryId for.
      * @param _queryId Bytes32 queryId.
      */
-    function setQueryId(address token, bytes32 _queryId) external onlyOwner {
-        if (token == address(0)) revert CannotBeZeroAddress();
+    function addQueryId(address token, bytes32 _queryId) external onlyOwner {
+        Errors.verifyNotZero(token, "tokenForQueryId");
+        if (_queryId == bytes32(0)) revert Errors.MustBeSet();
+        if (tokenQueryIds[token] != bytes32(0)) revert Errors.MustBeZero();
         tokenQueryIds[token] = _queryId;
         emit QueryIdSet(token, _queryId);
+    }
+
+    /**
+     * @notice Allows permissioned removal of queryId.
+     * @param token Token to set queryId for.
+     */
+    function removeQueryId(address token) external onlyOwner {
+        Errors.verifyNotZero(token, "tokenToRemoveQueryId");
+        bytes32 queryIdBeforeDeletion = tokenQueryIds[token];
+        if (queryIdBeforeDeletion == bytes32(0)) revert Errors.MustBeSet();
+        delete tokenQueryIds[token];
+        emit QueryIdRemoved(token, queryIdBeforeDeletion);
     }
 
     /**
@@ -101,9 +113,7 @@ contract TellorValueProvider is BaseValueProviderDenominations, UsingTellor {
     }
     // slither-disable-end timestamp
 
-    /**
-     * @dev Used to enforce non-existent queryId checks
-     */
+    /// @dev Used to enforce non-existent queryId checks
     function _getQueryId(address token) private view returns (bytes32 queryId) {
         queryId = tokenQueryIds[token];
         if (queryId == bytes32(0)) revert QueryIdNotSet();

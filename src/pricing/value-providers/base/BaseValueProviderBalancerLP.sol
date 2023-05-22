@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { IBalancerPool, IERC20 } from "../../../interfaces/external/balancer/IBalancerPool.sol";
-import { IVault } from "../../../interfaces/external/balancer/IVault.sol";
+import { IBalancerPool, IERC20 } from "src/interfaces/external/balancer/IBalancerPool.sol";
+import { IVault } from "src/interfaces/external/balancer/IVault.sol";
 
-import { BaseValueProvider } from "../base/BaseValueProvider.sol";
-import { TokemakPricingPrecision } from "../../library/TokemakPricingPrecision.sol";
+import { BaseValueProvider } from "src/pricing/value-providers/base/BaseValueProvider.sol";
+import { TokemakPricingPrecision } from "src/pricing/library/TokemakPricingPrecision.sol";
+import { Errors } from "src/utils/errors.sol";
 
 /**
  * @title Base contract allowing for pricing of Balancer pools.
- * @author
  * @dev Returns 18 decimals of precision.
  */
 abstract contract BaseValueProviderBalancerLP is BaseValueProvider {
@@ -26,7 +26,7 @@ abstract contract BaseValueProviderBalancerLP is BaseValueProvider {
      * @param _balancerVault Address of Vault.sol contract to set.
      */
     function setBalancerVault(address _balancerVault) public onlyOwner {
-        if (_balancerVault == address(0)) revert CannotBeZeroAddress();
+        Errors.verifyNotZero(_balancerVault, "balancerVault");
         balancerVault = IVault(_balancerVault);
 
         emit BalancerVaultSet(_balancerVault);

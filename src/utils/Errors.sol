@@ -21,6 +21,10 @@ library Errors {
     error ItemExists();
     error MissingRole(bytes32 role, address user);
     error RegistryItemMissing(string item);
+    // Used to check storage slot is empty before setting.
+    error MustBeZero();
+    // Used to check storage slot set before deleting.
+    error MustBeSet();
 
     function verifyNotZero(address addr, string memory paramName) external pure {
         if (addr == address(0)) {

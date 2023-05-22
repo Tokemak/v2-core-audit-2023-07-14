@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { IPair } from "../../interfaces/external/velodrome/IPair.sol";
+import { IPair } from "src/interfaces/external/velodrome/IPair.sol";
 
-import { BaseValueProviderUniV2LP } from "./base/BaseValueProviderUniV2LP.sol";
+import { BaseValueProviderUniV2LP } from "src/pricing/value-providers/base/BaseValueProviderUniV2LP.sol";
 
 /**
  * @title Gets value of Velodrome LP tokens.

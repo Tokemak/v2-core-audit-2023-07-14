@@ -2,22 +2,11 @@
 pragma solidity 0.8.17;
 
 // solhint-disable func-name-mixedcase
-<<<<<<< HEAD
 interface ICurveRegistry {
-    function get_n_coins(address lp) external view returns (uint256, uint256);
-
     function pool_list(uint256 id) external view returns (address);
-
-    function get_coins(address pool) external view returns (address[8] memory);
 
     function get_gauges(address pool) external view returns (address[10] memory, uint128[10] memory);
 
-    function get_lp_token(address pool) external view returns (address);
-
-    function get_pool_from_lp_token(address lp) external view returns (address);
-=======
-
-interface ICurveRegistry {
     /**
      * @notice Gets lp token address for Curve pool.
      * @param pool Address of pool to get lp token for.
@@ -51,5 +40,4 @@ interface ICurveRegistry {
      * @param lpToken Address of lp token being used to get pool address.
      */
     function get_pool_from_lp_token(address lpToken) external view returns (address);
->>>>>>> e09d740 (feat(pricing): Pricing system base)
 }

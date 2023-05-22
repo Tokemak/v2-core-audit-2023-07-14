@@ -4,9 +4,9 @@ pragma solidity 0.8.17;
 // solhint-disable func-name-mixedcase
 
 import { Test } from "forge-std/Test.sol";
-import { SFRXETH_MAINNET } from "../utils/Addresses.sol";
+import { SFRXETH_MAINNET } from "test/utils/Addresses.sol";
 
-import { SfrxEthValueProvider } from "../../src/pricing/value-providers/SfrxEthValueProvider.sol";
+import { SfrxEthValueProvider } from "src/pricing/value-providers/SfrxEthValueProvider.sol";
 
 contract SfrxEthValueProviderTest is Test {
     event SfrxEthSet(address sfrxEth);

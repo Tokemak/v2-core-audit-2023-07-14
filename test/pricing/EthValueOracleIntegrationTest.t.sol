@@ -55,41 +55,45 @@ import {
     WSTETH_USDC_BEETHOVEN_POOL,
     USDC_WETH_CAMELOT_POOL,
     USDC_USDT_CAMELOT_POOL,
+    FRAX_CURVE_METAPOOL_LP,
+    STETH_WETH_CURVE_POOL_LP,
+    SETH_WETH_CURVE_POOL_LP,
+    RETH_WSTETH_CURVE_POOL_LP,
+    ETH_FRXETH_CURVE_POOL_LP,
+    CRV_ETH_CURVE_V2_LP,
+    CVX_ETH_CURVE_V2_LP,
+    WETH_RETH_VELODROME_POOL,
+    USDC_SUSD_VELODROME_POOL,
+    THREE_CURVE_POOL_MAINNET_LP,
+    LDO_ETH_CURVE_V2_LP,
+    LDO_MAINNET,
+    LDO_CL_FEED_MAINNET,
+    WSETH_RETH_SFRXETH_BAL_POOL,
     FRAX_CURVE_METAPOOL,
-    CURVE_REGISTRY,
-    CURVE_REGISTRY_V2,
+    THREE_CURVE_MAINNET,
     STETH_WETH_CURVE_POOL,
     SETH_WETH_CURVE_POOL,
     RETH_WSTETH_CURVE_POOL,
     ETH_FRXETH_CURVE_POOL,
-    CRV_ETH_CURVE_V2,
-    CVX_ETH_CURVE_V2,
-    WETH_RETH_VELODROME_POOL,
-    USDC_SUSD_VELODROME_POOL,
-    THREE_CURVE_POOL_MAINNET,
-    LDO_ETH_CURVE_V2,
-    LDO_MAINNET,
-    LDO_CL_FEED_MAINNET,
-    WSETH_RETH_SFRXETH_BAL_POOL
-} from "../utils/Addresses.sol";
+    CRV_ETH_CURVE_V2_POOL,
+    CVX_ETH_CURVE_V2_POOL,
+    LDO_ETH_CURVE_V2_POOL
+} from "test/utils/Addresses.sol";
 
-import { EthValueOracle } from "../../src/pricing/EthValueOracle.sol";
-import { BalancerV2LPValueProvider } from "../../src/pricing/value-providers/BalancerV2LPValueProvider.sol";
-import { BeethovenXValueProvider } from "../../src/pricing/value-providers/BeethovenXValueProvider.sol";
-import { CamelotValueProvider } from "../../src/pricing/value-providers/CamelotValueProvider.sol";
-import { ChainlinkValueProvider } from "../../src/pricing/value-providers/ChainlinkValueProvider.sol";
-import { CurveLPMetaPoolValueProvider } from "../../src/pricing/value-providers/CurveLPMetaPoolValueProvider.sol";
-import { CurveLPV2ValueProvider } from "../../src/pricing/value-providers/CurveLPV2ValueProvider.sol";
-import { CurveLPValueProvider } from "../../src/pricing/value-providers/CurveLPValueProvider.sol";
-import { VelodromeValueProvider } from "../../src/pricing/value-providers/VelodromeValueProvider.sol";
-import { OptimismRocketPoolEthValueProvider } from
-    "../../src/pricing/value-providers/OptimismRocketPoolEthValueProvider.sol";
-import { EthValueProvider } from "../../src/pricing/value-providers/EthValueProvider.sol";
-import { SfrxEthValueProvider } from "../../src/pricing/value-providers/SfrxEthValueProvider.sol";
-import { WstEthValueProvider } from "../../src/pricing/value-providers/WstEthValueProvider.sol";
+import { EthValueOracle } from "src/pricing/EthValueOracle.sol";
+import { BalancerV2LPValueProvider } from "src/pricing/value-providers/BalancerV2LPValueProvider.sol";
+import { BeethovenXValueProvider } from "src/pricing/value-providers/BeethovenXValueProvider.sol";
+import { CamelotValueProvider } from "src/pricing/value-providers/CamelotValueProvider.sol";
+import { ChainlinkValueProvider } from "src/pricing/value-providers/ChainlinkValueProvider.sol";
+import { CurveValueProvider } from "src/pricing/value-providers/CurveValueProvider.sol";
+import { VelodromeValueProvider } from "src/pricing/value-providers/VelodromeValueProvider.sol";
+import { OptimismRocketPoolEthValueProvider } from "src/pricing/value-providers/OptimismRocketPoolEthValueProvider.sol";
+import { EthValueProvider } from "src/pricing/value-providers/EthValueProvider.sol";
+import { SfrxEthValueProvider } from "src/pricing/value-providers/SfrxEthValueProvider.sol";
+import { WstEthValueProvider } from "src/pricing/value-providers/WstEthValueProvider.sol";
 
-import { Denominations } from "../../src/pricing/library/Denominations.sol";
-import { TokemakPricingPrecision } from "../../src/pricing/library/TokemakPricingPrecision.sol";
+import { Denominations } from "src/pricing/library/Denominations.sol";
+import { TokemakPricingPrecision } from "src/pricing/library/TokemakPricingPrecision.sol";
 
 /**
  * @dev This contract should be updated for any new pool or token that will require pricing.  In order to calculate
@@ -122,9 +126,7 @@ contract EthValueOracleIntegrationTest is Test {
     EthValueOracle public ethValueOracleMainnet;
     ChainlinkValueProvider public clValueProviderMainnet;
     BalancerV2LPValueProvider public balancerV2ValueProvider;
-    CurveLPValueProvider public curveLPValueProvider;
-    CurveLPV2ValueProvider public curveLPV2ValueProvider;
-    CurveLPMetaPoolValueProvider public curveLPMetaPoolValueProvider;
+    CurveValueProvider public curveValueProvider;
     EthValueProvider public ethValueProviderMainnet;
     SfrxEthValueProvider public sfrxValueProviderMainnet;
     WstEthValueProvider public wstEthValueProviderMainnet;
@@ -161,60 +163,58 @@ contract EthValueOracleIntegrationTest is Test {
         ethValueOracleMainnet = new EthValueOracle();
         clValueProviderMainnet = new ChainlinkValueProvider(address(ethValueOracleMainnet));
         balancerV2ValueProvider = new BalancerV2LPValueProvider(BAL_VAULT, address(ethValueOracleMainnet));
-        curveLPValueProvider = new CurveLPValueProvider(address(ethValueOracleMainnet));
-        curveLPV2ValueProvider = new CurveLPV2ValueProvider(address(ethValueOracleMainnet));
-        curveLPMetaPoolValueProvider = new CurveLPMetaPoolValueProvider(address(ethValueOracleMainnet));
+        curveValueProvider = new CurveValueProvider(address(ethValueOracleMainnet));
         ethValueProviderMainnet = new EthValueProvider(address(ethValueOracleMainnet));
         sfrxValueProviderMainnet = new SfrxEthValueProvider(SFRXETH_MAINNET, address(ethValueOracleMainnet));
         wstEthValueProviderMainnet = new WstEthValueProvider(WSTETH_MAINNET, address(ethValueOracleMainnet));
 
         // Setting value providers for tokens
-        ethValueOracleMainnet.updateValueProvider(WSTETH_MAINNET, address(wstEthValueProviderMainnet));
-        ethValueOracleMainnet.updateValueProvider(RETH_MAINNET, address(clValueProviderMainnet));
-        ethValueOracleMainnet.updateValueProvider(USDC_MAINNET, address(clValueProviderMainnet));
-        ethValueOracleMainnet.updateValueProvider(USDT_MAINNET, address(clValueProviderMainnet));
-        ethValueOracleMainnet.updateValueProvider(FRAX_MAINNET, address(clValueProviderMainnet));
-        ethValueOracleMainnet.updateValueProvider(DAI_MAINNET, address(clValueProviderMainnet));
-        ethValueOracleMainnet.updateValueProvider(SUSD_MAINNET, address(clValueProviderMainnet));
-        ethValueOracleMainnet.updateValueProvider(CRV_MAINNET, address(clValueProviderMainnet));
-        ethValueOracleMainnet.updateValueProvider(CVX_MAINNET, address(clValueProviderMainnet));
-        ethValueOracleMainnet.updateValueProvider(WETH9_ADDRESS, address(ethValueProviderMainnet));
-        ethValueOracleMainnet.updateValueProvider(Denominations.ETH, address(ethValueProviderMainnet));
-        ethValueOracleMainnet.updateValueProvider(Denominations.ETH_IN_USD, address(clValueProviderMainnet));
-        ethValueOracleMainnet.updateValueProvider(STETH_MAINNET, address(clValueProviderMainnet));
-        ethValueOracleMainnet.updateValueProvider(SETH_MAINNET, address(ethValueProviderMainnet));
-        ethValueOracleMainnet.updateValueProvider(CBETH_MAINNET, address(clValueProviderMainnet));
-        ethValueOracleMainnet.updateValueProvider(FRXETH_MAINNET, address(ethValueProviderMainnet));
-        ethValueOracleMainnet.updateValueProvider(SFRXETH_MAINNET, address(sfrxValueProviderMainnet));
-        ethValueOracleMainnet.updateValueProvider(LDO_MAINNET, address(clValueProviderMainnet));
+        ethValueOracleMainnet.addValueProvider(WSTETH_MAINNET, address(wstEthValueProviderMainnet));
+        ethValueOracleMainnet.addValueProvider(RETH_MAINNET, address(clValueProviderMainnet));
+        ethValueOracleMainnet.addValueProvider(USDC_MAINNET, address(clValueProviderMainnet));
+        ethValueOracleMainnet.addValueProvider(USDT_MAINNET, address(clValueProviderMainnet));
+        ethValueOracleMainnet.addValueProvider(FRAX_MAINNET, address(clValueProviderMainnet));
+        ethValueOracleMainnet.addValueProvider(DAI_MAINNET, address(clValueProviderMainnet));
+        ethValueOracleMainnet.addValueProvider(SUSD_MAINNET, address(clValueProviderMainnet));
+        ethValueOracleMainnet.addValueProvider(CRV_MAINNET, address(clValueProviderMainnet));
+        ethValueOracleMainnet.addValueProvider(CVX_MAINNET, address(clValueProviderMainnet));
+        ethValueOracleMainnet.addValueProvider(WETH9_ADDRESS, address(ethValueProviderMainnet));
+        ethValueOracleMainnet.addValueProvider(Denominations.ETH, address(ethValueProviderMainnet));
+        ethValueOracleMainnet.addValueProvider(Denominations.ETH_IN_USD, address(clValueProviderMainnet));
+        ethValueOracleMainnet.addValueProvider(STETH_MAINNET, address(clValueProviderMainnet));
+        ethValueOracleMainnet.addValueProvider(SETH_MAINNET, address(ethValueProviderMainnet));
+        ethValueOracleMainnet.addValueProvider(CBETH_MAINNET, address(clValueProviderMainnet));
+        ethValueOracleMainnet.addValueProvider(FRXETH_MAINNET, address(ethValueProviderMainnet));
+        ethValueOracleMainnet.addValueProvider(SFRXETH_MAINNET, address(sfrxValueProviderMainnet));
+        ethValueOracleMainnet.addValueProvider(LDO_MAINNET, address(clValueProviderMainnet));
 
         // Setting denominations
-        clValueProviderMainnet.setDenomination(RETH_MAINNET, Denominations.ETH);
-        clValueProviderMainnet.setDenomination(USDC_MAINNET, Denominations.ETH);
-        clValueProviderMainnet.setDenomination(USDT_MAINNET, Denominations.ETH);
-        clValueProviderMainnet.setDenomination(FRAX_MAINNET, Denominations.ETH);
-        clValueProviderMainnet.setDenomination(DAI_MAINNET, Denominations.ETH);
-        clValueProviderMainnet.setDenomination(SUSD_MAINNET, Denominations.ETH);
-        clValueProviderMainnet.setDenomination(CRV_MAINNET, Denominations.ETH);
-        clValueProviderMainnet.setDenomination(CVX_MAINNET, Denominations.ETH);
-        clValueProviderMainnet.setDenomination(Denominations.ETH_IN_USD, Denominations.USD);
-        clValueProviderMainnet.setDenomination(STETH_MAINNET, Denominations.ETH);
-        clValueProviderMainnet.setDenomination(CBETH_MAINNET, Denominations.ETH);
-        clValueProviderMainnet.setDenomination(LDO_MAINNET, Denominations.ETH);
+        clValueProviderMainnet.addDenomination(RETH_MAINNET, Denominations.ETH);
+        clValueProviderMainnet.addDenomination(USDC_MAINNET, Denominations.ETH);
+        clValueProviderMainnet.addDenomination(USDT_MAINNET, Denominations.ETH);
+        clValueProviderMainnet.addDenomination(FRAX_MAINNET, Denominations.ETH);
+        clValueProviderMainnet.addDenomination(DAI_MAINNET, Denominations.ETH);
+        clValueProviderMainnet.addDenomination(SUSD_MAINNET, Denominations.ETH);
+        clValueProviderMainnet.addDenomination(CRV_MAINNET, Denominations.ETH);
+        clValueProviderMainnet.addDenomination(CVX_MAINNET, Denominations.ETH);
+        clValueProviderMainnet.addDenomination(Denominations.ETH_IN_USD, Denominations.USD);
+        clValueProviderMainnet.addDenomination(STETH_MAINNET, Denominations.ETH);
+        clValueProviderMainnet.addDenomination(CBETH_MAINNET, Denominations.ETH);
+        clValueProviderMainnet.addDenomination(LDO_MAINNET, Denominations.ETH);
 
         // Setting AggregatorV3 contract addresses for tokens using Chainlink
-        clValueProviderMainnet.setChainlinkOracle(RETH_MAINNET, RETH_CL_FEED_MAINNET);
-        clValueProviderMainnet.setChainlinkOracle(USDC_MAINNET, USDC_CL_FEED_MAINNET);
-        clValueProviderMainnet.setChainlinkOracle(USDT_MAINNET, USDT_CL_FEED_MAINNET);
-        clValueProviderMainnet.setChainlinkOracle(FRAX_MAINNET, FRAX_CL_FEED_MAINNET);
-        clValueProviderMainnet.setChainlinkOracle(DAI_MAINNET, DAI_CL_FEED_MAINNET);
-        clValueProviderMainnet.setChainlinkOracle(SUSD_MAINNET, SUSD_CL_FEED_MAINNET);
-        clValueProviderMainnet.setChainlinkOracle(CRV_MAINNET, CRV_CL_FEED_MAINNET);
-        clValueProviderMainnet.setChainlinkOracle(CVX_MAINNET, CVX_CL_FEED_MAINNET);
-        clValueProviderMainnet.setChainlinkOracle(Denominations.ETH_IN_USD, ETH_CL_FEED_MAINNET);
-        clValueProviderMainnet.setChainlinkOracle(STETH_MAINNET, STETH_CL_FEED_MAINNET);
-        clValueProviderMainnet.setChainlinkOracle(CBETH_MAINNET, CBETH_CL_FEED_MAINNET);
-        clValueProviderMainnet.setChainlinkOracle(LDO_MAINNET, LDO_CL_FEED_MAINNET);
+        clValueProviderMainnet.addChainlinkOracle(RETH_MAINNET, RETH_CL_FEED_MAINNET);
+        clValueProviderMainnet.addChainlinkOracle(USDC_MAINNET, USDC_CL_FEED_MAINNET);
+        clValueProviderMainnet.addChainlinkOracle(USDT_MAINNET, USDT_CL_FEED_MAINNET);
+        clValueProviderMainnet.addChainlinkOracle(FRAX_MAINNET, FRAX_CL_FEED_MAINNET);
+        clValueProviderMainnet.addChainlinkOracle(DAI_MAINNET, DAI_CL_FEED_MAINNET);
+        clValueProviderMainnet.addChainlinkOracle(SUSD_MAINNET, SUSD_CL_FEED_MAINNET);
+        clValueProviderMainnet.addChainlinkOracle(CRV_MAINNET, CRV_CL_FEED_MAINNET);
+        clValueProviderMainnet.addChainlinkOracle(CVX_MAINNET, CVX_CL_FEED_MAINNET);
+        clValueProviderMainnet.addChainlinkOracle(Denominations.ETH_IN_USD, ETH_CL_FEED_MAINNET);
+        clValueProviderMainnet.addChainlinkOracle(STETH_MAINNET, STETH_CL_FEED_MAINNET);
+        clValueProviderMainnet.addChainlinkOracle(CBETH_MAINNET, CBETH_CL_FEED_MAINNET);
+        clValueProviderMainnet.addChainlinkOracle(LDO_MAINNET, LDO_CL_FEED_MAINNET);
 
         // __________________________ //
         // Optimism setup
@@ -231,25 +231,25 @@ contract EthValueOracleIntegrationTest is Test {
         ethValueProviderOptimism = new EthValueProvider(address(ethValueOracleOptimism));
 
         // Setting value providers for tokens
-        ethValueOracleOptimism.updateValueProvider(RETH_OPTIMISM, address(rEthValueProviderOptimism));
-        ethValueOracleOptimism.updateValueProvider(USDC_OPTIMISM, address(clValueProviderOptimism));
-        ethValueOracleOptimism.updateValueProvider(WSTETH_OPTIMISM, address(clValueProviderOptimism));
-        ethValueOracleOptimism.updateValueProvider(SUSDC_OPTIMISM, address(clValueProviderOptimism));
-        ethValueOracleOptimism.updateValueProvider(WETH9_OPTIMISM, address(ethValueProviderOptimism));
-        ethValueOracleOptimism.updateValueProvider(Denominations.ETH, address(ethValueProviderOptimism));
-        ethValueOracleOptimism.updateValueProvider(Denominations.ETH_IN_USD, address(clValueProviderOptimism));
+        ethValueOracleOptimism.addValueProvider(RETH_OPTIMISM, address(rEthValueProviderOptimism));
+        ethValueOracleOptimism.addValueProvider(USDC_OPTIMISM, address(clValueProviderOptimism));
+        ethValueOracleOptimism.addValueProvider(WSTETH_OPTIMISM, address(clValueProviderOptimism));
+        ethValueOracleOptimism.addValueProvider(SUSDC_OPTIMISM, address(clValueProviderOptimism));
+        ethValueOracleOptimism.addValueProvider(WETH9_OPTIMISM, address(ethValueProviderOptimism));
+        ethValueOracleOptimism.addValueProvider(Denominations.ETH, address(ethValueProviderOptimism));
+        ethValueOracleOptimism.addValueProvider(Denominations.ETH_IN_USD, address(clValueProviderOptimism));
 
         // Setting denominations
-        clValueProviderOptimism.setDenomination(USDC_OPTIMISM, Denominations.USD);
-        clValueProviderOptimism.setDenomination(WSTETH_OPTIMISM, Denominations.USD);
-        clValueProviderOptimism.setDenomination(SUSDC_OPTIMISM, Denominations.USD);
-        clValueProviderOptimism.setDenomination(Denominations.ETH_IN_USD, Denominations.USD);
+        clValueProviderOptimism.addDenomination(USDC_OPTIMISM, Denominations.USD);
+        clValueProviderOptimism.addDenomination(WSTETH_OPTIMISM, Denominations.USD);
+        clValueProviderOptimism.addDenomination(SUSDC_OPTIMISM, Denominations.USD);
+        clValueProviderOptimism.addDenomination(Denominations.ETH_IN_USD, Denominations.USD);
 
         // Setting AggregatorV3 contract addresses for tokens using Chainlink
-        clValueProviderOptimism.setChainlinkOracle(USDC_OPTIMISM, USDC_CL_FEED_OPTIMISM);
-        clValueProviderOptimism.setChainlinkOracle(WSTETH_OPTIMISM, WSTETH_CL_FEED_OPTIMISM);
-        clValueProviderOptimism.setChainlinkOracle(SUSDC_OPTIMISM, SUSD_CL_FEED_OPTIMISM);
-        clValueProviderOptimism.setChainlinkOracle(Denominations.ETH_IN_USD, ETH_CL_FEED_OPTIMISM);
+        clValueProviderOptimism.addChainlinkOracle(USDC_OPTIMISM, USDC_CL_FEED_OPTIMISM);
+        clValueProviderOptimism.addChainlinkOracle(WSTETH_OPTIMISM, WSTETH_CL_FEED_OPTIMISM);
+        clValueProviderOptimism.addChainlinkOracle(SUSDC_OPTIMISM, SUSD_CL_FEED_OPTIMISM);
+        clValueProviderOptimism.addChainlinkOracle(Denominations.ETH_IN_USD, ETH_CL_FEED_OPTIMISM);
 
         // __________________________ //
         // Arbitrum setup
@@ -263,21 +263,21 @@ contract EthValueOracleIntegrationTest is Test {
         ethValueProviderArbitrum = new EthValueProvider(address(ethValueOracleArbitrum));
 
         // Setting value providers for tokens
-        ethValueOracleArbitrum.updateValueProvider(USDC_ARBITRUM, address(clValueProviderArbitrum));
-        ethValueOracleArbitrum.updateValueProvider(USDT_ARBITRUM, address(clValueProviderArbitrum));
-        ethValueOracleArbitrum.updateValueProvider(WETH9_ARBITRUM, address(ethValueProviderArbitrum));
-        ethValueOracleArbitrum.updateValueProvider(Denominations.ETH, address(ethValueProviderArbitrum));
-        ethValueOracleArbitrum.updateValueProvider(Denominations.ETH_IN_USD, address(clValueProviderArbitrum));
+        ethValueOracleArbitrum.addValueProvider(USDC_ARBITRUM, address(clValueProviderArbitrum));
+        ethValueOracleArbitrum.addValueProvider(USDT_ARBITRUM, address(clValueProviderArbitrum));
+        ethValueOracleArbitrum.addValueProvider(WETH9_ARBITRUM, address(ethValueProviderArbitrum));
+        ethValueOracleArbitrum.addValueProvider(Denominations.ETH, address(ethValueProviderArbitrum));
+        ethValueOracleArbitrum.addValueProvider(Denominations.ETH_IN_USD, address(clValueProviderArbitrum));
 
         // Setting denominations
-        clValueProviderArbitrum.setDenomination(USDC_ARBITRUM, Denominations.USD);
-        clValueProviderArbitrum.setDenomination(USDT_ARBITRUM, Denominations.USD);
-        clValueProviderArbitrum.setDenomination(Denominations.ETH_IN_USD, Denominations.USD);
+        clValueProviderArbitrum.addDenomination(USDC_ARBITRUM, Denominations.USD);
+        clValueProviderArbitrum.addDenomination(USDT_ARBITRUM, Denominations.USD);
+        clValueProviderArbitrum.addDenomination(Denominations.ETH_IN_USD, Denominations.USD);
 
         // Setting AggregatorV3 contract addresses for tokens using Chainlink
-        clValueProviderArbitrum.setChainlinkOracle(USDC_ARBITRUM, USDC_CL_FEED_ARBITRUM);
-        clValueProviderArbitrum.setChainlinkOracle(USDT_ARBITRUM, USDT_CL_FEED_ARBITRUM);
-        clValueProviderArbitrum.setChainlinkOracle(Denominations.ETH_IN_USD, ETH_CL_FEED_ARBITRUM);
+        clValueProviderArbitrum.addChainlinkOracle(USDC_ARBITRUM, USDC_CL_FEED_ARBITRUM);
+        clValueProviderArbitrum.addChainlinkOracle(USDT_ARBITRUM, USDT_CL_FEED_ARBITRUM);
+        clValueProviderArbitrum.addChainlinkOracle(Denominations.ETH_IN_USD, ETH_CL_FEED_ARBITRUM);
     }
 
     // __________________________ //
@@ -296,7 +296,7 @@ contract EthValueOracleIntegrationTest is Test {
         ];
 
         for (uint256 i = 0; i < lpTokensToTest.length; ++i) {
-            ethValueOracleMainnet.updateValueProvider(lpTokensToTest[i], address(balancerV2ValueProvider));
+            ethValueOracleMainnet.addValueProvider(lpTokensToTest[i], address(balancerV2ValueProvider));
 
             uint256 contractCalculatedPrice =
                 ethValueOracleMainnet.getPrice(lpTokensToTest[i], TokemakPricingPrecision.STANDARD_PRECISION, false);
@@ -315,7 +315,7 @@ contract EthValueOracleIntegrationTest is Test {
         uint256[2] memory expectedValues = [uint256(1_010_783_670_000_000_000), uint256(23_546_546_100_000_000)];
 
         for (uint256 i = 0; i < lpTokensToTest.length; ++i) {
-            ethValueOracleOptimism.updateValueProvider(lpTokensToTest[i], address(beethovenXValueProvider));
+            ethValueOracleOptimism.addValueProvider(lpTokensToTest[i], address(beethovenXValueProvider));
 
             uint256 contractCalculatedPrice = ethValueOracleOptimism.getPrice(
                 RETH_WETH_BEETHOVEN_POOL, TokemakPricingPrecision.STANDARD_PRECISION, false
@@ -336,7 +336,7 @@ contract EthValueOracleIntegrationTest is Test {
             [uint256(47_568_846_200_000_000_000_000), uint256(1_015_994_110_000_000_000_000_000_000)];
 
         for (uint256 i = 0; i < lpTokensToTest.length; ++i) {
-            ethValueOracleArbitrum.updateValueProvider(lpTokensToTest[i], address(camelotValueProvider));
+            ethValueOracleArbitrum.addValueProvider(lpTokensToTest[i], address(camelotValueProvider));
 
             uint256 contractCalculatedPrice =
                 ethValueOracleArbitrum.getPrice(lpTokensToTest[i], TokemakPricingPrecision.STANDARD_PRECISION, false);
@@ -348,74 +348,58 @@ contract EthValueOracleIntegrationTest is Test {
         }
     }
 
-    /**
-     * ----------------------------------------- NOTE -----------------------------------------
-     * As of right now there are not pools available that also have CL feeds available to test
-     *      the parts of the metapool controllers that touch either of the Curve factory contracts.
-     *      Most popular metaPools are registered in the main registry contract.  This means that the
-     *      part of the contract that handles accessing the Curve factory contracts will remain untested
-     *      for now.  Any new pools added that access the factory contracts MUST be tested here to ensure
-     *      accuracy in prod.
-     */
-    function test_CurveMetaPoolValueProviderViaEthValueOracle() external {
-        vm.selectFork(mainnetFork);
-
-        address[1] memory basePoolsToRegister = [THREE_CURVE_POOL_MAINNET];
-
-        for (uint256 i = 0; i < basePoolsToRegister.length; ++i) {
-            ethValueOracleMainnet.updateValueProvider(basePoolsToRegister[i], address(curveLPValueProvider));
-        }
-
-        address[1] memory lpTokensToTest = [FRAX_CURVE_METAPOOL];
-        uint256[1] memory expectedValues = [uint256(543_081_414_449_912)];
-
-        for (uint256 i = 0; i < lpTokensToTest.length; ++i) {
-            ethValueOracleMainnet.updateValueProvider(lpTokensToTest[i], address(curveLPMetaPoolValueProvider));
-            uint256 contractCalculatedPrice =
-                ethValueOracleMainnet.getPrice(lpTokensToTest[i], TokemakPricingPrecision.STANDARD_PRECISION, false);
-
-            (uint256 upperBound, uint256 lowerBound) = _getOnePercentTolerance(expectedValues[i]);
-
-            assertGt(upperBound, contractCalculatedPrice);
-            assertLt(lowerBound, contractCalculatedPrice);
-        }
-    }
-
+    // Tests meta, stable, v2 pools
     function test_CurveValueProviderViaEthValueOracle() external {
         vm.selectFork(mainnetFork);
-        address[4] memory lpTokensToTest =
-            [STETH_WETH_CURVE_POOL, SETH_WETH_CURVE_POOL, RETH_WSTETH_CURVE_POOL, ETH_FRXETH_CURVE_POOL];
-        uint256[4] memory expectedValues = [
+
+        // Register base pools needed for metapool tests.
+        address[1] memory basePoolLpsToRegister = [THREE_CURVE_POOL_MAINNET_LP];
+        address[1] memory basePoolsToRegister = [THREE_CURVE_MAINNET];
+        uint8[1] memory numTokensBasePools = [2];
+        for (uint256 i = 0; i < basePoolLpsToRegister.length; ++i) {
+            ethValueOracleMainnet.addValueProvider(basePoolLpsToRegister[i], address(curveValueProvider));
+            curveValueProvider.registerCurveLPToken(
+                basePoolLpsToRegister[i], basePoolsToRegister[i], numTokensBasePools[i]
+            );
+        }
+
+        // Test rest of pools
+        address[8] memory lpTokensToTest = [
+            FRAX_CURVE_METAPOOL_LP, // Meta
+            STETH_WETH_CURVE_POOL_LP, // Stable
+            SETH_WETH_CURVE_POOL_LP,
+            RETH_WSTETH_CURVE_POOL_LP,
+            ETH_FRXETH_CURVE_POOL_LP,
+            CRV_ETH_CURVE_V2_LP, // V2
+            CVX_ETH_CURVE_V2_LP,
+            LDO_ETH_CURVE_V2_LP
+        ];
+        // For registration on `CurveValueProvider.sol`
+        address[8] memory poolAddresses = [
+            FRAX_CURVE_METAPOOL,
+            STETH_WETH_CURVE_POOL,
+            SETH_WETH_CURVE_POOL,
+            RETH_WSTETH_CURVE_POOL,
+            ETH_FRXETH_CURVE_POOL,
+            CRV_ETH_CURVE_V2_POOL,
+            CVX_ETH_CURVE_V2_POOL,
+            LDO_ETH_CURVE_V2_POOL
+        ];
+        // For registration on `CurveValueProvider.sol`
+        uint8[8] memory numPoolTokens = [1, 1, 1, 1, 1, 1, 1, 1];
+        uint256[8] memory expectedValues = [
+            uint256(543_081_414_449_912),
             uint256(1_037_013_610_000_000_000),
             uint256(1_018_492_320_000_000_000),
             uint256(1_035_339_630_000_000_000),
-            uint256(1_000_843_540_000_000_000)
+            uint256(1_000_843_540_000_000_000),
+            uint256(48_761_367_100_000_000),
+            uint256(108_519_257_000_000_000),
+            uint256(73_960_884_500_000_000)
         ];
-
         for (uint256 i = 0; i < lpTokensToTest.length; ++i) {
-            ethValueOracleMainnet.updateValueProvider(lpTokensToTest[i], address(curveLPValueProvider));
-            uint256 contractCalculatedPrice =
-                ethValueOracleMainnet.getPrice(lpTokensToTest[i], TokemakPricingPrecision.STANDARD_PRECISION, false);
-
-            (uint256 upperBound, uint256 lowerBound) = _getOnePercentTolerance(expectedValues[i]);
-
-            assertGt(upperBound, contractCalculatedPrice);
-            assertLt(lowerBound, contractCalculatedPrice);
-        }
-    }
-
-    function test_CurveV2ValueProviderViaEthValueOracle() external {
-        vm.selectFork(mainnetFork);
-
-        /**
-         * LDO-ETH added to test factory registry functionality
-         */
-        address[3] memory lpTokensToTest = [CRV_ETH_CURVE_V2, CVX_ETH_CURVE_V2, LDO_ETH_CURVE_V2];
-        uint256[3] memory expectedValues =
-            [uint256(48_761_367_100_000_000), uint256(108_519_257_000_000_000), uint256(73_960_884_500_000_000)];
-
-        for (uint256 i = 0; i < lpTokensToTest.length; ++i) {
-            ethValueOracleMainnet.updateValueProvider(lpTokensToTest[i], address(curveLPV2ValueProvider));
+            ethValueOracleMainnet.addValueProvider(lpTokensToTest[i], address(curveValueProvider));
+            curveValueProvider.registerCurveLPToken(lpTokensToTest[i], poolAddresses[i], numPoolTokens[i]);
             uint256 contractCalculatedPrice =
                 ethValueOracleMainnet.getPrice(lpTokensToTest[i], TokemakPricingPrecision.STANDARD_PRECISION, false);
 
@@ -433,7 +417,7 @@ contract EthValueOracleIntegrationTest is Test {
         uint256[2] memory expectedValues = [uint256(2_068_792_690_000_000_000), uint256(992_265_823_000_000_000_000)];
 
         for (uint256 i = 0; i < lpTokensToTest.length; ++i) {
-            ethValueOracleOptimism.updateValueProvider(lpTokensToTest[i], address(velodromeValueProvider));
+            ethValueOracleOptimism.addValueProvider(lpTokensToTest[i], address(velodromeValueProvider));
             uint256 contractCalculatedPrice =
                 ethValueOracleOptimism.getPrice(lpTokensToTest[i], TokemakPricingPrecision.STANDARD_PRECISION, false);
 
@@ -448,9 +432,7 @@ contract EthValueOracleIntegrationTest is Test {
     // Test decimal operations
     // __________________________ //
     function test_ReturnsInEthPrecision() external {
-        /**
-         * Attempt to get price of 2000 usdc in Eth, make sure that value returned is in Eth precision (1e18).
-         */
+        // Attempt to get price of 2000 usdc in Eth, make sure that value returned is in Eth precision (1e18).
         vm.selectFork(mainnetFork);
 
         uint256 price = ethValueOracleMainnet.getPrice(USDC_MAINNET, 2_000_000_000, false);
@@ -462,9 +444,7 @@ contract EthValueOracleIntegrationTest is Test {
     }
 
     function test_ReturnsInInputPrecision() external {
-        /**
-         * Attempt to get price of 2000 usdc in usdc precision, make sure that value returned is in 1e6 precision.
-         */
+        // Attempt to get price of 2000 usdc in usdc precision, make sure that value returned is in 1e6 precision.
         vm.selectFork(mainnetFork);
 
         uint256 price = ethValueOracleMainnet.getPrice(USDC_MAINNET, 2_000_000_000, true);

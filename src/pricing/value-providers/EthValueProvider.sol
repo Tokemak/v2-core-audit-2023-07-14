@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { BaseValueProvider } from "./base/BaseValueProvider.sol";
-import { TokemakPricingPrecision } from "../library/TokemakPricingPrecision.sol";
+import { BaseValueProvider } from "src/pricing/value-providers/base/BaseValueProvider.sol";
+import { TokemakPricingPrecision } from "src/pricing/library/TokemakPricingPrecision.sol";
 
 /**
  * @title Eth pricing contract.

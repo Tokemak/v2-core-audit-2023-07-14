@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { IEthValueOracle } from "../interfaces/pricing/IEthValueOracle.sol";
-import { BaseValueProvider } from "./value-providers/base/BaseValueProvider.sol";
-import { TokemakPricingPrecision } from "./library/TokemakPricingPrecision.sol";
+import { IEthValueOracle } from "src/interfaces/pricing/IEthValueOracle.sol";
+import { BaseValueProvider } from "src/pricing/value-providers/base/BaseValueProvider.sol";
+import { TokemakPricingPrecision } from "src/pricing/library/TokemakPricingPrecision.sol";
+import { Errors } from "src/utils/Errors.sol";
 
 import { Ownable } from "openzeppelin-contracts/access/Ownable.sol";
 
@@ -15,10 +16,20 @@ import { Ownable } from "openzeppelin-contracts/access/Ownable.sol";
 contract EthValueOracle is IEthValueOracle, Ownable {
     mapping(address => BaseValueProvider) public override valueProviderByToken;
 
-    function updateValueProvider(address token, address valueProvider) external onlyOwner {
-        if (token == address(0)) revert BaseValueProvider.CannotBeZeroAddress();
+    function addValueProvider(address token, address valueProvider) external onlyOwner {
+        Errors.verifyNotZero(token, "tokenToPrice");
+        Errors.verifyNotZero(valueProvider, "valueProvider");
+        if (address(valueProviderByToken[token]) != address(0)) revert Errors.MustBeZero();
         valueProviderByToken[token] = BaseValueProvider(valueProvider);
-        emit ValueProviderUpdated(token, valueProvider);
+        emit ValueProviderAdded(token, valueProvider);
+    }
+
+    function removeValueProvider(address token) external onlyOwner {
+        Errors.verifyNotZero(token, "tokenToPrice");
+        address valueProviderBeforeDeletion = address(valueProviderByToken[token]);
+        if (valueProviderBeforeDeletion == address(0)) revert Errors.MustBeSet();
+        delete valueProviderByToken[token];
+        emit ValueProviderRemoved(token, valueProviderBeforeDeletion);
     }
 
     // slither-disable-start boolean-equal
@@ -29,12 +40,11 @@ contract EthValueOracle is IEthValueOracle, Ownable {
     ) external view returns (uint256) {
         if (amount == 0) revert CannotBeZeroAmount();
         BaseValueProvider valueProvider = valueProviderByToken[tokenToPrice];
-        if (address(valueProvider) == address(0)) revert BaseValueProvider.CannotBeZeroAddress();
+        Errors.verifyNotZero(address(valueProvider), "valueProvider");
 
         if (priceForValueProvider == true) {
             return TokemakPricingPrecision.removePrecision(valueProvider.getPrice(tokenToPrice) * amount);
         }
-        // slither-disable-end boolean-equal
 
         /**
          * `checkandNormalizeDecimals` used to normalize amount input to 18 decimals if needed.
@@ -48,4 +58,5 @@ contract EthValueOracle is IEthValueOracle, Ownable {
                 )
         );
     }
+    // slither-disable-end boolean-equal
 }

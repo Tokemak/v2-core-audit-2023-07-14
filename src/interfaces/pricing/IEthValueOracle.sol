@@ -5,11 +5,18 @@ import { BaseValueProvider } from "../../pricing/value-providers/base/BaseValueP
 
 interface IEthValueOracle {
     /**
-     * @notice Emitted when value provider is added or removed.
+     * @notice Emitted when value provider is added.
      * @param token Address of token to be mapped with valueProvider.
      * @param valueProviderAddress Address for value provider.
      */
-    event ValueProviderUpdated(address token, address valueProviderAddress);
+    event ValueProviderAdded(address token, address valueProviderAddress);
+
+    /**
+     * @notice Emitted when a value provider is removed.
+     * @param token Address of token to remove value provider from.
+     * @param valueProviderRemoved Address of value provider removed from token.
+     */
+    event ValueProviderRemoved(address token, address valueProviderRemoved);
 
     /**
      * @notice Revert when zero amount.
@@ -25,11 +32,17 @@ interface IEthValueOracle {
     /**
      * @notice Allows privileged address to add value providers.
      * @dev Privileged access function.
-     * @dev `valueProvider` can be zero address to reset token's value provider.
      * @param token Address of token.
      * @param valueProvider Address of value provider.
      */
-    function updateValueProvider(address token, address valueProvider) external;
+    function addValueProvider(address token, address valueProvider) external;
+
+    /**
+     * @notice Used to remove value provider from token => value provider mapping.
+     * @dev Resets to address(0);
+     * @param token Token to remove value provider from.
+     */
+    function removeValueProvider(address token) external;
 
     /**
      * @notice Returns the price for an amount of token.

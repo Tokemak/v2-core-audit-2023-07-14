@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { BaseValueProviderBalancerLP } from "./base/BaseValueProviderBalancerLP.sol";
+import { BaseValueProviderBalancerLP } from "src/pricing/value-providers/base/BaseValueProviderBalancerLP.sol";
 
 /**
  * @title Gets the value in Eth of BPT tokens.

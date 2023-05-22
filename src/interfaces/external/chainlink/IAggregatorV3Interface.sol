@@ -2,9 +2,7 @@
 pragma solidity 0.8.17;
 
 interface IAggregatorV3Interface {
-    /**
-     * @notice Returns decimal precision of price feed.
-     */
+    /// @notice Returns decimal precision of price feed.
     function decimals() external view returns (uint8);
 
     /**

@@ -4,10 +4,9 @@ pragma solidity 0.8.17;
 // solhint-disable func-name-mixedcase
 
 import { Test } from "forge-std/Test.sol";
-import { ROCKET_ETH_OVM_ORACLE } from "../utils/Addresses.sol";
+import { ROCKET_ETH_OVM_ORACLE } from "test/utils/Addresses.sol";
 
-import { OptimismRocketPoolEthValueProvider } from
-    "../../src/pricing/value-providers/OptimismRocketPoolEthValueProvider.sol";
+import { OptimismRocketPoolEthValueProvider } from "src/pricing/value-providers/OptimismRocketPoolEthValueProvider.sol";
 
 contract OptimismRocketPoolEthValueProviderTest is Test {
     event RocketOvmOracleSet(address rocketOvmOracle);

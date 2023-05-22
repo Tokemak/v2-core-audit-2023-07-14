@@ -4,10 +4,11 @@ pragma solidity 0.8.17;
 // solhint-disable func-name-mixedcase
 
 import { Test } from "forge-std/Test.sol";
-import { PRANK_ADDRESS } from "../utils/Addresses.sol";
+import { PRANK_ADDRESS } from "test/utils/Addresses.sol";
 
-import { BaseValueProvider } from "../../src/pricing/value-providers/base/BaseValueProvider.sol";
-import { VelodromeValueProvider } from "../../src/pricing/value-providers/VelodromeValueProvider.sol";
+import { BaseValueProvider } from "src/pricing/value-providers/base/BaseValueProvider.sol";
+import { VelodromeValueProvider } from "src/pricing/value-providers/VelodromeValueProvider.sol";
+import { Errors } from "src/utils/errors.sol";
 
 contract BaseValueProviderTest is Test {
     BaseValueProvider public baseValueProvider;
@@ -33,7 +34,7 @@ contract BaseValueProviderTest is Test {
     }
 
     function test_RevertZeroAddress() external {
-        vm.expectRevert(abi.encodeWithSelector(BaseValueProvider.CannotBeZeroAddress.selector));
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "ethValueOracle"));
         baseValueProvider.setEthValueOracle(address(0));
     }
 

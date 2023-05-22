@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { ISfrxEth } from "../../interfaces/external/sfrxeth/ISfrxEth.sol";
-import { BaseValueProvider } from "./base/BaseValueProvider.sol";
+import { ISfrxEth } from "src/interfaces/external/sfrxeth/ISfrxEth.sol";
+import { BaseValueProvider } from "src/pricing/value-providers/base/BaseValueProvider.sol";
+import { Errors } from "src/utils/Errors.sol";
 
 /**
  * @title Gets price of sfrxEth in frxEth on mainnet.
@@ -14,13 +15,11 @@ import { BaseValueProvider } from "./base/BaseValueProvider.sol";
 contract SfrxEthValueProvider is BaseValueProvider {
     ISfrxEth public immutable sfrxEth;
 
-    /**
-     * @notice Emitted when sfrxEth address set.
-     */
+    /// @notice Emitted when sfrxEth address set.
     event SfrxEthSet(address sfrxEth);
 
     constructor(address _sfrxEth, address _ethValueOracle) BaseValueProvider(_ethValueOracle) {
-        if (_sfrxEth == address(0)) revert CannotBeZeroAddress();
+        Errors.verifyNotZero(_sfrxEth, "sfrxEthOracle");
         sfrxEth = ISfrxEth(_sfrxEth);
 
         emit SfrxEthSet(_sfrxEth);
