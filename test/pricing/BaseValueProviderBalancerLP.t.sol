@@ -11,7 +11,7 @@ import {
     BaseValueProvider
 } from "src/pricing/value-providers/base/BaseValueProviderBalancerLP.sol";
 import { BalancerV2LPValueProvider } from "src/pricing/value-providers/BalancerV2LPValueProvider.sol";
-import { Errors } from "src/utils/errors.sol";
+import { Errors } from "src/utils/Errors.sol";
 
 contract BaseValueProviderBalancerLPTest is Test {
     BaseValueProviderBalancerLP public baseBalancerProvider;

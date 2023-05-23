@@ -5,7 +5,7 @@ pragma solidity 0.8.17;
 import { BaseValueProvider } from "src/pricing/value-providers/base/BaseValueProvider.sol";
 import { TokemakPricingPrecision } from "src/pricing/library/TokemakPricingPrecision.sol";
 import { Denominations } from "src/pricing/library/Denominations.sol";
-import { Errors } from "src/utils/errors.sol";
+import { Errors } from "src/utils/Errors.sol";
 
 /// @title Base contract for `ValueProvider.sol` contracts that require token denominations.
 abstract contract BaseValueProviderDenominations is BaseValueProvider {

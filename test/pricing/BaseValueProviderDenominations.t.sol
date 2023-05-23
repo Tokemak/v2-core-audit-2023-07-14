@@ -11,7 +11,7 @@ import {
     BaseValueProvider
 } from "src/pricing/value-providers/base/BaseValueProviderDenominations.sol";
 import { ChainlinkValueProvider } from "src/pricing/value-providers/ChainlinkValueProvider.sol";
-import { Errors } from "src/utils/errors.sol";
+import { Errors } from "src/utils/Errors.sol";
 
 contract BaseValueProviderDenominationsTest is Test {
     BaseValueProviderDenominations public baseDenominationsProvider;

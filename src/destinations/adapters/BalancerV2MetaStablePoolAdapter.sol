@@ -134,7 +134,7 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard {
             [bptBalanceAfter - bptBalanceBefore, bptBalanceAfter, IERC20(poolAddress).totalSupply()],
             poolAddress,
             balancerExtraParams.poolId
-        );
+            );
     }
 
     function removeLiquidity(
@@ -252,7 +252,7 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard {
             [bptBalanceBefore - bptBalanceAfter, bptBalanceAfter, IERC20(poolAddress).totalSupply()],
             poolAddress,
             poolId
-        );
+            );
     }
 
     /**

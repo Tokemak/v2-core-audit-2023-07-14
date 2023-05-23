@@ -8,7 +8,7 @@ import { PRANK_ADDRESS } from "test/utils/Addresses.sol";
 
 import { ChainlinkValueProvider } from "src/pricing/value-providers/ChainlinkValueProvider.sol";
 import { BaseValueProvider } from "src/pricing/value-providers/base/BaseValueProvider.sol";
-import { Errors } from "src/utils/errors.sol";
+import { Errors } from "src/utils/Errors.sol";
 
 contract ChainlinkValueProviderTest is Test {
     ChainlinkValueProvider public clValueProvider;

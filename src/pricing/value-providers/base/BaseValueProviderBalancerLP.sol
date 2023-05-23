@@ -6,7 +6,7 @@ import { IVault } from "src/interfaces/external/balancer/IVault.sol";
 
 import { BaseValueProvider } from "src/pricing/value-providers/base/BaseValueProvider.sol";
 import { TokemakPricingPrecision } from "src/pricing/library/TokemakPricingPrecision.sol";
-import { Errors } from "src/utils/errors.sol";
+import { Errors } from "src/utils/Errors.sol";
 
 /**
  * @title Base contract allowing for pricing of Balancer pools.

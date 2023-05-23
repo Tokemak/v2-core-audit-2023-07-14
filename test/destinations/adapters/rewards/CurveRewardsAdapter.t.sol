@@ -26,7 +26,7 @@ contract CurveRewardsAdapterTest is Test {
     function addLiquidityETH(address curvePool, uint256 amountEth, address tokenAddress, uint256 tokenAmount) private {
         IERC20(tokenAddress).approve(curvePool, tokenAmount);
         uint256[2] memory amounts = [amountEth, tokenAmount];
-        ICurveStableSwap(curvePool).add_liquidity{ value: amountEth }(amounts, 1);
+        ICurveStableSwap(curvePool).add_liquidity{value: amountEth}(amounts, 1);
     }
 
     function addLiquidity(

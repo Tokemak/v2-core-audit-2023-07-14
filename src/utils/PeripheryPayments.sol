@@ -48,7 +48,7 @@ abstract contract PeripheryPayments {
     }
 
     function wrapWETH9() public payable {
-        if (address(this).balance > 0) weth9.deposit{ value: address(this).balance }(); // wrap everything
+        if (address(this).balance > 0) weth9.deposit{value: address(this).balance}(); // wrap everything
     }
 
     function pullToken(IERC20 token, uint256 amount, address recipient) public payable {

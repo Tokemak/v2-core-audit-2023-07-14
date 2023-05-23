@@ -11,6 +11,7 @@ import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IE
 import "forge-std/console.sol";
 
 // solhint-disable func-name-mixedcase
+// slither-disable-start calls-loop
 /**
  * @title Contains functionality to register curve pools and get their prices.
  * @dev Returns 18 decimals of precision.
@@ -89,6 +90,7 @@ contract CurveValueProvider is BaseValueProviderLP {
          *
          * Error thrown by `coins()`: `Error: Returned error: execution reverted`.
          */
+        // slither-disable-next-line unused-return
         try curvePool.coins(poolIdxMax) { }
         catch (bytes memory) {
             revert MaxTokenIdxOutOfBounds();
@@ -152,3 +154,4 @@ contract CurveValueProvider is BaseValueProviderLP {
         return _getPriceLp(poolValueEth, IERC20Metadata(curveLpTokenToPrice));
     }
 }
+// slither-disable-end calls-loop

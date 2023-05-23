@@ -7,7 +7,7 @@ import { Test } from "forge-std/Test.sol";
 import { TELLOR_ORACLE } from "test/utils/Addresses.sol";
 
 import { TellorValueProvider, Denominations } from "src/pricing/value-providers/TellorValueProvider.sol";
-import { Errors } from "src/utils/errors.sol";
+import { Errors } from "src/utils/Errors.sol";
 
 contract TellorValueProviderTest is Test {
     // Eth - usd query id

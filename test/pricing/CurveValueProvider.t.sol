@@ -12,6 +12,7 @@ import {
 
 import "src/pricing/value-providers/CurveValueProvider.sol";
 
+// solhint-disable func-name-mixedcase
 contract CurveValueProviderTest is Test {
     CurveValueProvider public curveValueProvider;
 

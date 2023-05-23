@@ -8,7 +8,7 @@ import { PRANK_ADDRESS } from "test/utils/Addresses.sol";
 
 import { BaseValueProvider } from "src/pricing/value-providers/base/BaseValueProvider.sol";
 import { VelodromeValueProvider } from "src/pricing/value-providers/VelodromeValueProvider.sol";
-import { Errors } from "src/utils/errors.sol";
+import { Errors } from "src/utils/Errors.sol";
 
 contract BaseValueProviderTest is Test {
     BaseValueProvider public baseValueProvider;

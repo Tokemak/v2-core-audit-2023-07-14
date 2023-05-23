@@ -2,7 +2,7 @@
 pragma solidity 0.8.17;
 
 import { IEthValueOracle } from "src/interfaces/pricing/IEthValueOracle.sol";
-import { Errors } from "src/utils/errors.sol";
+import { Errors } from "src/utils/Errors.sol";
 
 import { Ownable } from "openzeppelin-contracts/access/Ownable.sol";
 
