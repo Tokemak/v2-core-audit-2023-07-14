@@ -75,25 +75,7 @@ contract ChainlinkValueProvider is BaseValueProviderDenominations {
         uint256 decimals = chainlinkOracle.decimals();
         uint256 normalizedPrice = TokemakPricingPrecision.checkAndNormalizeDecimals(decimals, uint256(price));
 
-        /**
-         * Eth denominations are what we want, do not need to be repriced.
-         *
-         * If the token is `Denominations.ETH_IN_USD` and the Denominations.ETH_IN_USD check
-         *   is not present an infinite loop will occur with `_getPriceDenominationUSD()`.
-         *   This is due to the fact that `Denominations.ETH_IN_USD` has its denomination set
-         *   `Denominations.USD` in the system. This is the one token that we want returned
-         *   with its denomination in USD as it has a special use case, converting assets
-         *   priced in USD to Eth.
-         */
-        if (denomination != Denominations.ETH && token != Denominations.ETH_IN_USD) {
-            if (denomination == Denominations.USD) {
-                // USD special case, need to get Eth price in USD to convert to Eth.
-                normalizedPrice = _getPriceDenominationUSD(normalizedPrice);
-            } else {
-                normalizedPrice = _getPriceDenomination(denomination, normalizedPrice);
-            }
-        }
-        return normalizedPrice;
+        return _denominationPricing(denomination, token, normalizedPrice);
     }
     // slither-disable-end timestamp
 

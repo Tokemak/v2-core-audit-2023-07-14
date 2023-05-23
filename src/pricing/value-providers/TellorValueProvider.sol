@@ -92,24 +92,7 @@ contract TellorValueProvider is BaseValueProviderDenominations, UsingTellor {
 
         uint256 price = abi.decode(value, (uint256));
 
-        /**
-         * Eth denominations are what we want, do not need to be repriced.
-         *
-         * If the token is `Denominations.ETH_IN_USD` and this check is not present
-         *   an infinite loop will occur with `_getPriceDenominationUSD()`.  This is
-         *   due to the fact that `Denominations.ETH_IN_USD` has its denomination set
-         *   `Denominations.USD` in the system. This is the one token that we want returned
-         *   with its denomination in USD as it has a special use case, converting assets
-         *   priced in USD to Eth.
-         */
-        if (denomination != Denominations.ETH && tokenToPrice != Denominations.ETH_IN_USD) {
-            if (denomination == Denominations.USD) {
-                price == _getPriceDenominationUSD(price);
-            } else {
-                price = _getPriceDenomination(denomination, price);
-            }
-        }
-        return price;
+        return _denominationPricing(denomination, tokenToPrice, price);
     }
     // slither-disable-end timestamp
 

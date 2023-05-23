@@ -8,7 +8,8 @@ import { PRANK_ADDRESS, WETH_MAINNET } from "test/utils/Addresses.sol";
 
 import {
     BaseValueProviderDenominations,
-    BaseValueProvider
+    BaseValueProvider,
+    Denominations
 } from "src/pricing/value-providers/base/BaseValueProviderDenominations.sol";
 import { ChainlinkValueProvider } from "src/pricing/value-providers/ChainlinkValueProvider.sol";
 import { Errors } from "src/utils/Errors.sol";
@@ -29,33 +30,33 @@ contract BaseValueProviderDenominationsTest is Test {
         vm.prank(PRANK_ADDRESS);
         vm.expectRevert("Ownable: caller is not the owner");
 
-        baseDenominationsProvider.addDenomination(WETH_MAINNET, address(1));
+        baseDenominationsProvider.addDenomination(WETH_MAINNET, Denominations.ETH);
     }
 
     function test_RevertZeroAddressToken_AddDenomination() external {
         vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "tokenToDenominate"));
-        baseDenominationsProvider.addDenomination(address(0), address(1));
+        baseDenominationsProvider.addDenomination(address(0), Denominations.ETH);
     }
 
-    function test_RevertZeroAddressDenomination_AddDenomination() external {
-        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "denomination"));
-        baseDenominationsProvider.addDenomination(address(1), address(0));
+    function test_RevertIncorrectDenomination() external {
+        vm.expectRevert(BaseValueProviderDenominations.InvalidDenomination.selector);
+        baseDenominationsProvider.addDenomination(WETH_MAINNET, address(1));
     }
 
     function test_RevertDenominationAlreadySet_AddDenomination() external {
-        baseDenominationsProvider.addDenomination(address(1), address(2));
+        baseDenominationsProvider.addDenomination(WETH_MAINNET, Denominations.ETH);
 
         vm.expectRevert(Errors.MustBeZero.selector);
-        baseDenominationsProvider.addDenomination(address(1), address(3));
+        baseDenominationsProvider.addDenomination(WETH_MAINNET, Denominations.USD);
     }
 
     function test_ProperAdd() external {
         vm.expectEmit(false, false, false, true);
-        emit TokenDenominationSet(address(1), address(2));
+        emit TokenDenominationSet(WETH_MAINNET, Denominations.ETH);
 
-        baseDenominationsProvider.addDenomination(address(1), address(2));
+        baseDenominationsProvider.addDenomination(WETH_MAINNET, Denominations.ETH);
 
-        assertEq(baseDenominationsProvider.getDenomination(address(1)), address(2));
+        assertEq(baseDenominationsProvider.getDenomination(WETH_MAINNET), Denominations.ETH);
     }
 
     // Test `removeDenomination()`
@@ -66,19 +67,19 @@ contract BaseValueProviderDenominationsTest is Test {
 
     function test_MustBeSet_RemoveValueProvider() external {
         vm.expectRevert(Errors.MustBeSet.selector);
-        baseDenominationsProvider.removeDenomination(address(1));
+        baseDenominationsProvider.removeDenomination(WETH_MAINNET);
     }
 
     function test_ProperRemoveDenomination() external {
-        baseDenominationsProvider.addDenomination(address(1), address(2));
+        baseDenominationsProvider.addDenomination(WETH_MAINNET, Denominations.ETH);
 
-        assertEq(baseDenominationsProvider.getDenomination(address(1)), address(2));
+        assertEq(baseDenominationsProvider.getDenomination(WETH_MAINNET), Denominations.ETH);
 
         vm.expectEmit(false, false, false, true);
-        emit TokenDenominationRemoved(address(1), address(2));
+        emit TokenDenominationRemoved(WETH_MAINNET, Denominations.ETH);
 
-        baseDenominationsProvider.removeDenomination(address(1));
+        baseDenominationsProvider.removeDenomination(WETH_MAINNET);
 
-        assertEq(baseDenominationsProvider.getDenomination(address(1)), address(0));
+        assertEq(baseDenominationsProvider.getDenomination(WETH_MAINNET), address(0));
     }
 }
