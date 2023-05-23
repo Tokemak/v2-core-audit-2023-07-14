@@ -6,6 +6,7 @@ import { Test } from "forge-std/Test.sol";
 import { ERC20Mock } from "openzeppelin-contracts/mocks/ERC20Mock.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
+import { ISystemBound } from "src/interfaces/ISystemBound.sol";
 import { ISystemRegistry, SystemRegistry } from "src/SystemRegistry.sol";
 import { ILMPVaultRegistry, LMPVaultRegistry } from "src/vault/LMPVaultRegistry.sol";
 import { ILMPVaultRouter, LMPVaultRouter } from "src/vault/LMPVaultRouter.sol";
@@ -26,10 +27,14 @@ contract BaseTest is Test {
     mapping(bytes => address) internal _tokens;
 
     SystemRegistry public systemRegistry;
+
     LMPVaultRegistry public lmpVaultRegistry;
     LMPVaultRouter public lmpVaultRouter;
     ILMPVaultFactory public lmpVaultFactory;
+
     DestinationVaultRegistry public destinationVaultRegistry;
+    DestinationVaultFactory public destinationVaultFactory;
+
     TestDestinationVault public testDestinationVault;
 
     IAccessController public accessController;
@@ -58,7 +63,6 @@ contract BaseTest is Test {
         systemRegistry.setLMPVaultRouter(address(lmpVaultRouter));
         lmpVaultFactory = new LMPVaultFactory(systemRegistry);
         systemRegistry.setLMPVaultFactory(VaultTypes.LST, address(lmpVaultFactory));
-
         // NOTE: deployer grants factory permission to update the registry
         accessController.grantRole(Roles.REGISTRY_UPDATER, address(lmpVaultFactory));
 

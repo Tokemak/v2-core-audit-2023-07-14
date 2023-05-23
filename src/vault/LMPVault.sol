@@ -32,7 +32,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
 
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    ISystemRegistry public systemRegistry;
+    ISystemRegistry public immutable systemRegistry;
 
     IERC20 internal immutable _asset;
 
@@ -468,14 +468,19 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
     function addDestinations(address[] calldata _destinations) public hasRole(Roles.DESTINATION_VAULTS_UPDATER) {
         IDestinationVaultRegistry destinationRegistry = systemRegistry.destinationVaultRegistry();
 
+        uint256 numDestinations = _destinations.length;
+        if (numDestinations == 0) revert Errors.InvalidParams();
+
         address dAddress;
-        for (uint256 i = 0; i < _destinations.length; ++i) {
+        for (uint256 i = 0; i < numDestinations; ++i) {
             dAddress = _destinations[i];
 
+            // slither-disable-next-line calls-loop
             if (dAddress == address(0) || !destinationRegistry.isRegistered(dAddress)) revert Errors.InvalidParams();
-            if (destinations.contains(dAddress)) revert Errors.ItemExists();
 
-            destinations.add(dAddress);
+            if (!destinations.add(dAddress)) {
+                revert Errors.ItemExists();
+            }
 
             emit DestinationVaultAdded(dAddress);
         }
@@ -488,12 +493,16 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
 
             if (!destinations.contains(dAddress)) revert Errors.ItemNotFound();
 
-            if (destination.balanceOf(address(this)) > 0) {
+            // slither-disable-next-line calls-loop
+            if (destination.balanceOf(address(this)) > 0 && !removalQueue.contains(dAddress)) {
                 // we still have funds in it! move it to removalQueue for rebalancer to handle it later
+                // slither-disable-next-line unused-return
                 removalQueue.add(dAddress);
             }
 
-            destinations.remove(dAddress);
+            if (!destinations.remove(dAddress)) {
+                revert Errors.ItemNotFound();
+            }
 
             emit DestinationVaultRemoved(dAddress);
         }
@@ -504,11 +513,12 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
     }
 
     function removeFromRemovalQueue(address vaultToRemove) public override hasRole(Roles.REBALANCER_ROLE) {
-        removalQueue.remove(vaultToRemove);
+        if (!removalQueue.remove(vaultToRemove)) {
+            revert Errors.ItemNotFound();
+        }
     }
 
     // @dev Order is set as list of interfaces to minimize gas for our users
-    // TODO: is the manual process really more gas efficient than just setting the new array?
     function setWithdrawalQueue(address[] calldata _destinations)
         public
         override
@@ -537,7 +547,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         }
 
         // if old list was larger than new list, pop the remaining values
-        if (i < (oldLength - 1)) {
+        if (oldLength > newLength) {
             for (; i < oldLength; ++i) {
                 // slither-disable-next-line costly-loop
                 withdrawalQueue.pop();

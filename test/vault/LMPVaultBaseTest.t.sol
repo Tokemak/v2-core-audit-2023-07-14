@@ -21,44 +21,54 @@ import { TestDestinationVault } from "test/mocks/TestDestinationVault.sol";
 
 import { WETH9_ADDRESS } from "test/utils/Addresses.sol";
 
-import { console2 as console } from "forge-std/console2.sol";
-
 contract LMPVaultBaseTest is BaseTest {
     IDestinationVault public destinationVault;
     IDestinationVault public destinationVault2;
     LMPVault public lmpVault;
-    ERC20 public poolAsset;
+    ERC20 public baseAsset;
+
+    event DestinationVaultAdded(address destination);
+    event DestinationVaultRemoved(address destination);
+    event WithdrawalQueueSet(address[] destinations);
 
     function setUp() public virtual override(BaseTest) {
         BaseTest.setUp();
 
-        console.log("LMPVaultBaseTest.setUp() started");
-
         //
         // create and initialize factory
         //
-        console.log("creating mock asset");
+
         // create mock asset
-        poolAsset = mockAsset("", "", uint256(1_000_000_000_000_000_000_000_000));
+        baseAsset = mockAsset("", "", uint256(1_000_000_000_000_000_000_000_000));
 
-        console.log("creating destinations setup");
-        // create destination vaults
-        destinationVault = new TestDestinationVault(address(poolAsset));
-        destinationVaultRegistry.register(address(destinationVault));
-        destinationVault2 = new TestDestinationVault(address(poolAsset));
-        destinationVaultRegistry.register(address(destinationVault2));
+        // create destination vault mocks
+        destinationVault = _createDestinationVault(address(baseAsset));
+        destinationVault2 = _createDestinationVault(address(baseAsset));
 
-        console.log("creating lmpVault");
+        accessController.grantRole(Roles.DESTINATION_VAULTS_UPDATER, address(this));
+        accessController.grantRole(Roles.SET_WITHDRAWAL_QUEUE_ROLE, address(this));
+
         // create test lmpVault
         lmpVault = LMPVault(
             systemRegistry.getLMPVaultFactoryByType(VaultTypes.LST).createVault(
-                address(poolAsset), address(createMainRewarder()), ""
+                address(baseAsset), address(createMainRewarder()), ""
             )
         );
+
+        assert(systemRegistry.lmpVaultRegistry().isVault(address(lmpVault)));
     }
 
-    function test_lmpVaultRegistered() public view {
-        assert(systemRegistry.lmpVaultRegistry().isVault(address(lmpVault)));
+    function _createDestinationVault(address asset) internal returns (IDestinationVault) {
+        // create vault (no need to initialize since working with mock)
+        IDestinationVault vault = new TestDestinationVault(asset);
+        // mock "isRegistered" call
+        vm.mockCall(
+            address(systemRegistry.destinationVaultRegistry()),
+            abi.encodeWithSelector(destinationVaultRegistry.isRegistered.selector, address(vault)),
+            abi.encode(true)
+        );
+
+        return vault;
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -89,12 +99,15 @@ contract LMPVaultBaseTest is BaseTest {
         address[] memory withdrawalDestinations = new address[](2);
         withdrawalDestinations[0] = address(destinationVault2);
         withdrawalDestinations[1] = address(destinationVault);
-        vm.expectEmit(true, true, true, true);
+
+        vm.expectEmit(true, false, false, false);
+        emit WithdrawalQueueSet(withdrawalDestinations);
+
         lmpVault.setWithdrawalQueue(withdrawalDestinations);
 
         // check queue
         IDestinationVault[] memory withdrawalQueue = lmpVault.getWithdrawalQueue();
-        assert(withdrawalQueue.length == 0);
+        assert(withdrawalQueue.length == 2);
         assert(withdrawalQueue[0] == destinationVault2);
         assert(withdrawalQueue[1] == destinationVault);
     }
@@ -102,7 +115,6 @@ contract LMPVaultBaseTest is BaseTest {
     function test_DestinationVault_remove() public {
         _addDestinationVault(destinationVault);
         assert(lmpVault.getDestinations()[0] == address(destinationVault));
-        vm.expectEmit(true, true, true, true);
         _removeDestinationVault(destinationVault);
         assert(lmpVault.getDestinations().length == 0);
     }
@@ -111,7 +123,8 @@ contract LMPVaultBaseTest is BaseTest {
         uint256 numDestinationsBefore = lmpVault.getDestinations().length;
         address[] memory destinations = new address[](1);
         destinations[0] = address(_destination);
-        vm.expectEmit(true, true, true, true);
+        vm.expectEmit(true, false, false, false);
+        emit DestinationVaultAdded(destinations[0]);
         lmpVault.addDestinations(destinations);
         assert(lmpVault.getDestinations().length == numDestinationsBefore + 1);
     }
@@ -120,7 +133,8 @@ contract LMPVaultBaseTest is BaseTest {
         uint256 numDestinationsBefore = lmpVault.getDestinations().length;
         address[] memory destinations = new address[](1);
         destinations[0] = address(_destination);
-        vm.expectEmit(true, true, true, true);
+        vm.expectEmit(true, false, false, false);
+        emit DestinationVaultRemoved(destinations[0]);
         lmpVault.removeDestinations(destinations);
         assert(lmpVault.getDestinations().length == numDestinationsBefore - 1);
     }

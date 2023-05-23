@@ -199,9 +199,9 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         Errors.verifyNotZero(factoryAddress, "factoryAddress");
         Errors.verifyNotZero(vaultType, "vaultType");
 
-        if (!_lmpVaultFactoryTypes.contains(vaultType)) {
-            _lmpVaultFactoryTypes.add(vaultType);
-        }
+        // set the factory (note: slither exception due to us hard setting it regardless / no diff use case)
+        // slither-disable-next-line unused-return
+        _lmpVaultFactoryTypes.add(vaultType);
 
         _lmpVaultFactoryByType[vaultType] = ILMPVaultFactory(factoryAddress);
 
@@ -210,14 +210,13 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
 
     function removeLMPVaultFactory(bytes32 vaultType) external onlyOwner {
         Errors.verifyNotZero(vaultType, "vaultType");
+        address factoryAddress = address(_lmpVaultFactoryByType[vaultType]);
 
-        if (!_lmpVaultFactoryTypes.contains(vaultType)) {
+        // if returned false when trying to remove, means item wasn't in the list
+        if (!_lmpVaultFactoryTypes.remove(vaultType)) {
             revert Errors.ItemNotFound();
         }
 
-        address factoryAddress = address(_lmpVaultFactoryByType[vaultType]);
-
-        _lmpVaultFactoryTypes.remove(vaultType);
         _lmpVaultFactoryByType[vaultType] = ILMPVaultFactory(address(0)); // set to empty to wipe
 
         emit LMPVaultFactoryRemoved(vaultType, factoryAddress);
