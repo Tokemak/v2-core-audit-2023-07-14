@@ -31,7 +31,7 @@ contract LMPVaultBaseTest is BaseTest {
     event DestinationVaultRemoved(address destination);
     event WithdrawalQueueSet(address[] destinations);
 
-    function setUp() public virtual override (BaseTest) {
+    function setUp() public virtual override(BaseTest) {
         BaseTest.setUp();
 
         //
