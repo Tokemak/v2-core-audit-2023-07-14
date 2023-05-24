@@ -476,11 +476,17 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
             dAddress = _destinations[i];
 
             // slither-disable-next-line calls-loop
-            if (dAddress == address(0) || !destinationRegistry.isRegistered(dAddress)) revert Errors.InvalidParams();
+            if (dAddress == address(0) || !destinationRegistry.isRegistered(dAddress)) {
+                revert Errors.InvalidAddress(dAddress);
+            }
 
             if (!destinations.add(dAddress)) {
                 revert Errors.ItemExists();
             }
+
+            // just in case it's in removal queue, take it out
+            // slither-disable-next-line unused-return
+            removalQueue.remove(dAddress);
 
             emit DestinationVaultAdded(dAddress);
         }
@@ -491,24 +497,25 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
             address dAddress = _destinations[i];
             IDestinationVault destination = IDestinationVault(dAddress);
 
-            if (!destinations.contains(dAddress)) revert Errors.ItemNotFound();
+            // remove from main list (NOTE: done here so balance check below doesn't explode if address is invalid)
+            if (!destinations.remove(dAddress)) {
+                revert Errors.ItemNotFound();
+            }
 
             // slither-disable-next-line calls-loop
             if (destination.balanceOf(address(this)) > 0 && !removalQueue.contains(dAddress)) {
                 // we still have funds in it! move it to removalQueue for rebalancer to handle it later
                 // slither-disable-next-line unused-return
                 removalQueue.add(dAddress);
-            }
 
-            if (!destinations.remove(dAddress)) {
-                revert Errors.ItemNotFound();
+                emit AddedToRemovalQueue(dAddress);
             }
 
             emit DestinationVaultRemoved(dAddress);
         }
     }
 
-    function getRemovalQueue() public view override hasRole(Roles.REBALANCER_ROLE) returns (address[] memory) {
+    function getRemovalQueue() public view override returns (address[] memory) {
         return removalQueue.values();
     }
 
@@ -516,6 +523,8 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         if (!removalQueue.remove(vaultToRemove)) {
             revert Errors.ItemNotFound();
         }
+
+        emit RemovedFromRemovalQueue(vaultToRemove);
     }
 
     // @dev Order is set as list of interfaces to minimize gas for our users
@@ -524,6 +533,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         override
         hasRole(Roles.SET_WITHDRAWAL_QUEUE_ROLE)
     {
+        IDestinationVaultRegistry destinationVaultRegistry = systemRegistry.destinationVaultRegistry();
         (uint256 oldLength, uint256 newLength) = (withdrawalQueue.length, _destinations.length);
 
         // run through new destinations list and propagate the values to our existing collection
@@ -531,6 +541,12 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         for (i = 0; i < newLength; ++i) {
             address destAddress = _destinations[i];
             Errors.verifyNotZero(destAddress, "destination");
+
+            // check if destination vault is registered with the system
+            // slither-disable-next-line calls-loop
+            if (!destinationVaultRegistry.isRegistered(destAddress)) {
+                revert Errors.InvalidAddress(destAddress);
+            }
 
             IDestinationVault destination = IDestinationVault(destAddress);
 

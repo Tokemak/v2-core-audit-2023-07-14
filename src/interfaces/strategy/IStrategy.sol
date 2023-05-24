@@ -11,6 +11,10 @@ interface IStrategy {
     event DestinationVaultAdded(address destination);
     event DestinationVaultRemoved(address destination);
     event WithdrawalQueueSet(address[] destinations);
+    event AddedToRemovalQueue(address destination);
+    event RemovedFromRemovalQueue(address destination);
+
+    error InvalidDestinationVault();
 
     /// @notice gets the list of supported destination vaults for the LMP/Strategy
     /// @return _destinations List of supported destination vaults

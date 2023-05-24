@@ -217,7 +217,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
             revert Errors.ItemNotFound();
         }
 
-        _lmpVaultFactoryByType[vaultType] = ILMPVaultFactory(address(0)); // set to empty to wipe
+        delete _lmpVaultFactoryByType[vaultType];
 
         emit LMPVaultFactoryRemoved(vaultType, factoryAddress);
     }
