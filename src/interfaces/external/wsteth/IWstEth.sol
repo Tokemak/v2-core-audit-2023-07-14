@@ -7,4 +7,7 @@ interface IWstEth {
      * @dev returns answer in 18 decimals of precision.
      */
     function tokensPerStEth() external view returns (uint256);
+
+    /// @notice Returns address of stEth contract.
+    function stETH() external view returns (address);
 }

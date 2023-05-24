@@ -11,19 +11,21 @@ import { IWstEth } from "src/interfaces/external/wsteth/IWstEth.sol";
 
 contract WstEthValueProvider is BaseValueProvider {
     IWstEth public immutable wstEth;
+    address public immutable stEth;
 
     /// @notice Thrown if wstEth contract does not return 18 decimals.
     error IncorrectDecimals();
 
     /// @notice Emitted when wstEth contract address set.
-    event WstEthSet(address wstEth);
+    event WstEthAndStEthSet(address wstEth, address stEth);
 
     constructor(address _wstEth, address _ethValueOracle) BaseValueProvider(_ethValueOracle) {
         Errors.verifyNotZero(_wstEth, "wstEthOracle");
         if (TokemakPricingPrecision.getDecimals(_wstEth) != 18) revert IncorrectDecimals();
         wstEth = IWstEth(_wstEth);
+        stEth = wstEth.stETH();
 
-        emit WstEthSet(_wstEth);
+        emit WstEthAndStEthSet(_wstEth, stEth);
     }
 
     function getPrice(address) external view override onlyValueOracle returns (uint256) {
@@ -32,8 +34,7 @@ contract WstEthValueProvider is BaseValueProvider {
          *    when using the `tokensPerStEth()` function.
          */
         return TokemakPricingPrecision.removePrecision(
-            ethValueOracle.getPrice(Denominations.STETH_MAINNET, TokemakPricingPrecision.STANDARD_PRECISION, true)
-                * wstEth.tokensPerStEth()
+            ethValueOracle.getPrice(stEth, TokemakPricingPrecision.STANDARD_PRECISION, true) * wstEth.tokensPerStEth()
         );
     }
 }
