@@ -152,18 +152,18 @@ contract CurveConvexDestinationVault is ConvexAdapter, CurveV2FactoryCryptoAdapt
         uint256 coinIndex = 0;
 
         // we withdraw everything in one coin to ease swapping
-        (uint256 sellAmount, address sellTokenAddress) =
-            removeLiquidityOneCoin(curvePool, curveLpBurnAmount, coinIndex, 0);
+        (uint256 sellAmount, address sellToken) = removeLiquidityOneCoin(curvePool, curveLpBurnAmount, coinIndex, 0);
 
         // we should swap pre-wrapped WETH if pool is returning ETH
         // slither-disable-next-line incorrect-equality
-        if (sellTokenAddress == CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
+        if (sellToken == CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
             // get WETH address corresponding to the operated chain
-            sellTokenAddress = address(weth);
+            sellToken = address(weth);
         }
 
         // 3) swap what we receive
-        amount += swapper.swapForQuote(sellTokenAddress, sellAmount, address(baseAsset), 0);
+        IERC20(sellToken).safeApprove(address(swapper), sellAmount);
+        amount += swapper.swapForQuote(sellToken, sellAmount, address(baseAsset), 0);
 
         // 4) check amount and loss
         // slither-disable-next-line incorrect-equality

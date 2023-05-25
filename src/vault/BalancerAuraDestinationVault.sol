@@ -166,7 +166,10 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
 
         // 3) swap what we receive
         for (uint256 i = 0; i < tokens.length; ++i) {
-            amount += swapper.swapForQuote(address(tokens[i]), sellAmounts[i], address(baseAsset), 0);
+            address sellToken = address(poolTokens[i]);
+            uint256 sellAmount = sellAmounts[i];
+            IERC20(sellToken).safeApprove(address(swapper), sellAmount);
+            amount += swapper.swapForQuote(sellToken, sellAmount, address(baseAsset), 0);
         }
 
         // 4) check amount and loss
