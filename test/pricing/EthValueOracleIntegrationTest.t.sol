@@ -390,13 +390,12 @@ contract EthValueOracleIntegrationTest is Test {
 
         // Register base pools needed for metapool tests.
         address[1] memory basePoolLpsToRegister = [THREE_CURVE_POOL_MAINNET_LP];
-        address[1] memory basePoolsToRegister = [THREE_CURVE_MAINNET];
-        uint8[1] memory numTokensBasePools = [2];
+        // Locations that base pools are registered in Curve.
+        CurveValueProvider.PoolRegistryLocation[1] memory basePoolRegisteredLocations =
+            [CurveValueProvider.PoolRegistryLocation.MetaStableRegistry];
         for (uint256 i = 0; i < basePoolLpsToRegister.length; ++i) {
             ethValueOracleMainnet.addValueProvider(basePoolLpsToRegister[i], address(curveValueProvider));
-            curveValueProvider.registerCurveLPToken(
-                basePoolLpsToRegister[i], basePoolsToRegister[i], numTokensBasePools[i]
-            );
+            curveValueProvider.registerCurveLPToken(basePoolLpsToRegister[i], basePoolRegisteredLocations[i]);
         }
 
         // Test rest of pools
@@ -410,19 +409,16 @@ contract EthValueOracleIntegrationTest is Test {
             CVX_ETH_CURVE_V2_LP,
             LDO_ETH_CURVE_V2_LP
         ];
-        // For registration on `CurveValueProvider.sol`
-        address[8] memory poolAddresses = [
-            FRAX_CURVE_METAPOOL,
-            STETH_WETH_CURVE_POOL,
-            SETH_WETH_CURVE_POOL,
-            RETH_WSTETH_CURVE_POOL,
-            ETH_FRXETH_CURVE_POOL,
-            CRV_ETH_CURVE_V2_POOL,
-            CVX_ETH_CURVE_V2_POOL,
-            LDO_ETH_CURVE_V2_POOL
+        CurveValueProvider.PoolRegistryLocation[8] memory curvePoolLocations = [
+            CurveValueProvider.PoolRegistryLocation.MetaStableRegistry,
+            CurveValueProvider.PoolRegistryLocation.MetaStableFactory,
+            CurveValueProvider.PoolRegistryLocation.MetaStableRegistry,
+            CurveValueProvider.PoolRegistryLocation.MetaStableFactory,
+            CurveValueProvider.PoolRegistryLocation.MetaStableRegistry,
+            CurveValueProvider.PoolRegistryLocation.V2Registry,
+            CurveValueProvider.PoolRegistryLocation.V2Registry,
+            CurveValueProvider.PoolRegistryLocation.V2Factory
         ];
-        // For registration on `CurveValueProvider.sol`
-        uint8[8] memory numPoolTokens = [1, 1, 1, 1, 1, 1, 1, 1];
         uint256[8] memory expectedValues = [
             uint256(543_081_414_449_912),
             uint256(1_037_013_610_000_000_000),
@@ -435,7 +431,7 @@ contract EthValueOracleIntegrationTest is Test {
         ];
         for (uint256 i = 0; i < lpTokensToTest.length; ++i) {
             ethValueOracleMainnet.addValueProvider(lpTokensToTest[i], address(curveValueProvider));
-            curveValueProvider.registerCurveLPToken(lpTokensToTest[i], poolAddresses[i], numPoolTokens[i]);
+            curveValueProvider.registerCurveLPToken(lpTokensToTest[i], curvePoolLocations[i]);
             uint256 contractCalculatedPrice =
                 ethValueOracleMainnet.getPrice(lpTokensToTest[i], TokemakPricingPrecision.STANDARD_PRECISION, false);
 

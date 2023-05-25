@@ -5,6 +5,12 @@ import { BaseValueProviderLP, TokemakPricingPrecision } from "src/pricing/value-
 import { Errors } from "src/utils/Errors.sol";
 
 import { IPool } from "src/interfaces/external/curve/IPool.sol";
+import { ICurveRegistry } from "src/interfaces/external/curve/ICurveRegistry.sol";
+import { ICurveRegistryV2 } from "src/interfaces/external/curve/ICurveRegistryV2.sol";
+import { ICurveMetaStableFactory } from "src/interfaces/external/curve/ICurveMetaStableFactory.sol";
+import { ICurveMetaPoolFactory } from "src/interfaces/external/curve/ICurveMetaPoolFactory.sol";
+import { ICurveFactoryV2 } from "src/interfaces/external/curve/ICurveFactoryV2.sol";
+import { ICurveTokenV2 } from "src/interfaces/external/curve/ICurveTokenV2.sol";
 
 import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
@@ -15,29 +21,45 @@ import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IE
  * @dev Returns 18 decimals of precision.
  */
 contract CurveValueProvider is BaseValueProviderLP {
+    /// @notice Used to determine where pool is registered.
+    enum PoolRegistryLocation {
+        MetaStableRegistry,
+        MetaStableFactory,
+        MetaPoolFactory,
+        V2Registry,
+        V2Factory
+    }
+
     /**
      * @notice Represents Curve pool.
-     * @param poolIdxMax Number of tokens in pool.0
+     * @param poolIdxMax Number of tokens in pool.
      * @param pool Address of pool.
      * @param tokensInPool Array of addresses of tokens in pool.
      */
     struct CurvePool {
-        uint8 poolIdxMax; // Max 8, combines storage slot with pool address
+        uint8 numCoins; // Max 8, combines storage slot with pool address
         address pool;
         address[] tokensInPool;
     }
 
+    // Addresses of Curve registries and factories.
+    ICurveRegistry public constant REGISTRY = ICurveRegistry(0x90E00ACe148ca3b23Ac1bC8C240C2a7Dd9c2d7f5);
+    ICurveRegistryV2 public constant V2_REGISTRY = ICurveRegistryV2(0x8F942C20D02bEfc377D41445793068908E2250D0);
+    ICurveMetaStableFactory public constant META_STABLE_FACTORY =
+        ICurveMetaStableFactory(0xB9fC157394Af804a3578134A6585C0dc9cc990d4);
+    ICurveMetaPoolFactory public constant META_FACTORY =
+        ICurveMetaPoolFactory(0x0959158b6040D32d04c301A72CBFD6b39E21c9AE);
+    ICurveFactoryV2 public constant V2_FACTORY = ICurveFactoryV2(0xF18056Bbd320E96A48e3Fbf8bC061322531aac99);
+
     /// @dev Mapping of lp token address to CruvePool struct.
     mapping(address => CurvePool) public pools;
 
-    /// @notice Thrown when number of tokens submitted for pool exceeds actual number of tokens in pool.
-    error MaxTokenIdxOutOfBounds();
-    /// @notice Thrown when poolIdxMax is not greater than 1.
-    error MustBeGTZero();
     /// @notice Thrown when attempting to overwrite existing declaration in `pools` mapping.
     error CurvePoolAlreadyRegistered();
     /// @notice Thrown when attempting to remove a pool that does not exist in `pools` mapping.
     error CurvePoolNotRegistered();
+    /// @notice Thrown when token read from pool does not match token registered.
+    error TokenMismatch();
 
     /**
      * @notice Emitted when Curve pool added to `pools` mapping.
@@ -65,52 +87,70 @@ contract CurveValueProvider is BaseValueProviderLP {
 
     /**
      * @notice Used to register Curve pools and lp tokens to price.
-     * @dev privileged access.
+     * @dev Must determine where token is registered manually.  See addresses for various registries above
+     *      use `get_lp_token` if pool is not erc20 and check `get_coins()`. If non-zero values are returned
+     *      that registry can be used.
      * @param lpToken Address of lp token to get price for.
-     * @param pool Address of corresponding pool.
-     * @param poolIdxMax Max index for `coins()` and `balances()` array on Curve pool. Total number of
-     *      coins in pool - 1.
      */
-    function registerCurveLPToken(address lpToken, address pool, uint8 poolIdxMax) external onlyOwner {
+    function registerCurveLPToken(address lpToken, PoolRegistryLocation registry) external onlyOwner {
         Errors.verifyNotZero(lpToken, "lpToken");
-        Errors.verifyNotZero(pool, "pool");
-        if (poolIdxMax == 0) revert MustBeGTZero();
-
-        // No unintended overwrites.
         if (pools[lpToken].pool != address(0)) revert CurvePoolAlreadyRegistered();
-        IPool curvePool = IPool(pool);
 
-        /**
-         * Check to see if `poolIdxMax` is greater than max number of tokens in pool,
-         *      catch generic EVM revert thrown, throw custom error.  `coins()` throws
-         *      general evm revert when index is out of bounds. Adjusts for coins starting
-         *      at index 0,
-         *
-         * Error thrown by `coins()`: `Error: Returned error: execution reverted`.
-         */
-        // slither-disable-next-line unused-return
-        try curvePool.coins(poolIdxMax) { }
-        catch (bytes memory) {
-            revert MaxTokenIdxOutOfBounds();
-        }
+        address pool; // For event
+        if (registry == PoolRegistryLocation.MetaStableRegistry) {
+            pool = REGISTRY.get_pool_from_lp_token(lpToken);
+            Errors.verifyNotZero(pool, "pool");
+            pools[lpToken] = CurvePool({
+                numCoins: uint8(REGISTRY.get_n_coins(pool)[0]),
+                pool: pool,
+                tokensInPool: _getDynamicArray(REGISTRY.get_coins(pool))
+            });
+        } else if (registry == PoolRegistryLocation.MetaStableFactory) {
+            address[] memory poolCoins = _getDynamicArray(META_STABLE_FACTORY.get_coins(lpToken));
+            Errors.verifyNotZero(poolCoins[0], "poolCoinsSlotZero");
+            pool = lpToken;
+            pools[lpToken] = CurvePool({
+                numCoins: uint8(META_STABLE_FACTORY.get_n_coins(lpToken)),
+                pool: lpToken, // lpToken == pool address for factory deployed meta and stable pools.
+                tokensInPool: poolCoins
+            });
+        } else if (registry == PoolRegistryLocation.MetaPoolFactory) {
+            address[] memory poolCoins = _getDynamicArray(META_FACTORY.get_coins(lpToken));
+            Errors.verifyNotZero(poolCoins[0], "poolCoinsSlotZero");
+            pool = lpToken;
+            pools[lpToken] = CurvePool({
+                numCoins: 2, // Same for all pools in this factory.
+                pool: lpToken,
+                tokensInPool: poolCoins
+            });
+        } else if (registry == PoolRegistryLocation.V2Registry) {
+            pool = ICurveTokenV2(lpToken).minter();
+            Errors.verifyNotZero(pool, "pool");
 
-        /**
-         * Get array of pool tokens to save to CurvePool struct in storage. Need
-         *    poolIdxMax + 1 to account for total tokens in array.
-         */
-        address[] memory tokensInPool = new address[](poolIdxMax + 1);
-        for (uint256 i = 0; i <= poolIdxMax; ++i) {
-            tokensInPool[i] = curvePool.coins(i);
+            address[] memory poolCoins = _getDynamicArray(V2_REGISTRY.get_coins(pool));
+            Errors.verifyNotZero(poolCoins[0], "poolCoinsSlotZero");
+
+            pools[lpToken] =
+                CurvePool({ numCoins: uint8(V2_REGISTRY.get_n_coins(pool)), pool: pool, tokensInPool: poolCoins });
+        } else if (registry == PoolRegistryLocation.V2Factory) {
+            pool = ICurveTokenV2(lpToken).minter();
+            Errors.verifyNotZero(pool, "pool");
+
+            address[] memory poolCoins = _getDynamicArray(V2_FACTORY.get_coins(pool));
+            Errors.verifyNotZero(poolCoins[0], "PoolCoinsSlotZero");
+
+            pools[lpToken] = CurvePool({
+                numCoins: 2, // Always two from this factory.
+                pool: pool,
+                tokensInPool: poolCoins
+            });
         }
-        pools[lpToken] = CurvePool(poolIdxMax, pool, tokensInPool);
-        pools[lpToken].tokensInPool = tokensInPool;
 
         emit CurvePoolRegistered(lpToken, pool);
     }
 
     /**
      * @notice Used to remove Curve pool from `pools` mapping
-     * @dev Privileged access.
      * @dev Removal will result in inability to price lp of corresponding pool.
      * @param lpToken Address of lp token to remove pool for.
      */
@@ -125,23 +165,22 @@ contract CurveValueProvider is BaseValueProviderLP {
 
     /// @dev Base pools for any metapools priced must be registered here and in `EthValueOracle.sol`.
     function getPrice(address curveLpTokenToPrice) external view override onlyValueOracle returns (uint256) {
-        address pool = pools[curveLpTokenToPrice].pool;
-        uint8 poolIdxMax = pools[curveLpTokenToPrice].poolIdxMax;
-        address[] memory poolCoins = pools[curveLpTokenToPrice].tokensInPool;
+        CurvePool memory curvePool = pools[curveLpTokenToPrice];
 
-        if (pool == address(0)) revert CurvePoolNotRegistered();
+        if (curvePool.pool == address(0)) revert CurvePoolNotRegistered();
 
-        // Get balances array. Need poolIdxMax + 1 to account for total tokens in array.
-        uint256[] memory balances = new uint256[](poolIdxMax + 1);
-        for (uint256 i = 0; i <= poolIdxMax; ++i) {
-            balances[i] = IPool(pool).balances(i);
+        uint256[] memory balances = new uint256[](curvePool.numCoins);
+        for (uint256 i = 0; i < curvePool.numCoins; ++i) {
+            IPool pool = IPool(curvePool.pool);
+            if (curvePool.tokensInPool[i] != pool.coins(i)) revert TokenMismatch();
+            balances[i] = pool.balances(i);
         }
 
         // 1e36 precision, taken care of in `_getPriceLp()`.
         uint256 poolValueEth;
         // Get price value in pool per token
-        for (uint256 i = 0; i <= poolIdxMax; ++i) {
-            address currentToken = poolCoins[i];
+        for (uint256 i = 0; i < curvePool.numCoins; ++i) {
+            address currentToken = curvePool.tokensInPool[i];
             uint256 normalizedBalance = TokemakPricingPrecision.checkAndNormalizeDecimals(
                 TokemakPricingPrecision.getDecimals(currentToken), balances[i]
             );
@@ -150,6 +189,50 @@ contract CurveValueProvider is BaseValueProviderLP {
         }
 
         return _getPriceLp(poolValueEth, IERC20Metadata(curveLpTokenToPrice));
+    }
+
+    /**
+     * Helper functions for various static arrays returned by Curve registries and factories.
+     */
+
+    function _getDynamicArray(address[2] memory twoMemberStaticAddressArray) internal pure returns (address[] memory) {
+        address[] memory dynamicArray = new address[](2);
+
+        for (uint256 i = 0; i < 2; ++i) {
+            dynamicArray[i] = twoMemberStaticAddressArray[i];
+        }
+        return dynamicArray;
+    }
+
+    function _getDynamicArray(address[4] memory fourMemberStaticAddressArray)
+        internal
+        pure
+        returns (address[] memory dynamicAddressArray)
+    {
+        address[] memory dynamicArray = new address[](4);
+
+        for (uint256 i = 0; i < 4; ++i) {
+            address currentAddress = fourMemberStaticAddressArray[i];
+            // No need to set zero address
+            if (currentAddress == address(0)) break;
+            dynamicArray[i] = currentAddress;
+        }
+        return dynamicArray;
+    }
+
+    function _getDynamicArray(address[8] memory eightMemberStaticAddressArray)
+        internal
+        pure
+        returns (address[] memory)
+    {
+        address[] memory dynamicArray = new address[](8);
+
+        for (uint256 i = 0; i < 8; ++i) {
+            address currentAddress = eightMemberStaticAddressArray[i];
+            if (currentAddress == address(0)) break;
+            dynamicArray[i] = currentAddress;
+        }
+        return dynamicArray;
     }
 }
 // slither-disable-end calls-loop

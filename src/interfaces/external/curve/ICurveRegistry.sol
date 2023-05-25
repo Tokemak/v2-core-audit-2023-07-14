@@ -2,11 +2,8 @@
 pragma solidity 0.8.17;
 
 // solhint-disable func-name-mixedcase
+
 interface ICurveRegistry {
-    function pool_list(uint256 id) external view returns (address);
-
-    function get_gauges(address pool) external view returns (address[10] memory, uint128[10] memory);
-
     /**
      * @notice Gets lp token address for Curve pool.
      * @param pool Address of pool to get lp token for.
