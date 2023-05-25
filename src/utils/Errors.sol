@@ -19,6 +19,8 @@ library Errors {
     error InvalidParam(string paramName);
     error InvalidParams();
     error AlreadySet(string param);
+    error SlippageExceeded(uint256 expected, uint256 actual);
+
     error ItemNotFound();
     error ItemExists();
     error MissingRole(bytes32 role, address user);

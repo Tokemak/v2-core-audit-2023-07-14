@@ -18,6 +18,9 @@ interface IDestinationVault is IBaseAssetVault, IERC20 {
     /// @dev In terms of the baseAsset
     function debt() external view returns (uint256);
 
+    /// @notice Underlying lp asset
+    function underlying() external view returns (address);
+
     /* ******************************** */
     /* Events                           */
     /* ******************************** */
@@ -66,6 +69,14 @@ interface IDestinationVault is IBaseAssetVault, IERC20 {
     /// @dev Receives no token or share in response
     /// @param amount Amount of base asset to deposit
     function donate(uint256 amount) external;
+
+    /// @notice Deposit underlying to receive destination vault shares
+    /// @param amount Amount of base lp asset to deposit
+    function depositUnderlying(uint256 amount) external returns (uint256 shares);
+
+    /// @notice Withdraw underlying by burning destination vault shares
+    /// @param shares Amount of destination vault shares to burn
+    function withdrawUnderlying(uint256 shares) external returns (uint256 amount);
 
     /// @notice Attempt to withdraw the target amount of the baseAsset
     /// @dev Partial amounts may be returned. Pct numbers must be of the same precision.

@@ -73,6 +73,11 @@ abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
         trackedTokens.add(address(_baseAsset));
     }
 
+    /// @inheritdoc IDestinationVault
+    function underlying() public view returns (address) {
+        revert Errors.NotImplemented();
+    }
+
     /// @inheritdoc ERC20
     function name() public view virtual override(ERC20, IERC20) returns (string memory) {
         return _name;
@@ -215,6 +220,18 @@ abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
         }
 
         totalActual = amount - remaining;
+    }
+
+    /// @notice Deposit underlying to receive destination vault shares
+    /// @param amount Amount of base asset to deposit
+    // solhint-disable-next-line no-unused-vars
+    function depositUnderlying(uint256 amount) public returns (uint256 shares) {
+        revert Errors.NotImplemented();
+    }
+
+    // solhint-disable-next-line no-unused-vars
+    function withdrawUnderlying(uint256 shares) public returns (uint256 amount) {
+        revert Errors.NotImplemented();
     }
 
     /// @inheritdoc IDestinationVault

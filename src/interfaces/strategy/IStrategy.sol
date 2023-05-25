@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
 import { IDestinationVault } from "../vault/IDestinationVault.sol";
@@ -16,6 +17,8 @@ interface IStrategy {
 
     error InvalidDestinationVault();
 
+    error RebalanceFailed(string message);
+
     /// @notice gets the list of supported destination vaults for the LMP/Strategy
     /// @return _destinations List of supported destination vaults
     function getDestinations() external view returns (address[] memory _destinations);
@@ -29,41 +32,56 @@ interface IStrategy {
     function removeDestinations(address[] calldata _destinations) external;
 
     /// @notice rebalance the LMP from the tokenOut (decrease) to the tokenIn (increase)
-    /// @param tokenIn The address of the destination vault that will increase
-    /// @param tokenOut The address of the destination vault that will decrease
-    /// @param amountIn The amount of the destination vault LP tokens that will be received
-    /// @param amountOut The amount of the destination vault LP tokens that will be sent to the swapper
-    function rebalance(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut) external;
+    /// @param destinationIn The address of the destination vault that will increase
+    /// @param tokenIn The address of the token that will be provided by the swapper
+    /// @param amountIn The amount of the tokenIn that will be provided by the swapper
+    /// @param destinationOut The address of the destination vault that will decrease
+    /// @param tokenOut The address of the token that will be received by the swapper
+    /// @param amountOut The amount of the tokenOut that will be received by the swapper
+    function rebalance(
+        address destinationIn,
+        address tokenIn,
+        uint256 amountIn,
+        address destinationOut,
+        address tokenOut,
+        uint256 amountOut
+    ) external;
 
     /// @notice rebalance the LMP from the tokenOut (decrease) to the tokenIn (increase)
     /// This uses a flash loan to receive the tokenOut to reduce the working capital requirements of the swapper
     /// @param receiver The contract receiving the tokens, needs to implement the
     /// `onFlashLoan(address user, address token, uint256 amount, uint256 fee, bytes calldata)` interface
-    /// @param tokenIn The address of the destination vault that will increase
-    /// @param tokenOut The address of the destination vault that will decrease
-    /// @param amountIn The amount of the destination vault LP tokens that will be received
-    /// @param amountOut The amount of the destination vault LP tokens that will be sent to the swapper
+    /// @param destinationIn The address / lp token of the destination vault that will increase
+    /// @param tokenIn The address of the underlyer token that will be provided by the swapper
+    /// @param amountIn The amount of the underlying LP tokens that will be received
+    /// @param destinationOut The address of the destination vault that will decrease
+    /// @param tokenOut The address of the underlyer token that will be received by the swapper
+    /// @param amountOut The amount of the tokenOut that will be received by the swapper
     /// @param data A data parameter to be passed on to the `receiver` for any custom use
     function flashRebalance(
         IERC3156FlashBorrower receiver,
+        address destinationIn,
         address tokenIn,
-        address tokenOut,
         uint256 amountIn,
+        address destinationOut,
+        address tokenOut,
         uint256 amountOut,
         bytes calldata data
     ) external;
 
     /// @notice verify that a rebalance (swap between destinations) meets all the strategy constraints
-    /// @param tokenIn The address of the destination vault that will increase
-    /// @param tokenOut The address of the destination vault that will decrease
-    /// @param amountIn The amount of the destination vault LP tokens that will be received
-    /// @param amountOut The amount of the destination vault LP tokens that will be sent to the swapper
-    /// @return success True if successful
-    /// @return message The failure reason or SUCCESS
+    /// @param destinationIn The address of the destination vault that will increase
+    /// @param tokenIn The address of the destination vault token that will be provided by the swapper
+    /// @param amountIn The amount of the tokenIn that will be provided by the swapper
+    /// @param destinationOut The address of the destination vault that will decrease
+    /// @param tokenOut The address of the destination vault token that will be received by the swapper
+    /// @param amountOut The amount of the tokenOut that will be received by the swapper
     function verifyRebalance(
+        address destinationIn,
         address tokenIn,
-        address tokenOut,
         uint256 amountIn,
+        address destinationOut,
+        address tokenOut,
         uint256 amountOut
     ) external view returns (bool success, string memory message);
 }
