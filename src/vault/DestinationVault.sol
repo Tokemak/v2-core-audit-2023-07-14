@@ -6,6 +6,7 @@ import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import { Initializable } from "openzeppelin-contracts/proxy/utils/Initializable.sol";
 import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IDestinationVault } from "src/interfaces/vault/IDestinationVault.sol";
@@ -15,7 +16,9 @@ import { Errors } from "src/utils/Errors.sol";
 // TODO: Ensure that baseAsset decimals are the same as the Vaults decimals
 // TODO: Evaluate the conditions to burn destination vault shares
 abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
+    using SafeERC20 for ERC20;
     using SafeERC20 for IERC20;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     event ClaimedVested(uint256 indexed amount);
     event Recovered(address[] tokens, uint256[] amounts, address[] destinations);
@@ -33,6 +36,8 @@ abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
     string private _symbol;
 
     IERC20 public baseAsset;
+
+    EnumerableSet.AddressSet internal trackedTokens;
 
     /// @notice Amount of baseAsset sitting in contract
     uint256 public idle = 0;
@@ -60,8 +65,11 @@ abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
 
         Errors.verifyNotZero(address(_baseAsset), "_baseAsset");
 
-        baseAsset = _baseAsset;
         systemRegistry = _systemRegistry;
+        baseAsset = _baseAsset;
+
+        //slither-disable-next-line unused-return
+        trackedTokens.add(address(_baseAsset));
     }
 
     /// @inheritdoc ERC20
@@ -90,7 +98,9 @@ abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
     /// @notice Checks if given token is tracked by Vault
     /// @param token Address to verify
     /// @return bool True if token is within Vault's tracked assets
-    function isTrackedToken_(address token) internal view virtual returns (bool);
+    function isTrackedToken(address token) public view returns (bool) {
+        return trackedTokens.contains(token);
+    }
 
     /// @notice Claims any rewards that have been previously claimed and are vesting
     /// @dev Should not update idle
@@ -294,7 +304,7 @@ abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
             IERC20 token = IERC20(tokens[i]);
 
             // Check if it's a really non-tracked token
-            if (isTrackedToken_(tokens[i])) revert RecoveringTrackedToken(tokens[i]);
+            if (isTrackedToken(tokens[i])) revert RecoveringTrackedToken(tokens[i]);
 
             uint256 tokenBalance = token.balanceOf(address(this));
             if (tokenBalance < amounts[i]) revert RecoveringMoreThanAvailable(tokens[i], amounts[i], tokenBalance);

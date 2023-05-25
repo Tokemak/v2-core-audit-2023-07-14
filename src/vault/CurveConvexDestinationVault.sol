@@ -29,10 +29,11 @@ contract CurveConvexDestinationVault is ConvexAdapter, CurveV2FactoryCryptoAdapt
     MainRewarder public rewarder;
     ISwapRouter public swapper;
 
+    IERC20 public lpToken;
+    IERC20[] public poolTokens;
+
     address public staking;
     address public curvePool;
-
-    EnumerableSet.AddressSet internal _trackedTokens;
 
     ///@notice In `_trackedTokens` LP token must be at first position
     function initialize(
@@ -45,7 +46,8 @@ contract CurveConvexDestinationVault is ConvexAdapter, CurveV2FactoryCryptoAdapt
         ISwapRouter _swapper,
         address _staking,
         address _curvePool,
-        address[] calldata trackedTokensArr
+        IERC20 _lpToken,
+        IERC20[] memory _poolTokens
     ) public initializer {
         //slither-disable-start missing-zero-check
         DestinationVault.initialize(_systemRegistry, _baseAsset, baseName, data);
@@ -53,32 +55,27 @@ contract CurveConvexDestinationVault is ConvexAdapter, CurveV2FactoryCryptoAdapt
 
         Errors.verifyNotZero(address(_rewarder), "_rewarder");
         Errors.verifyNotZero(address(_swapper), "_swapper");
-        Errors.verifyNotZero(address(_staking), "_staking");
-        Errors.verifyNotZero(address(_curvePool), "_curvePool");
+        Errors.verifyNotZero(_staking, "_staking");
+        Errors.verifyNotZero(_curvePool, "_curvePool");
+        Errors.verifyNotZero(address(_lpToken), "_lpToken");
 
         rewarder = _rewarder;
         swapper = _swapper;
         staking = _staking;
         curvePool = _curvePool;
+        lpToken = _lpToken;
 
-        if (trackedTokensArr.length == 0) revert ArrayLengthMismatch();
-        for (uint256 i = 0; i < trackedTokensArr.length; ++i) {
+        if (_poolTokens.length == 0) revert ArrayLengthMismatch();
+        poolTokens = _poolTokens;
+
+        //slither-disable-next-line unused-return
+        trackedTokens.add(address(_lpToken));
+
+        for (uint256 i = 0; i < poolTokens.length; ++i) {
             //slither-disable-next-line unused-return
-            _trackedTokens.add(trackedTokensArr[i]);
+            trackedTokens.add(address(poolTokens[i]));
         }
         //slither-disable-end missing-zero-check
-    }
-
-    function lpToken() public view returns (address) {
-        return _trackedTokens.at(0);
-    }
-
-    function trackedTokens() public view returns (address[] memory trackedTokensArr) {
-        trackedTokensArr = new address[](_trackedTokens.length());
-
-        for (uint256 i = 0; i < _trackedTokens.length(); ++i) {
-            trackedTokensArr[i] = _trackedTokens.at(i);
-        }
     }
 
     function convexBalance() public view returns (uint256) {
@@ -86,7 +83,7 @@ contract CurveConvexDestinationVault is ConvexAdapter, CurveV2FactoryCryptoAdapt
     }
 
     function curveBalance() public view returns (uint256) {
-        return IERC20(lpToken()).balanceOf(address(this));
+        return IERC20(lpToken).balanceOf(address(this));
     }
 
     function totalLpAmount() public view returns (uint256) {
@@ -116,10 +113,6 @@ contract CurveConvexDestinationVault is ConvexAdapter, CurveV2FactoryCryptoAdapt
         //slither-disable-end calls-loop
     }
 
-    function isTrackedToken_(address token) internal view virtual override returns (bool) {
-        return _trackedTokens.contains(token);
-    }
-
     function claimVested_() internal virtual override nonReentrant returns (uint256 amount) {
         uint256 balanceBefore = baseAsset.balanceOf(address(this));
         rewarder.getReward();
@@ -142,7 +135,7 @@ contract CurveConvexDestinationVault is ConvexAdapter, CurveV2FactoryCryptoAdapt
         uint256 curveLpBalance = curveBalance();
         if (totalLpBurnAmount > curveLpBalance) {
             convexLpBurnAmount = totalLpBurnAmount - curveLpBalance;
-            withdrawStake(lpToken(), staking, convexLpBurnAmount);
+            withdrawStake(address(lpToken), staking, convexLpBurnAmount);
         }
 
         // 2) withdraw Curve

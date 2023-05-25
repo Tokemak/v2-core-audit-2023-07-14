@@ -32,12 +32,12 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
     MainRewarder public rewarder;
     ISwapRouter public swapper;
 
+    IERC20 public lpToken;
+    IERC20[] public poolTokens;
+
     address public staking;
     bytes32 public poolId;
 
-    EnumerableSet.AddressSet internal _trackedTokens;
-
-    ///@notice In `_trackedTokens` LP token must be at first position
     function initialize(
         ISystemRegistry _systemRegistry,
         IERC20Metadata _baseAsset,
@@ -46,9 +46,10 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
         IVault _vault,
         MainRewarder _rewarder,
         ISwapRouter _swapper,
+        IERC20 _lpToken,
+        IERC20[] memory _poolTokens,
         address _staking,
-        bytes32 _poolId,
-        address[] calldata trackedTokensArr
+        bytes32 _poolId
     ) public initializer {
         //slither-disable-start missing-zero-check
         DestinationVault.initialize(_systemRegistry, _baseAsset, baseName, data);
@@ -57,40 +58,27 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
         Errors.verifyNotZero(address(_rewarder), "_rewarder");
         Errors.verifyNotZero(address(_swapper), "_swapper");
         Errors.verifyNotZero(address(_staking), "_staking");
+        Errors.verifyNotZero(address(_lpToken), "_lpToken");
 
         rewarder = _rewarder;
         swapper = _swapper;
         staking = _staking;
+        lpToken = _lpToken;
 
         if (_poolId.length == 0) revert InvalidPoolId();
         poolId = _poolId;
 
-        if (trackedTokensArr.length == 0) revert ArrayLengthMismatch();
-        for (uint256 i = 0; i < trackedTokensArr.length; ++i) {
+        if (_poolTokens.length == 0) revert ArrayLengthMismatch();
+        poolTokens = _poolTokens;
+
+        //slither-disable-next-line unused-return
+        trackedTokens.add(address(_lpToken));
+
+        for (uint256 i = 0; i < _poolTokens.length; ++i) {
             //slither-disable-next-line unused-return
-            _trackedTokens.add(trackedTokensArr[i]);
+            trackedTokens.add(address(_poolTokens[i]));
         }
         //slither-disable-end missing-zero-check
-    }
-
-    function lpToken() public view returns (address) {
-        return _trackedTokens.at(0);
-    }
-
-    function poolTokens() public view returns (IERC20[] memory trackedPoolTokens) {
-        trackedPoolTokens = new IERC20[](_trackedTokens.length());
-
-        for (uint256 i = 1; i < _trackedTokens.length(); ++i) {
-            trackedPoolTokens[i] = IERC20(_trackedTokens.at(i));
-        }
-    }
-
-    function trackedTokens() public view returns (address[] memory trackedTokensArr) {
-        trackedTokensArr = new address[](_trackedTokens.length());
-
-        for (uint256 i = 0; i < _trackedTokens.length(); ++i) {
-            trackedTokensArr[i] = _trackedTokens.at(i);
-        }
     }
 
     function auraBalance() public view returns (uint256) {
@@ -98,7 +86,7 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
     }
 
     function balancerBalance() public view returns (uint256) {
-        return IERC20(lpToken()).balanceOf(address(this));
+        return IERC20(lpToken).balanceOf(address(this));
     }
 
     function totalLpAmount() public view returns (uint256) {
@@ -128,10 +116,6 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
         //slither-disable-end calls-loop
     }
 
-    function isTrackedToken_(address token) internal view virtual override returns (bool) {
-        return _trackedTokens.contains(token);
-    }
-
     function claimVested_() internal virtual override nonReentrant returns (uint256 amount) {
         uint256 balanceBefore = baseAsset.balanceOf(address(this));
         rewarder.getReward();
@@ -154,18 +138,17 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
         uint256 balancerLpBalance = balancerBalance();
         if (totalLpBurnAmount > balancerLpBalance) {
             auraLpBurnAmount = totalLpBurnAmount - balancerLpBalance;
-            withdrawStake(lpToken(), staking, auraLpBurnAmount);
+            withdrawStake(address(lpToken), staking, auraLpBurnAmount);
         }
 
         // 2) withdraw Balancer
         uint256 balancerLpBurnAmount = totalLpBurnAmount - auraLpBurnAmount;
-        IERC20[] memory tokens = poolTokens();
-        uint256[] memory minAmountsOut = new uint256[](tokens.length);
-
-        uint256[] memory sellAmounts = removeLiquidityImbalance(poolId, balancerLpBurnAmount, tokens, minAmountsOut);
+        // all minAmounts are 0, we set the burn LP amount and don't specify the amounts we expect by each token
+        uint256[] memory minAmounts = new uint256[](poolTokens.length);
+        uint256[] memory sellAmounts = removeLiquidityImbalance(poolId, balancerLpBurnAmount, poolTokens, minAmounts);
 
         // 3) swap what we receive
-        for (uint256 i = 0; i < tokens.length; ++i) {
+        for (uint256 i = 0; i < poolTokens.length; ++i) {
             address sellToken = address(poolTokens[i]);
             uint256 sellAmount = sellAmounts[i];
             IERC20(sellToken).safeApprove(address(swapper), sellAmount);
