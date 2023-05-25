@@ -4,9 +4,13 @@ pragma solidity 0.8.17;
 // solhint-disable func-name-mixedcase
 
 import { Test } from "forge-std/Test.sol";
-import { TELLOR_ORACLE } from "test/utils/Addresses.sol";
+import { TELLOR_ORACLE, RETH_MAINNET, RETH_CL_FEED_MAINNET } from "test/utils/Addresses.sol";
 
-import { TellorValueProvider, Denominations } from "src/pricing/value-providers/TellorValueProvider.sol";
+import {
+    TellorValueProvider,
+    Denominations,
+    BaseValueProviderDenominations
+} from "src/pricing/value-providers/TellorValueProvider.sol";
 import { Errors } from "src/utils/Errors.sol";
 
 contract TellorValueProviderTest is Test {
@@ -17,74 +21,89 @@ contract TellorValueProviderTest is Test {
 
     TellorValueProvider public tellorValueProviderLocal;
 
-    event QueryIdSet(address token, bytes32 _queryId);
-    event QueryIdRemoved(address token, bytes32 queryId);
+    event TellorRegistrationAdded(address token, BaseValueProviderDenominations.Denomination, bytes32 _queryId);
+    event TellorRegistrationRemoved(address token, bytes32 queryId);
 
     function setUp() external {
+        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"));
         tellorValueProviderLocal = new TellorValueProvider(address(1), address(2));
     }
 
-    // Test `addQueryId()`.
+    // Test `addTellorRegistration()`.
     function test_RevertNonOwnerQueryId() external {
         vm.expectRevert("Ownable: caller is not the owner");
         vm.prank(address(3));
 
-        tellorValueProviderLocal.addQueryId(address(1), bytes32("Test Bytes"));
+        tellorValueProviderLocal.addTellorRegistration(
+            address(1), bytes32("Test Bytes"), BaseValueProviderDenominations.Denomination.ETH
+        );
     }
 
-    function test_ZeroAddressRevert_AddQueryId() external {
+    function test_ZeroAddressRevert_AddTellorRegistration() external {
         vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "tokenForQueryId"));
 
-        tellorValueProviderLocal.addQueryId(address(0), bytes32("Test Bytes"));
+        tellorValueProviderLocal.addTellorRegistration(
+            address(0), bytes32("Test Bytes"), BaseValueProviderDenominations.Denomination.ETH
+        );
     }
 
-    function test_ZeroBytesRevert_AddQeuryId() external {
-        vm.expectRevert(Errors.MustBeSet.selector);
+    function test_ZeroBytesRevert_AddTellorRegistration() external {
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidParam.selector, "queryId"));
 
-        tellorValueProviderLocal.addQueryId(address(1), bytes32(0));
+        tellorValueProviderLocal.addTellorRegistration(
+            address(1), bytes32(0), BaseValueProviderDenominations.Denomination.ETH
+        );
     }
 
-    function test_RevertAlreadySet_AddQueryId() external {
-        tellorValueProviderLocal.addQueryId(address(1), bytes32("Test Bytes"));
+    function test_RevertAlreadySet_AddTellorRegistration() external {
+        tellorValueProviderLocal.addTellorRegistration(
+            address(1), bytes32("Test Bytes"), BaseValueProviderDenominations.Denomination.ETH
+        );
 
         vm.expectRevert(Errors.MustBeZero.selector);
 
-        tellorValueProviderLocal.addQueryId(address(1), bytes32("Test Bytes 2"));
+        tellorValueProviderLocal.addTellorRegistration(
+            address(1), bytes32("Test Bytes 2"), BaseValueProviderDenominations.Denomination.ETH
+        );
     }
 
-    function test_ProperAddQueryId() external {
+    function test_ProperAddTellorRegistration() external {
         vm.expectEmit(false, false, false, true);
-        emit QueryIdSet(address(1), bytes32("Test Bytes"));
+        emit TellorRegistrationAdded(address(1), BaseValueProviderDenominations.Denomination.ETH, bytes32("Test Byte"));
 
-        tellorValueProviderLocal.addQueryId(address(1), bytes32("Test Bytes"));
+        tellorValueProviderLocal.addTellorRegistration(
+            address(1), bytes32("Test Byte"), BaseValueProviderDenominations.Denomination.ETH
+        );
 
-        assertEq(tellorValueProviderLocal.getQueryId(address(1)), bytes32("Test Bytes"));
+        assertEq(tellorValueProviderLocal.getQueryInfo(address(1)).queryId, bytes32("Test Byte"));
     }
 
-    // Test `removeQueryId()`
-    function test_RevertZeroAddressToken_RemoveQueryId() external {
-        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "tokenToRemoveQueryId"));
+    // Test `removeTellorRegistration()`
+    function test_RevertZeroAddressToken_RemoveTellorRegistration() external {
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "tokenToRemoveRegistration"));
 
-        tellorValueProviderLocal.removeQueryId(address(0));
+        tellorValueProviderLocal.removeTellorRegistration(address(0));
     }
 
-    function test_QueryIdZeroBytes_RemoveQueryId() external {
-        vm.expectRevert(Errors.MustBeSet.selector);
+    function test_QueryIdZeroBytes_RemoveTellorRegistration() external {
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidParam.selector, "queryIdBeforeDeletion"));
 
-        tellorValueProviderLocal.removeQueryId(address(1));
+        tellorValueProviderLocal.removeTellorRegistration(address(1));
     }
 
-    function test_ProperRemoveQueryId() external {
-        tellorValueProviderLocal.addQueryId(address(1), bytes32("Test Bytes"));
+    function test_ProperRemoveTellorRegistration() external {
+        tellorValueProviderLocal.addTellorRegistration(
+            address(1), bytes32("Test Bytes"), BaseValueProviderDenominations.Denomination.ETH
+        );
 
-        assertEq(tellorValueProviderLocal.getQueryId(address(1)), bytes32("Test Bytes"));
+        assertEq(tellorValueProviderLocal.getQueryInfo(address(1)).queryId, bytes32("Test Bytes"));
 
         vm.expectEmit(false, false, false, true);
-        emit QueryIdRemoved(address(1), bytes32("Test Bytes"));
+        emit TellorRegistrationRemoved(address(1), bytes32("Test Bytes"));
 
-        tellorValueProviderLocal.removeQueryId(address(1));
+        tellorValueProviderLocal.removeTellorRegistration(address(1));
 
-        assertEq(tellorValueProviderLocal.getQueryId(address(1)), bytes32(0));
+        assertEq(tellorValueProviderLocal.getQueryInfo(address(1)).queryId, bytes32(0));
     }
 
     // test `getPrice()`
@@ -92,9 +111,7 @@ contract TellorValueProviderTest is Test {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 17_100_000);
 
         TellorValueProvider mainnet = new TellorValueProvider(TELLOR_ORACLE, address(1));
-        // Technically USD denomination, fine that it returns USD denomination as long as we know.
-        mainnet.addDenomination(Denominations.ETH, Denominations.ETH);
-        mainnet.addQueryId(Denominations.ETH, QUERY_ID);
+        mainnet.addTellorRegistration(Denominations.ETH, QUERY_ID, BaseValueProviderDenominations.Denomination.ETH);
 
         vm.prank(address(1));
         uint256 returnedPrice = mainnet.getPrice(Denominations.ETH);
@@ -107,8 +124,7 @@ contract TellorValueProviderTest is Test {
         vm.createSelectFork(vm.envString("OPTIMISM_MAINNET_RPC_URL"), 90_000_000);
 
         TellorValueProvider optimism = new TellorValueProvider(TELLOR_ORACLE, address(1));
-        optimism.addDenomination(Denominations.ETH, Denominations.ETH);
-        optimism.addQueryId(Denominations.ETH, QUERY_ID);
+        optimism.addTellorRegistration(Denominations.ETH, QUERY_ID, BaseValueProviderDenominations.Denomination.ETH);
 
         vm.prank(address(1));
 
@@ -122,8 +138,7 @@ contract TellorValueProviderTest is Test {
         vm.createSelectFork(vm.envString("ARBITRUM_MAINNET_RPC_URL"), 80_000_000);
 
         TellorValueProvider arbitrum = new TellorValueProvider(TELLOR_ORACLE, address(1));
-        arbitrum.addDenomination(Denominations.ETH, Denominations.ETH);
-        arbitrum.addQueryId(Denominations.ETH, QUERY_ID);
+        arbitrum.addTellorRegistration(Denominations.ETH, QUERY_ID, BaseValueProviderDenominations.Denomination.ETH);
 
         vm.prank(address(1));
 

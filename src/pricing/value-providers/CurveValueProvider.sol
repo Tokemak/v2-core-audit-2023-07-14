@@ -8,8 +8,6 @@ import { IPool } from "src/interfaces/external/curve/IPool.sol";
 
 import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-import "forge-std/console.sol";
-
 // solhint-disable func-name-mixedcase
 // slither-disable-start calls-loop
 /**

@@ -17,18 +17,24 @@ import { UsingTellor } from "usingtellor/UsingTellor.sol";
  */
 contract TellorValueProvider is BaseValueProviderDenominations, UsingTellor {
     /**
-     * @dev Token addresses to queryIds.  Tellor queryIds can be constructed here:
-     *      https://tellor.io/queryidstation/
+     * @notice Used to store information about Tellor price queries.
+     * @dev No decimals, all returned in e18 precision.
+     * @param queryId bytes32 queryId for pricing query. See here: https://tellor.io/queryidstation/.
+     * @param denomination Enum representing denomination of price returned.
      */
-    mapping(address => bytes32) private tokenQueryIds;
+    struct TellorInfo {
+        bytes32 queryId;
+        Denomination denomination;
+    }
 
-    /// @notice Emitted when a query Id is set or removed.
-    event QueryIdSet(address token, bytes32 _queryId);
+    /// @dev Token address to TellorInfo structs.
+    mapping(address => TellorInfo) private tellorQueryInfo;
 
-    event QueryIdRemoved(address token, bytes32 queryId);
+    /// @notice Emitted when information about a Tellor query is registered.
+    event TellorRegistrationAdded(address token, Denomination denomination, bytes32 _queryId);
 
-    /// @notice Revert used when a query Id is not set and bytes(0) is returned from `tokenQueryIds` mapping.
-    error QueryIdNotSet();
+    /// @notice Emitted when  information about a Tellor query is removed.
+    event TellorRegistrationRemoved(address token, bytes32 queryId);
 
     // Tellor requires payable address
     constructor(
@@ -39,37 +45,37 @@ contract TellorValueProvider is BaseValueProviderDenominations, UsingTellor {
     }
 
     /**
-     * @notice Allows permissioned address to set _queryId.
+     * @notice Allows permissioned address to set _queryId, denomination for token address.
      * @param token Address of token to set queryId for.
      * @param _queryId Bytes32 queryId.
+     * @param denomination Denomination of token.
      */
-    function addQueryId(address token, bytes32 _queryId) external onlyOwner {
+    function addTellorRegistration(address token, bytes32 _queryId, Denomination denomination) external onlyOwner {
         Errors.verifyNotZero(token, "tokenForQueryId");
-        if (_queryId == bytes32(0)) revert Errors.MustBeSet();
-        if (tokenQueryIds[token] != bytes32(0)) revert Errors.MustBeZero();
-        tokenQueryIds[token] = _queryId;
-        emit QueryIdSet(token, _queryId);
+        Errors.verifyNotZero(_queryId, "queryId");
+        if (tellorQueryInfo[token].queryId != bytes32(0)) revert Errors.MustBeZero();
+        tellorQueryInfo[token] = TellorInfo({ queryId: _queryId, denomination: denomination });
+        emit TellorRegistrationAdded(token, denomination, _queryId);
     }
 
     /**
-     * @notice Allows permissioned removal of queryId.
-     * @param token Token to set queryId for.
+     * @notice Allows permissioned removal registration for token address.
+     * @param token Token to remove TellorInfo struct for.
      */
-    function removeQueryId(address token) external onlyOwner {
-        Errors.verifyNotZero(token, "tokenToRemoveQueryId");
-        bytes32 queryIdBeforeDeletion = tokenQueryIds[token];
-        if (queryIdBeforeDeletion == bytes32(0)) revert Errors.MustBeSet();
-        delete tokenQueryIds[token];
-        emit QueryIdRemoved(token, queryIdBeforeDeletion);
+    function removeTellorRegistration(address token) external onlyOwner {
+        Errors.verifyNotZero(token, "tokenToRemoveRegistration");
+        bytes32 queryIdBeforeDeletion = tellorQueryInfo[token].queryId;
+        Errors.verifyNotZero(queryIdBeforeDeletion, "queryIdBeforeDeletion");
+        delete tellorQueryInfo[token];
+        emit TellorRegistrationRemoved(token, queryIdBeforeDeletion);
     }
 
     /**
-     * @notice External function to view queryId for token address.
-     * @dev Can return bytes32(0).
-     * @param token Address of token to view queryId for.
+     * @notice External function to view TellorInfo struct for token address.
+     * @param token Address of token to view TellorInfo struct for.
      */
-    function getQueryId(address token) external view returns (bytes32) {
-        return tokenQueryIds[token];
+    function getQueryInfo(address token) external view returns (TellorInfo memory) {
+        return tellorQueryInfo[token];
     }
 
     /**
@@ -79,11 +85,10 @@ contract TellorValueProvider is BaseValueProviderDenominations, UsingTellor {
      */
     // slither-disable-start timestamp
     function getPrice(address tokenToPrice) external view override onlyValueOracle returns (uint256) {
-        address denomination = _getDenomination(tokenToPrice);
+        TellorInfo memory tellorInfo = tellorQueryInfo[tokenToPrice];
         uint256 timestamp = block.timestamp;
         // Giving time for Tellor network to dispute price
-        (bytes memory value, uint256 timestampRetrieved) =
-            getDataBefore(_getQueryId(tokenToPrice), timestamp - 30 minutes);
+        (bytes memory value, uint256 timestampRetrieved) = getDataBefore(tellorInfo.queryId, timestamp - 30 minutes);
 
         // Check that something was returned and freshness of price.
         if (timestampRetrieved == 0 || timestamp - timestampRetrieved > DENOMINATION_TIMEOUT) {
@@ -91,14 +96,13 @@ contract TellorValueProvider is BaseValueProviderDenominations, UsingTellor {
         }
 
         uint256 price = abi.decode(value, (uint256));
-
-        return _denominationPricing(denomination, tokenToPrice, price);
+        return _denominationPricing(tellorInfo.denomination, price, tokenToPrice);
     }
     // slither-disable-end timestamp
 
     /// @dev Used to enforce non-existent queryId checks
-    function _getQueryId(address token) private view returns (bytes32 queryId) {
-        queryId = tokenQueryIds[token];
-        if (queryId == bytes32(0)) revert QueryIdNotSet();
+    function _getQueryInfo(address token) private view returns (TellorInfo memory tellorInfo) {
+        tellorInfo = tellorQueryInfo[token];
+        Errors.verifyNotZero(tellorInfo.queryId, "queryId");
     }
 }

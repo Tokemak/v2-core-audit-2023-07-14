@@ -91,9 +91,12 @@ import { OptimismRocketPoolEthValueProvider } from "src/pricing/value-providers/
 import { EthValueProvider } from "src/pricing/value-providers/EthValueProvider.sol";
 import { SfrxEthValueProvider } from "src/pricing/value-providers/SfrxEthValueProvider.sol";
 import { WstEthValueProvider } from "src/pricing/value-providers/WstEthValueProvider.sol";
+import { BaseValueProviderDenominations } from "src/pricing/value-providers/base/BaseValueProviderDenominations.sol";
 
 import { Denominations } from "src/pricing/library/Denominations.sol";
 import { TokemakPricingPrecision } from "src/pricing/library/TokemakPricingPrecision.sol";
+
+import { IAggregatorV3Interface } from "src/interfaces/external/chainlink/IAggregatorV3Interface.sol";
 
 /**
  * @dev This contract should be updated for any new pool or token that will require pricing.  In order to calculate
@@ -188,33 +191,49 @@ contract EthValueOracleIntegrationTest is Test {
         ethValueOracleMainnet.addValueProvider(SFRXETH_MAINNET, address(sfrxValueProviderMainnet));
         ethValueOracleMainnet.addValueProvider(LDO_MAINNET, address(clValueProviderMainnet));
 
-        // Setting denominations
-        clValueProviderMainnet.addDenomination(RETH_MAINNET, Denominations.ETH);
-        clValueProviderMainnet.addDenomination(USDC_MAINNET, Denominations.ETH);
-        clValueProviderMainnet.addDenomination(USDT_MAINNET, Denominations.ETH);
-        clValueProviderMainnet.addDenomination(FRAX_MAINNET, Denominations.ETH);
-        clValueProviderMainnet.addDenomination(DAI_MAINNET, Denominations.ETH);
-        clValueProviderMainnet.addDenomination(SUSD_MAINNET, Denominations.ETH);
-        clValueProviderMainnet.addDenomination(CRV_MAINNET, Denominations.ETH);
-        clValueProviderMainnet.addDenomination(CVX_MAINNET, Denominations.ETH);
-        clValueProviderMainnet.addDenomination(Denominations.ETH_IN_USD, Denominations.USD);
-        clValueProviderMainnet.addDenomination(STETH_MAINNET, Denominations.ETH);
-        clValueProviderMainnet.addDenomination(CBETH_MAINNET, Denominations.ETH);
-        clValueProviderMainnet.addDenomination(LDO_MAINNET, Denominations.ETH);
-
         // Setting AggregatorV3 contract addresses for tokens using Chainlink
-        clValueProviderMainnet.addChainlinkOracle(RETH_MAINNET, RETH_CL_FEED_MAINNET);
-        clValueProviderMainnet.addChainlinkOracle(USDC_MAINNET, USDC_CL_FEED_MAINNET);
-        clValueProviderMainnet.addChainlinkOracle(USDT_MAINNET, USDT_CL_FEED_MAINNET);
-        clValueProviderMainnet.addChainlinkOracle(FRAX_MAINNET, FRAX_CL_FEED_MAINNET);
-        clValueProviderMainnet.addChainlinkOracle(DAI_MAINNET, DAI_CL_FEED_MAINNET);
-        clValueProviderMainnet.addChainlinkOracle(SUSD_MAINNET, SUSD_CL_FEED_MAINNET);
-        clValueProviderMainnet.addChainlinkOracle(CRV_MAINNET, CRV_CL_FEED_MAINNET);
-        clValueProviderMainnet.addChainlinkOracle(CVX_MAINNET, CVX_CL_FEED_MAINNET);
-        clValueProviderMainnet.addChainlinkOracle(Denominations.ETH_IN_USD, ETH_CL_FEED_MAINNET);
-        clValueProviderMainnet.addChainlinkOracle(STETH_MAINNET, STETH_CL_FEED_MAINNET);
-        clValueProviderMainnet.addChainlinkOracle(CBETH_MAINNET, CBETH_CL_FEED_MAINNET);
-        clValueProviderMainnet.addChainlinkOracle(LDO_MAINNET, LDO_CL_FEED_MAINNET);
+        clValueProviderMainnet.registerChainlinkOracle(
+            RETH_MAINNET, IAggregatorV3Interface(RETH_CL_FEED_MAINNET), BaseValueProviderDenominations.Denomination.ETH
+        );
+        clValueProviderMainnet.registerChainlinkOracle(
+            USDC_MAINNET, IAggregatorV3Interface(USDC_CL_FEED_MAINNET), BaseValueProviderDenominations.Denomination.ETH
+        );
+        clValueProviderMainnet.registerChainlinkOracle(
+            USDT_MAINNET, IAggregatorV3Interface(USDT_CL_FEED_MAINNET), BaseValueProviderDenominations.Denomination.ETH
+        );
+        clValueProviderMainnet.registerChainlinkOracle(
+            FRAX_MAINNET, IAggregatorV3Interface(FRAX_CL_FEED_MAINNET), BaseValueProviderDenominations.Denomination.ETH
+        );
+        clValueProviderMainnet.registerChainlinkOracle(
+            DAI_MAINNET, IAggregatorV3Interface(DAI_CL_FEED_MAINNET), BaseValueProviderDenominations.Denomination.ETH
+        );
+        clValueProviderMainnet.registerChainlinkOracle(
+            SUSD_MAINNET, IAggregatorV3Interface(SUSD_CL_FEED_MAINNET), BaseValueProviderDenominations.Denomination.ETH
+        );
+        clValueProviderMainnet.registerChainlinkOracle(
+            CRV_MAINNET, IAggregatorV3Interface(CRV_CL_FEED_MAINNET), BaseValueProviderDenominations.Denomination.ETH
+        );
+        clValueProviderMainnet.registerChainlinkOracle(
+            CVX_MAINNET, IAggregatorV3Interface(CVX_CL_FEED_MAINNET), BaseValueProviderDenominations.Denomination.ETH
+        );
+        clValueProviderMainnet.registerChainlinkOracle(
+            Denominations.ETH_IN_USD,
+            IAggregatorV3Interface(ETH_CL_FEED_MAINNET),
+            BaseValueProviderDenominations.Denomination.USD
+        );
+        clValueProviderMainnet.registerChainlinkOracle(
+            STETH_MAINNET,
+            IAggregatorV3Interface(STETH_CL_FEED_MAINNET),
+            BaseValueProviderDenominations.Denomination.ETH
+        );
+        clValueProviderMainnet.registerChainlinkOracle(
+            CBETH_MAINNET,
+            IAggregatorV3Interface(CBETH_CL_FEED_MAINNET),
+            BaseValueProviderDenominations.Denomination.ETH
+        );
+        clValueProviderMainnet.registerChainlinkOracle(
+            LDO_MAINNET, IAggregatorV3Interface(LDO_CL_FEED_MAINNET), BaseValueProviderDenominations.Denomination.ETH
+        );
 
         // __________________________ //
         // Optimism setup
@@ -239,17 +258,27 @@ contract EthValueOracleIntegrationTest is Test {
         ethValueOracleOptimism.addValueProvider(Denominations.ETH, address(ethValueProviderOptimism));
         ethValueOracleOptimism.addValueProvider(Denominations.ETH_IN_USD, address(clValueProviderOptimism));
 
-        // Setting denominations
-        clValueProviderOptimism.addDenomination(USDC_OPTIMISM, Denominations.USD);
-        clValueProviderOptimism.addDenomination(WSTETH_OPTIMISM, Denominations.USD);
-        clValueProviderOptimism.addDenomination(SUSDC_OPTIMISM, Denominations.USD);
-        clValueProviderOptimism.addDenomination(Denominations.ETH_IN_USD, Denominations.USD);
-
         // Setting AggregatorV3 contract addresses for tokens using Chainlink
-        clValueProviderOptimism.addChainlinkOracle(USDC_OPTIMISM, USDC_CL_FEED_OPTIMISM);
-        clValueProviderOptimism.addChainlinkOracle(WSTETH_OPTIMISM, WSTETH_CL_FEED_OPTIMISM);
-        clValueProviderOptimism.addChainlinkOracle(SUSDC_OPTIMISM, SUSD_CL_FEED_OPTIMISM);
-        clValueProviderOptimism.addChainlinkOracle(Denominations.ETH_IN_USD, ETH_CL_FEED_OPTIMISM);
+        clValueProviderOptimism.registerChainlinkOracle(
+            USDC_OPTIMISM,
+            IAggregatorV3Interface(USDC_CL_FEED_OPTIMISM),
+            BaseValueProviderDenominations.Denomination.USD
+        );
+        clValueProviderOptimism.registerChainlinkOracle(
+            WSTETH_OPTIMISM,
+            IAggregatorV3Interface(WSTETH_CL_FEED_OPTIMISM),
+            BaseValueProviderDenominations.Denomination.USD
+        );
+        clValueProviderOptimism.registerChainlinkOracle(
+            SUSDC_OPTIMISM,
+            IAggregatorV3Interface(SUSD_CL_FEED_OPTIMISM),
+            BaseValueProviderDenominations.Denomination.USD
+        );
+        clValueProviderOptimism.registerChainlinkOracle(
+            Denominations.ETH_IN_USD,
+            IAggregatorV3Interface(ETH_CL_FEED_OPTIMISM),
+            BaseValueProviderDenominations.Denomination.USD
+        );
 
         // __________________________ //
         // Arbitrum setup
@@ -269,15 +298,22 @@ contract EthValueOracleIntegrationTest is Test {
         ethValueOracleArbitrum.addValueProvider(Denominations.ETH, address(ethValueProviderArbitrum));
         ethValueOracleArbitrum.addValueProvider(Denominations.ETH_IN_USD, address(clValueProviderArbitrum));
 
-        // Setting denominations
-        clValueProviderArbitrum.addDenomination(USDC_ARBITRUM, Denominations.USD);
-        clValueProviderArbitrum.addDenomination(USDT_ARBITRUM, Denominations.USD);
-        clValueProviderArbitrum.addDenomination(Denominations.ETH_IN_USD, Denominations.USD);
-
         // Setting AggregatorV3 contract addresses for tokens using Chainlink
-        clValueProviderArbitrum.addChainlinkOracle(USDC_ARBITRUM, USDC_CL_FEED_ARBITRUM);
-        clValueProviderArbitrum.addChainlinkOracle(USDT_ARBITRUM, USDT_CL_FEED_ARBITRUM);
-        clValueProviderArbitrum.addChainlinkOracle(Denominations.ETH_IN_USD, ETH_CL_FEED_ARBITRUM);
+        clValueProviderArbitrum.registerChainlinkOracle(
+            USDC_ARBITRUM,
+            IAggregatorV3Interface(USDC_CL_FEED_ARBITRUM),
+            BaseValueProviderDenominations.Denomination.USD
+        );
+        clValueProviderArbitrum.registerChainlinkOracle(
+            USDT_ARBITRUM,
+            IAggregatorV3Interface(USDT_CL_FEED_ARBITRUM),
+            BaseValueProviderDenominations.Denomination.USD
+        );
+        clValueProviderArbitrum.registerChainlinkOracle(
+            Denominations.ETH_IN_USD,
+            IAggregatorV3Interface(ETH_CL_FEED_ARBITRUM),
+            BaseValueProviderDenominations.Denomination.USD
+        );
     }
 
     // __________________________ //
