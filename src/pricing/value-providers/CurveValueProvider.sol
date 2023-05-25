@@ -181,9 +181,9 @@ contract CurveValueProvider is BaseValueProviderLP {
         // Get price value in pool per token
         for (uint256 i = 0; i < curvePool.numCoins; ++i) {
             address currentToken = curvePool.tokensInPool[i];
-            uint256 normalizedBalance = TokemakPricingPrecision.checkAndNormalizeDecimals(
-                TokemakPricingPrecision.getDecimals(currentToken), balances[i]
-            );
+            uint256 currentTokenDecimals = TokemakPricingPrecision.getDecimals(currentToken);
+            uint256 normalizedBalance =
+                TokemakPricingPrecision.checkAndNormalizeDecimals(currentTokenDecimals, balances[i]);
             poolValueEth += ethValueOracle.getPrice(currentToken, TokemakPricingPrecision.STANDARD_PRECISION, true)
                 * normalizedBalance;
         }

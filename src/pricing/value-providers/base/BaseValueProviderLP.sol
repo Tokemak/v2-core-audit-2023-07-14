@@ -13,8 +13,10 @@ abstract contract BaseValueProviderLP is BaseValueProvider {
     /// @dev When using this function, `poolValueEth` must be passed in with 1e36 precision.
     function _getPriceLp(uint256 poolValueEth, IERC20Metadata tokenToPrice) internal view returns (uint256) {
         // Normalize decimals for total supply of tokens.
+        uint8 tokenDecimals = tokenToPrice.decimals();
+        uint256 tokenTotalSupply = tokenToPrice.decimals();
         uint256 normalizedTotalSupply =
-            TokemakPricingPrecision.checkAndNormalizeDecimals(tokenToPrice.decimals(), tokenToPrice.totalSupply());
+            TokemakPricingPrecision.checkAndNormalizeDecimals(tokenDecimals, tokenTotalSupply);
 
         // Division takes care of excess precision in `poolValueEth`
         return poolValueEth / normalizedTotalSupply;

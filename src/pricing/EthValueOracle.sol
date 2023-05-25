@@ -51,12 +51,10 @@ contract EthValueOracle is IEthValueOracle, Ownable {
          * `removePrecision` takes away extra 18 decimals of precision that multiplying price returned
          *    from value provider and normalized input price gives.
          */
-        return TokemakPricingPrecision.removePrecision(
-            valueProvider.getPrice(tokenToPrice)
-                * TokemakPricingPrecision.checkAndNormalizeDecimals(
-                    TokemakPricingPrecision.getDecimals(tokenToPrice), amount
-                )
-        );
+        uint256 tokenDecimals = TokemakPricingPrecision.getDecimals(tokenToPrice);
+        uint256 normalizedAmount = TokemakPricingPrecision.checkAndNormalizeDecimals(tokenDecimals, amount);
+        uint256 totalPriceWOPrecisionRemoved = valueProvider.getPrice(tokenToPrice) * normalizedAmount;
+        return TokemakPricingPrecision.removePrecision(totalPriceWOPrecisionRemoved);
     }
     // slither-disable-end boolean-equal
 }

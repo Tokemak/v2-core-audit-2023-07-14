@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 /// @title Used for AMMs that use UniV2 based pair contract as pool.
 interface IPairUniV2 is IERC20Metadata {

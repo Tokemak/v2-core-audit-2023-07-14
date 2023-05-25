@@ -8,18 +8,12 @@ pragma solidity 0.8.17;
  *      This factory used to deploy both stableswap and meta pools.
  */
 interface ICurveMetaStableFactory {
-    /**
-     * @notice Gets coin addresses for pool deployed by factory.
-     */
+    /// @notice Gets coin addresses for pool deployed by factory.
     function get_coins(address pool) external view returns (address[4] memory);
 
-    /**
-     * @notice Gets balances of coins for pool deployed by factory.
-     */
+    /// @notice Gets balances of coins for pool deployed by factory.
     function get_balances(address pool) external view returns (uint256[4] memory);
 
-    /**
-     * @notice Returns number of coins in pool.
-     */
+    /// @notice Returns number of coins in pool.
     function get_n_coins(address pool) external view returns (uint256);
 }

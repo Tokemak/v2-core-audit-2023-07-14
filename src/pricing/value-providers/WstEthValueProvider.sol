@@ -33,8 +33,8 @@ contract WstEthValueProvider is BaseValueProvider {
          * Remove precision as both prices are to 18 decimals of precision.  wstEth is always priced in stEth
          *    when using the `tokensPerStEth()` function.
          */
-        return TokemakPricingPrecision.removePrecision(
-            ethValueOracle.getPrice(stEth, TokemakPricingPrecision.STANDARD_PRECISION, true) * wstEth.tokensPerStEth()
-        );
+        uint256 price =
+            ethValueOracle.getPrice(stEth, TokemakPricingPrecision.STANDARD_PRECISION, true) * wstEth.tokensPerStEth();
+        return TokemakPricingPrecision.removePrecision(price);
     }
 }

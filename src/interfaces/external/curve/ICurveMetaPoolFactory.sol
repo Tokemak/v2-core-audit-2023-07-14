@@ -7,13 +7,9 @@ pragma solidity 0.8.17;
  *      `0x0959158b6040D32d04c301A72CBFD6b39E21c9AE`.  This factory can only be used to deploy metapools.
  */
 interface ICurveMetaPoolFactory {
-    /**
-     * @notice Gets coin addresses for pool deployed by factory.
-     */
+    /// @notice Gets coin addresses for pool deployed by factory.
     function get_coins(address pool) external view returns (address[2] memory);
 
-    /**
-     * @notice Gets balances of coins for pool deployed by factory.
-     */
+    /// @notice Gets balances of coins for pool deployed by factory.
     function get_balances(address pool) external view returns (uint256[2] memory);
 }

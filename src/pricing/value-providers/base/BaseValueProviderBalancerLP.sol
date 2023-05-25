@@ -37,7 +37,7 @@ abstract contract BaseValueProviderBalancerLP is BaseValueProvider {
         bytes32 poolId = pool.getPoolId();
         (IERC20[] memory tokens, uint256[] memory balances,) = balancerVault.getPoolTokens(poolId);
 
-        uint256 poolValueEth;
+        uint256 poolValueEth; // Total value of pool in Eth.
         for (uint256 i = 0; i < tokens.length; ++i) {
             address currentToken = address(tokens[i]);
 
