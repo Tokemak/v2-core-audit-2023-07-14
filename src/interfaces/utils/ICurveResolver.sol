@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.17;
+
+interface ICurveResolver {
+    /// @notice Resolve details of a Curve pool regardless of type or version
+    /// @dev This resolves tokens without unwrapping to underlying in the case of meta pools
+    /// @param poolAddress pool address to lookup
+    /// @return tokens tokens that make up the pool
+    /// @return numTokens the number of tokens. tokens are not unwrapped.
+    /// @return isStableSwap is this a StableSwap pool. false = CryptoSwap
+    function resolve(address poolAddress)
+        external
+        view
+        returns (address[8] memory tokens, uint256 numTokens, bool isStableSwap);
+
+    /// @notice Resolve details of a Curve pool regardless of type or version
+    /// @dev This resolves tokens without unwrapping to underlying in the case of meta pools
+    /// @param poolAddress pool address to lookup
+    /// @return tokens tokens that make up the pool
+    /// @return numTokens the number of tokens. tokens are not unwrapped
+    /// @return lpToken lp token of the pool
+    /// @return isStableSwap is this a StableSwap pool. false = CryptoSwap
+    function resolveWithLpToken(address poolAddress)
+        external
+        view
+        returns (address[8] memory tokens, uint256 numTokens, address lpToken, bool isStableSwap);
+}
