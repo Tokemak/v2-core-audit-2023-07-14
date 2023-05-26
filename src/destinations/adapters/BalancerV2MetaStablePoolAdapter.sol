@@ -162,11 +162,11 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
         uint256 poolAmountIn,
         IERC20[] memory tokens,
         uint256[] memory minAmountsOut
-    ) public nonReentrant returns (uint256[] memory amountsOut) {
+    ) public nonReentrant returns (uint256[] memory withdrawnAmounts) {
         // encode withdraw request
         bytes memory userData = abi.encode(ExitKind.EXACT_BPT_IN_FOR_TOKENS_OUT, poolAmountIn);
 
-        amountsOut = _withdraw(
+        withdrawnAmounts = _withdraw(
             WithdrawParams({
                 pool: pool,
                 bptAmount: poolAmountIn,
@@ -185,6 +185,7 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
         amountsOut = params.amountsOut;
 
         uint256 nTokens = params.tokens.length;
+        // slither-disable-next-line incorrect-equality
         if (nTokens == 0 || nTokens != amountsOut.length) {
             revert ArraysLengthMismatch();
         }

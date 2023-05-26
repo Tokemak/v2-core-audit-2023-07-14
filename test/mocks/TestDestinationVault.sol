@@ -37,10 +37,6 @@ contract TestDestinationVault is DestinationVault {
         return _claimVested;
     }
 
-    function isTrackedToken_(address token) internal view override returns (bool) {
-        return _trackedTokens.contains(token);
-    }
-
     function reclaimDebt_(uint256, uint256) internal view override returns (uint256 amount, uint256 loss) {
         return (_reclaimDebtAmount, _reclaimDebtLoss);
     }
