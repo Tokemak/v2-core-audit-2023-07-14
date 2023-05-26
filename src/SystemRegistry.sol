@@ -3,16 +3,16 @@ pragma solidity 0.8.17;
 
 import { Errors } from "src/utils/Errors.sol";
 import { Ownable2Step } from "./access/Ownable2Step.sol";
+import { ISystemBound } from "src/interfaces/ISystemBound.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
+import { ILMPVaultRouter } from "src/interfaces/vault/ILMPVaultRouter.sol";
+import { ILMPVaultFactory } from "src/interfaces/vault/ILMPVaultFactory.sol";
 import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
 import { IAccessController } from "src/interfaces/security/IAccessController.sol";
-import { ISystemBound } from "src/interfaces/ISystemBound.sol";
-import { IDestinationRegistry } from "src/interfaces/destinations/IDestinationRegistry.sol";
-import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
-import { ILMPVaultFactory } from "src/interfaces/vault/ILMPVaultFactory.sol";
-import { ILMPVaultRouter } from "src/interfaces/vault/ILMPVaultRouter.sol";
-
 import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
+import { IDestinationRegistry } from "src/interfaces/destinations/IDestinationRegistry.sol";
+import { IStatsCalculatorRegistry } from "src/interfaces/stats/IStatsCalculatorRegistry.sol";
+import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
 
 /// @notice Root contract of the system instance.
 /// @dev All contracts in this instance of the system should be reachable from this contract
@@ -31,6 +31,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
 
     mapping(bytes32 => ILMPVaultFactory) private _lmpVaultFactoryByType;
     EnumerableSet.Bytes32Set private _lmpVaultFactoryTypes;
+    IStatsCalculatorRegistry private _statsCalculatorRegistry;
 
     /* ******************************** */
     /* Events                           */
@@ -44,6 +45,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
 
     event LMPVaultFactorySet(bytes32 vaultType, address factoryAddress);
     event LMPVaultFactoryRemoved(bytes32 vaultType, address factoryAddress);
+    event StatsCalculatorRegistrySet(address newAddress);
 
     /* ******************************** */
     /* Errors                           */
@@ -89,6 +91,11 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         }
 
         return _lmpVaultFactoryByType[vaultType];
+    }
+
+    /// @inheritdoc ISystemRegistry
+    function statsCalculatorRegistry() external view returns (IStatsCalculatorRegistry) {
+        return _statsCalculatorRegistry;
     }
 
     /* ******************************** */
@@ -172,6 +179,23 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         _destinationTemplateRegistry = IDestinationRegistry(registry);
 
         verifySystemsAgree(address(_destinationTemplateRegistry));
+    }
+
+    /// @notice Set the Stats Calculator Registry for this instance of the system
+    /// @dev Should only be able to set this value one time
+    /// @param registry Address of the registry
+    function setStatsCalculatorRegistry(address registry) external onlyOwner {
+        Errors.verifyNotZero(registry, "statsCalculatorRegistry");
+
+        if (address(_statsCalculatorRegistry) != address(0)) {
+            revert AlreadySet("statsCalculatorRegistry");
+        }
+
+        emit StatsCalculatorRegistrySet(registry);
+
+        _statsCalculatorRegistry = IStatsCalculatorRegistry(registry);
+
+        verifySystemsAgree(address(_statsCalculatorRegistry));
     }
 
     /// @notice Verifies that a system bound contract matches this contract

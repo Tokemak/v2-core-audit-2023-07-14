@@ -28,8 +28,14 @@ library Errors {
         }
     }
 
-    function verifyNotZero(bytes32 addr, string memory paramName) external pure {
-        if (addr == bytes32(0)) {
+    function verifyNotZero(bytes32 key, string memory paramName) external pure {
+        if (key == bytes32(0)) {
+            revert InvalidParam(paramName);
+        }
+    }
+
+    function verifyNotZero(uint256 num, string memory paramName) external pure {
+        if (num == 0) {
             revert InvalidParam(paramName);
         }
     }

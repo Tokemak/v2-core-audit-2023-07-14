@@ -1,0 +1,227 @@
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.8.7;
+
+import { Test } from "forge-std/Test.sol";
+import { Stats } from "src/libs/Stats.sol";
+import { Roles } from "src/libs/Roles.sol";
+import { ISystemBound } from "src/interfaces/ISystemBound.sol";
+import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
+import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
+import { StatsCalculatorFactory } from "src/stats/StatsCalculatorFactory.sol";
+import { IAccessControl } from "openzeppelin-contracts/access/IAccessControl.sol";
+import { IAccessController } from "src/interfaces/security/IAccessController.sol";
+import { IStatsCalculatorRegistry } from "src/interfaces/stats/IStatsCalculatorRegistry.sol";
+
+contract StatsCalculatorFactoryTests is Test {
+    address private testUser1;
+
+    ISystemRegistry private systemRegistry;
+    IAccessController private accessController;
+    IStatsCalculatorRegistry private statsRegistry;
+    StatsCalculatorFactory private factory;
+
+    event TemplateRemoved(bytes32 aprTemplateId, address template);
+    event TemplateReplaced(bytes32 aprTemplateId, address oldAddress, address newAddress);
+    event TemplateRegistered(bytes32 aprTemplateId, address newTemplate);
+
+    function setUp() public {
+        testUser1 = vm.addr(1);
+
+        systemRegistry = ISystemRegistry(vm.addr(5));
+        accessController = IAccessController(vm.addr(6));
+        statsRegistry = IStatsCalculatorRegistry(vm.addr(7));
+
+        setupSystemRegistry(address(systemRegistry), address(accessController), address(statsRegistry));
+        factory = new StatsCalculatorFactory(systemRegistry);
+    }
+
+    function testConstruction() public {
+        address sr = factory.getSystemRegistry();
+
+        assertEq(sr, address(systemRegistry));
+    }
+
+    function testRegisteringTemplate() public {
+        address template = vm.addr(1001);
+        bytes32 aprTemplateId = keccak256("CurveConvex1");
+        ensureTemplateManagerRole();
+
+        vm.expectEmit(true, true, true, true);
+        emit TemplateRegistered(aprTemplateId, template);
+        factory.registerTemplate(aprTemplateId, template);
+
+        address queriedTemplate = factory.templates(aprTemplateId);
+        assertEq(queriedTemplate, template);
+    }
+
+    function testRegisterTemplateValidId() public { }
+
+    function testRegisterTemplateValidAddress() public { }
+
+    function testRegisterTemplateCanReplace() public { }
+
+    function testRegisterTemplateChecksRole() public { }
+
+    function testRemovingTemplate() public {
+        address template = vm.addr(1001);
+        bytes32 aprTemplateId = keccak256("CurveConvex1");
+        ensureTemplateManagerRole();
+
+        factory.registerTemplate(aprTemplateId, template);
+
+        vm.expectEmit(true, true, true, true);
+        emit TemplateRemoved(aprTemplateId, template);
+
+        factory.removeTemplate(aprTemplateId);
+
+        address queriedTemplate = factory.templates(aprTemplateId);
+        assertEq(queriedTemplate, address(0));
+    }
+
+    function testRemoveTemplateValidId() public { }
+
+    function testRemoveTemplateMustBeRegistered() public { }
+
+    function testRemoveTemplateChecksRole() public { }
+
+    function testReplacingTemplate() public {
+        address template = vm.addr(1001);
+        address templateNew = vm.addr(1002);
+        bytes32 aprTemplateId = keccak256("CurveConvex1");
+        ensureTemplateManagerRole();
+
+        factory.registerTemplate(aprTemplateId, template);
+
+        vm.expectEmit(true, true, true, true);
+        emit TemplateReplaced(aprTemplateId, template, templateNew);
+        factory.replaceTemplate(aprTemplateId, template, templateNew);
+
+        address queriedTemplate = factory.templates(aprTemplateId);
+        assertEq(queriedTemplate, templateNew);
+    }
+
+    function testReplaceTemplateValidId() public { }
+
+    function testReplaceTemplateValidAddresses() public { }
+
+    function testReplaceTemplateEnsureOldMatch() public { }
+
+    function testReplaceTemplateNewOldDontMatch() public { }
+
+    function testReplaceTemplateChecksRole() public { }
+
+    function testBasicCreate() public {
+        TestCalculator template = new TestCalculator();
+        bytes32 aprTemplateId = keccak256("CurveConvex1");
+        ensureTemplateManagerRole();
+        ensureCalcCreatorRole();
+
+        factory.registerTemplate(aprTemplateId, address(template));
+
+        address poolAddress = vm.addr(2000);
+        address stakingAddress = vm.addr(2001);
+        uint256 initBaseApr = 9;
+        TestCalculator.InitData memory initData = TestCalculator.InitData({
+            poolAddress: poolAddress,
+            stakingAddress: stakingAddress,
+            initBaseApr: initBaseApr
+        });
+        bytes memory encodedInitData = abi.encode(initData);
+
+        // Ensure Initialize is called with data and registry
+        // Ensure values are registered in the stats calc registry
+        ensureRegisterPasses();
+        bytes32 expectedAprId = keccak256(abi.encode("tokeDexV1", poolAddress, stakingAddress));
+        address expectedCalculatorAddress = computeCreateAddress(address(factory), 1);
+        vm.expectCall(
+            address(statsRegistry), abi.encodeCall(IStatsCalculatorRegistry.register, (expectedCalculatorAddress))
+        );
+        bytes32[] memory e = new bytes32[](0);
+        (address calculatorAddress) = factory.create(aprTemplateId, e, encodedInitData);
+        TestCalculator createdCalc = TestCalculator(calculatorAddress);
+        bytes32 aprId = createdCalc.getAprId();
+
+        assertEq(createdCalc.current().baseApr, initBaseApr);
+        assertEq(expectedAprId, aprId);
+        assertEq(address(createdCalc.systemRegistry()), address(systemRegistry));
+    }
+
+    function testCreateChecksRole() public { }
+
+    function testCreateRequiresRegisteredTemplate() public { }
+
+    function testCreateReturnsAprId() public { }
+
+    function ensureRegisterPasses() internal {
+        vm.mockCall(
+            address(statsRegistry), abi.encodeWithSelector(IStatsCalculatorRegistry.register.selector), abi.encode("")
+        );
+    }
+
+    function ensureTemplateManagerRole() internal {
+        vm.mockCall(
+            address(accessController),
+            abi.encodeWithSelector(IAccessControl.hasRole.selector, Roles.STATS_CALC_TEMPLATE_MGMT_ROLE, address(this)),
+            abi.encode(true)
+        );
+    }
+
+    function ensureCalcCreatorRole() internal {
+        vm.mockCall(
+            address(accessController),
+            abi.encodeWithSelector(IAccessControl.hasRole.selector, Roles.CREATE_STATS_CALC_ROLE, address(this)),
+            abi.encode(true)
+        );
+    }
+
+    function setupSystemRegistry(address _systemRegistry, address accessControl, address _statsRegistry) internal {
+        vm.mockCall(
+            _systemRegistry,
+            abi.encodeWithSelector(ISystemRegistry.statsCalculatorRegistry.selector),
+            abi.encode(_statsRegistry)
+        );
+        vm.mockCall(
+            _systemRegistry,
+            abi.encodeWithSelector(ISystemRegistry.accessController.selector),
+            abi.encode(accessControl)
+        );
+    }
+}
+
+contract TestCalculator is IStatsCalculator {
+    Stats.CalculatedStats private stats;
+
+    string public constant BASE_APR_ID_KEY = "tokeDexV1";
+
+    bytes32 private aprId;
+
+    ISystemRegistry public systemRegistry;
+
+    struct InitData {
+        address poolAddress;
+        address stakingAddress;
+        uint256 initBaseApr;
+    }
+
+    function getAddressId() external pure returns (address) {
+        return address(0);
+    }
+
+    function getAprId() external view returns (bytes32) {
+        return aprId;
+    }
+
+    function initialize(ISystemRegistry _systemRegistry, bytes32[] calldata, bytes calldata initData) external {
+        InitData memory init = abi.decode(initData, (InitData));
+        aprId = keccak256(abi.encode(BASE_APR_ID_KEY, init.poolAddress, init.stakingAddress));
+
+        stats.baseApr = init.initBaseApr;
+        systemRegistry = _systemRegistry;
+    }
+
+    function current() external view returns (Stats.CalculatedStats memory st) {
+        st = stats;
+    }
+
+    function snapshot() external { }
+}

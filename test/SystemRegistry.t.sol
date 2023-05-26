@@ -8,6 +8,7 @@ import { ISystemBound } from "src/interfaces/ISystemBound.sol";
 import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
 import { IAccessController } from "src/interfaces/security/IAccessController.sol";
 import { IDestinationRegistry } from "src/interfaces/destinations/IDestinationRegistry.sol";
+import { IStatsCalculatorRegistry } from "src/interfaces/stats/IStatsCalculatorRegistry.sol";
 import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
 
 contract SystemRegistryTest is Test {
@@ -15,6 +16,7 @@ contract SystemRegistryTest is Test {
 
     event LMPVaultRegistrySet(address newAddress);
     event AccessControllerSet(address newAddress);
+    event StatsCalculatorRegistrySet(address newAddress);
     event DestinationVaultRegistrySet(address newAddress);
     event DestinationTemplateRegistrySet(address newAddress);
 
@@ -333,6 +335,88 @@ contract SystemRegistryTest is Test {
         address emptyContract = address(new EmptyContract());
         vm.expectRevert(abi.encodeWithSelector(SystemRegistry.InvalidContract.selector, emptyContract));
         _systemRegistry.setAccessController(emptyContract);
+    }
+
+    /* ******************************** */
+    /* Stats Calc Registry
+    /* ******************************** */
+
+    function testSystemRegistryStatsCalcRegistrySetOnceDuplicateValue() public {
+        address statsCalcRegistry = vm.addr(1);
+        mockSystemBound(statsCalcRegistry);
+        _systemRegistry.setStatsCalculatorRegistry(statsCalcRegistry);
+        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.AlreadySet.selector, "statsCalculatorRegistry"));
+        _systemRegistry.setStatsCalculatorRegistry(statsCalcRegistry);
+    }
+
+    function testSystemRegistryStatsCalcRegistrySetOnceDifferentValue() public {
+        address statsCalcRegistry = vm.addr(1);
+        mockSystemBound(statsCalcRegistry);
+        _systemRegistry.setStatsCalculatorRegistry(statsCalcRegistry);
+        statsCalcRegistry = vm.addr(2);
+        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.AlreadySet.selector, "statsCalculatorRegistry"));
+        _systemRegistry.setStatsCalculatorRegistry(statsCalcRegistry);
+    }
+
+    function testSystemRegistryStatsCalcRegistryZeroNotAllowed() public {
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "statsCalculatorRegistry"));
+        _systemRegistry.setStatsCalculatorRegistry(address(0));
+    }
+
+    function testSystemRegistryStatsCalcRegistryRetrieveSetValue() public {
+        address statsCalcRegistry = vm.addr(3);
+        mockSystemBound(statsCalcRegistry);
+        _systemRegistry.setStatsCalculatorRegistry(statsCalcRegistry);
+        IStatsCalculatorRegistry queried = _systemRegistry.statsCalculatorRegistry();
+
+        assertEq(statsCalcRegistry, address(queried));
+    }
+
+    function testSystemRegistryStatsCalcRegistryEmitsEventWithNewAddress() public {
+        address statsCalcRegistry = vm.addr(3);
+
+        vm.expectEmit(true, true, true, true);
+        emit StatsCalculatorRegistrySet(statsCalcRegistry);
+
+        mockSystemBound(statsCalcRegistry);
+        _systemRegistry.setStatsCalculatorRegistry(statsCalcRegistry);
+    }
+
+    function testSystemRegistryStatsCalcRegistryOnlyCallableByOwner() public {
+        address statsCalcRegistry = vm.addr(3);
+        address newOwner = vm.addr(4);
+
+        vm.expectRevert("Ownable: caller is not the owner");
+        vm.prank(newOwner);
+        _systemRegistry.setStatsCalculatorRegistry(statsCalcRegistry);
+    }
+
+    function testSystemRegistryStatsCalcRegistrySystemsMatch() public {
+        address statsCalcRegistry = vm.addr(1);
+        address fakeStatsCalcRegistry = vm.addr(2);
+        vm.mockCall(
+            statsCalcRegistry,
+            abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector),
+            abi.encode(fakeStatsCalcRegistry)
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                SystemRegistry.SystemMismatch.selector, address(_systemRegistry), fakeStatsCalcRegistry
+            )
+        );
+        _systemRegistry.setStatsCalculatorRegistry(statsCalcRegistry);
+    }
+
+    function testSystemRegistryStatsCalcRegistryInvalidContractCaught() public {
+        // When its not a contract
+        address fakeStatsCalcRegistry = vm.addr(2);
+        vm.expectRevert();
+        _systemRegistry.setStatsCalculatorRegistry(fakeStatsCalcRegistry);
+
+        // When it is a contract, just incorrect
+        address emptyContract = address(new EmptyContract());
+        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.InvalidContract.selector, emptyContract));
+        _systemRegistry.setStatsCalculatorRegistry(emptyContract);
     }
 
     /* ******************************** */

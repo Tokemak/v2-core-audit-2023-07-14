@@ -4,6 +4,7 @@
 		"max-line-length": ["error", 120],
 		"compiler-version": ["error", "^0.8.7"],
 		"no-empty-blocks": "off",
-		"func-visibility": ["warn", { "ignoreConstructors": true }]
+		"func-visibility": ["warn", { "ignoreConstructors": true }],
+		"private-vars-leading-underscore": "off"
 	}
 }

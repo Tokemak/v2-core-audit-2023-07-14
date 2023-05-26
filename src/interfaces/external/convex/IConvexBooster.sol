@@ -9,5 +9,6 @@ interface IConvexBooster {
     /// @notice get poolInfo for a poolId
     function poolInfo(uint256 _pid)
         external
+        view
         returns (address lptoken, address token, address gauge, address crvRewards, address stash, bool shutdown);
 }
