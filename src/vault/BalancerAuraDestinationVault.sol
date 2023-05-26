@@ -21,7 +21,6 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    error InvalidPoolId();
     error NothingToClaim();
     error NoDebtReclaimed();
 
@@ -36,7 +35,7 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
     IERC20[] public poolTokens;
 
     address public staking;
-    bytes32 public poolId;
+    address public pool;
 
     function initialize(
         ISystemRegistry _systemRegistry,
@@ -49,7 +48,7 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
         IERC20 _lpToken,
         IERC20[] memory _poolTokens,
         address _staking,
-        bytes32 _poolId
+        address _pool
     ) public initializer {
         //slither-disable-start missing-zero-check
         DestinationVault.initialize(_systemRegistry, _baseAsset, baseName, data);
@@ -57,16 +56,15 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
 
         Errors.verifyNotZero(address(_rewarder), "_rewarder");
         Errors.verifyNotZero(address(_swapper), "_swapper");
-        Errors.verifyNotZero(address(_staking), "_staking");
         Errors.verifyNotZero(address(_lpToken), "_lpToken");
+        Errors.verifyNotZero(address(_staking), "_staking");
+        Errors.verifyNotZero(address(_pool), "_pool");
 
         rewarder = _rewarder;
         swapper = _swapper;
         staking = _staking;
         lpToken = _lpToken;
-
-        if (_poolId.length == 0) revert InvalidPoolId();
-        poolId = _poolId;
+        pool = _pool;
 
         if (_poolTokens.length == 0) revert ArrayLengthMismatch();
         poolTokens = _poolTokens;
@@ -145,7 +143,7 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
         uint256 balancerLpBurnAmount = totalLpBurnAmount - auraLpBurnAmount;
         // all minAmounts are 0, we set the burn LP amount and don't specify the amounts we expect by each token
         uint256[] memory minAmounts = new uint256[](poolTokens.length);
-        uint256[] memory sellAmounts = removeLiquidityImbalance(poolId, balancerLpBurnAmount, poolTokens, minAmounts);
+        uint256[] memory sellAmounts = removeLiquidityImbalance(pool, balancerLpBurnAmount, poolTokens, minAmounts);
 
         // 3) swap what we receive
         for (uint256 i = 0; i < poolTokens.length; ++i) {

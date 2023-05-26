@@ -29,7 +29,7 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
     BalancerV2MetaStablePoolAdapter public adapter;
 
     struct BalancerExtraParams {
-        bytes32 poolId;
+        address pool;
         IERC20[] tokens;
     }
 
@@ -53,7 +53,6 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
     }
 
     function testAddLiquidityWstEthCbEth() public {
-        bytes32 poolId = 0x9c6d47ff73e0f5e51be5fd53236e3f595c5793f200020000000000000000042c;
         address poolAddress = 0x9c6d47Ff73e0F5E51BE5FD53236e3F595C5793F2;
         IERC20 lpToken = IERC20(poolAddress);
 
@@ -74,7 +73,7 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         tokens[0] = IERC20(WSTETH_MAINNET);
         tokens[1] = IERC20(CBETH_MAINNET);
 
-        bytes memory extraParams = abi.encode(BalancerExtraParams(poolId, tokens));
+        bytes memory extraParams = abi.encode(BalancerExtraParams(poolAddress, tokens));
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
         uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
@@ -87,7 +86,6 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
     }
 
     function testRemoveLiquidityWstEthCbEth() public {
-        bytes32 poolId = 0x9c6d47ff73e0f5e51be5fd53236e3f595c5793f200020000000000000000042c;
         address poolAddress = 0x9c6d47Ff73e0F5E51BE5FD53236e3F595C5793F2;
         IERC20 lpToken = IERC20(poolAddress);
 
@@ -104,7 +102,7 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         tokens[0] = IERC20(WSTETH_MAINNET);
         tokens[1] = IERC20(CBETH_MAINNET);
 
-        bytes memory extraParams = abi.encode(BalancerExtraParams(poolId, tokens));
+        bytes memory extraParams = abi.encode(BalancerExtraParams(poolAddress, tokens));
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
         uint256 preBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
@@ -126,7 +124,6 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
     }
 
     function testAddLiquidityWstEthWeth() public {
-        bytes32 poolId = 0x32296969ef14eb0c6d29669c550d4a0449130230000200000000000000000080;
         address poolAddress = 0x32296969Ef14EB0c6d29669C550D4a0449130230;
         IERC20 lpToken = IERC20(poolAddress);
 
@@ -148,7 +145,7 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         tokens[0] = IERC20(WSTETH_MAINNET);
         tokens[1] = IERC20(WETH_MAINNET);
 
-        bytes memory extraParams = abi.encode(BalancerExtraParams(poolId, tokens));
+        bytes memory extraParams = abi.encode(BalancerExtraParams(poolAddress, tokens));
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
         uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
@@ -161,7 +158,6 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
     }
 
     function testRemoveLiquidityWstEthWeth() public {
-        bytes32 poolId = 0x32296969ef14eb0c6d29669c550d4a0449130230000200000000000000000080;
         address poolAddress = 0x32296969Ef14EB0c6d29669C550D4a0449130230;
         IERC20 lpToken = IERC20(poolAddress);
 
@@ -178,7 +174,7 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         tokens[0] = IERC20(WSTETH_MAINNET);
         tokens[1] = IERC20(WETH_MAINNET);
 
-        bytes memory extraParams = abi.encode(BalancerExtraParams(poolId, tokens));
+        bytes memory extraParams = abi.encode(BalancerExtraParams(poolAddress, tokens));
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
         uint256 preBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
@@ -200,7 +196,6 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
     }
 
     function testAddLiquidityRethWeth() public {
-        bytes32 poolId = 0x1e19cf2d73a72ef1332c882f20534b6519be0276000200000000000000000112;
         address poolAddress = 0x1E19CF2D73a72Ef1332C882F20534B6519Be0276;
         IERC20 lpToken = IERC20(poolAddress);
 
@@ -221,7 +216,7 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         tokens[0] = IERC20(RETH_MAINNET);
         tokens[1] = IERC20(WETH_MAINNET);
 
-        bytes memory extraParams = abi.encode(BalancerExtraParams(poolId, tokens));
+        bytes memory extraParams = abi.encode(BalancerExtraParams(poolAddress, tokens));
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
         uint256 afterBalance1 = IERC20(RETH_MAINNET).balanceOf(address(adapter));
@@ -234,7 +229,6 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
     }
 
     function testRemoveLiquidityRethWeth() public {
-        bytes32 poolId = 0x1e19cf2d73a72ef1332c882f20534b6519be0276000200000000000000000112;
         address poolAddress = 0x1E19CF2D73a72Ef1332C882F20534B6519Be0276;
         IERC20 lpToken = IERC20(poolAddress);
 
@@ -251,7 +245,7 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         tokens[0] = IERC20(RETH_MAINNET);
         tokens[1] = IERC20(WETH_MAINNET);
 
-        bytes memory extraParams = abi.encode(BalancerExtraParams(poolId, tokens));
+        bytes memory extraParams = abi.encode(BalancerExtraParams(poolAddress, tokens));
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
         uint256 preBalance1 = IERC20(RETH_MAINNET).balanceOf(address(adapter));
@@ -275,7 +269,6 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
     function testAddLiquidityWstEthWethArbitrum() public {
         forkArbitrum();
 
-        bytes32 poolId = 0x36bf227d6bac96e2ab1ebb5492ecec69c691943f000200000000000000000316;
         address poolAddress = 0x36bf227d6BaC96e2aB1EbB5492ECec69C691943f;
         IERC20 lpToken = IERC20(poolAddress);
 
@@ -297,7 +290,7 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         tokens[0] = IERC20(WSTETH_ARBITRUM);
         tokens[1] = IERC20(WETH_ARBITRUM);
 
-        bytes memory extraParams = abi.encode(BalancerExtraParams(poolId, tokens));
+        bytes memory extraParams = abi.encode(BalancerExtraParams(poolAddress, tokens));
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
         uint256 afterBalance1 = IERC20(WSTETH_ARBITRUM).balanceOf(address(adapter));
@@ -312,7 +305,6 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
     function testRemoveLiquidityWstEthWethArbitrum() public {
         forkArbitrum();
 
-        bytes32 poolId = 0x36bf227d6bac96e2ab1ebb5492ecec69c691943f000200000000000000000316;
         address poolAddress = 0x36bf227d6BaC96e2aB1EbB5492ECec69C691943f;
         IERC20 lpToken = IERC20(poolAddress);
 
@@ -329,7 +321,7 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         tokens[0] = IERC20(WSTETH_ARBITRUM);
         tokens[1] = IERC20(WETH_ARBITRUM);
 
-        bytes memory extraParams = abi.encode(BalancerExtraParams(poolId, tokens));
+        bytes memory extraParams = abi.encode(BalancerExtraParams(poolAddress, tokens));
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
         uint256 preBalance1 = IERC20(WSTETH_ARBITRUM).balanceOf(address(adapter));

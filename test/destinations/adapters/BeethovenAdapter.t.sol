@@ -16,7 +16,7 @@ contract BeethovenAdapterTest is Test {
     BeethovenAdapter private adapter;
 
     struct BalancerExtraParams {
-        bytes32 poolId;
+        address pool;
         IERC20[] tokens;
     }
 
@@ -30,7 +30,6 @@ contract BeethovenAdapterTest is Test {
     }
 
     function testAddLiquidityWstEthWeth() public {
-        bytes32 poolId = 0x7b50775383d3d6f0215a8f290f2c9e2eebbeceb200020000000000000000008b;
         address poolAddress = 0x7B50775383d3D6f0215A8F290f2C9e2eEBBEceb2;
         IERC20 lpToken = IERC20(poolAddress);
 
@@ -51,20 +50,19 @@ contract BeethovenAdapterTest is Test {
         tokens[0] = IERC20(WSTETH_OPTIMISM);
         tokens[1] = IERC20(WETH9_OPTIMISM);
 
-        bytes memory extraParams = abi.encode(BalancerExtraParams(poolId, tokens));
+        bytes memory extraParams = abi.encode(BalancerExtraParams(poolAddress, tokens));
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
         uint256 afterBalance1 = IERC20(WSTETH_OPTIMISM).balanceOf(address(adapter));
         uint256 afterBalance2 = IERC20(WETH9_OPTIMISM).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterLpBalance = lpToken.balanceOf(address(adapter));
 
         assertEq(afterBalance1, preBalance1 - amounts[0]);
         assertEq(afterBalance2, preBalance2 - amounts[1]);
-        assert(aftrerLpBalance > preLpBalance);
+        assert(afterLpBalance > preLpBalance);
     }
 
     function testRemoveLiquidityWstEthWeth() public {
-        bytes32 poolId = 0x7b50775383d3d6f0215a8f290f2c9e2eebbeceb200020000000000000000008b;
         address poolAddress = 0x7B50775383d3D6f0215A8F290f2C9e2eEBBEceb2;
         IERC20 lpToken = IERC20(poolAddress);
 
@@ -81,7 +79,7 @@ contract BeethovenAdapterTest is Test {
         tokens[0] = IERC20(WSTETH_OPTIMISM);
         tokens[1] = IERC20(WETH9_OPTIMISM);
 
-        bytes memory extraParams = abi.encode(BalancerExtraParams(poolId, tokens));
+        bytes memory extraParams = abi.encode(BalancerExtraParams(poolAddress, tokens));
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
         uint256 preBalance1 = IERC20(WSTETH_OPTIMISM).balanceOf(address(adapter));
@@ -95,15 +93,14 @@ contract BeethovenAdapterTest is Test {
 
         uint256 afterBalance1 = IERC20(WSTETH_OPTIMISM).balanceOf(address(adapter));
         uint256 afterBalance2 = IERC20(WETH9_OPTIMISM).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterLpBalance = lpToken.balanceOf(address(adapter));
 
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 > preBalance2);
-        assert(aftrerLpBalance < preLpBalance);
+        assert(afterLpBalance < preLpBalance);
     }
 
     function testAddLiquidityRethWeth() public {
-        bytes32 poolId = 0x4fd63966879300cafafbb35d157dc5229278ed2300020000000000000000002b;
         address poolAddress = 0x4Fd63966879300caFafBB35D157dC5229278Ed23;
         IERC20 lpToken = IERC20(poolAddress);
 
@@ -124,20 +121,19 @@ contract BeethovenAdapterTest is Test {
         tokens[0] = IERC20(WETH9_OPTIMISM);
         tokens[1] = IERC20(RETH_OPTIMISM);
 
-        bytes memory extraParams = abi.encode(BalancerExtraParams(poolId, tokens));
+        bytes memory extraParams = abi.encode(BalancerExtraParams(poolAddress, tokens));
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
         uint256 afterBalance1 = IERC20(RETH_OPTIMISM).balanceOf(address(adapter));
         uint256 afterBalance2 = IERC20(WETH9_OPTIMISM).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterLpBalance = lpToken.balanceOf(address(adapter));
 
         assertEq(afterBalance1, preBalance1 - amounts[0]);
         assertEq(afterBalance2, preBalance2 - amounts[1]);
-        assert(aftrerLpBalance > preLpBalance);
+        assert(afterLpBalance > preLpBalance);
     }
 
     function testRemoveLiquidityRethWeth() public {
-        bytes32 poolId = 0x4fd63966879300cafafbb35d157dc5229278ed2300020000000000000000002b;
         address poolAddress = 0x4Fd63966879300caFafBB35D157dC5229278Ed23;
         IERC20 lpToken = IERC20(poolAddress);
 
@@ -154,7 +150,7 @@ contract BeethovenAdapterTest is Test {
         tokens[0] = IERC20(WETH9_OPTIMISM);
         tokens[1] = IERC20(RETH_OPTIMISM);
 
-        bytes memory extraParams = abi.encode(BalancerExtraParams(poolId, tokens));
+        bytes memory extraParams = abi.encode(BalancerExtraParams(poolAddress, tokens));
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
         uint256 preBalance1 = IERC20(RETH_OPTIMISM).balanceOf(address(adapter));
@@ -168,10 +164,10 @@ contract BeethovenAdapterTest is Test {
 
         uint256 afterBalance1 = IERC20(RETH_OPTIMISM).balanceOf(address(adapter));
         uint256 afterBalance2 = IERC20(WETH9_OPTIMISM).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterLpBalance = lpToken.balanceOf(address(adapter));
 
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 > preBalance2);
-        assert(aftrerLpBalance < preLpBalance);
+        assert(afterLpBalance < preLpBalance);
     }
 }

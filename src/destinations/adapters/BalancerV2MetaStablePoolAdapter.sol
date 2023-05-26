@@ -9,6 +9,7 @@ import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard
 import { IPoolAdapter } from "src/interfaces/destinations/IPoolAdapter.sol";
 import { IAsset } from "src/interfaces/external/balancer/IAsset.sol";
 import { IVault } from "src/interfaces/external/balancer/IVault.sol";
+import { IBasePool } from "src/interfaces/external/balancer/IBasePool.sol";
 import { LibAdapter } from "src/libs/LibAdapter.sol";
 import { Errors } from "src/utils/Errors.sol";
 
@@ -53,13 +54,13 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
         REMOVE_TOKEN
     }
 
-    /// @param poolId bytes32 Balancer poolId
+    /// @param pool address of Balancer Pool
     /// @param bptAmount uint256 pool token amount expected back
     /// @param tokens IERC20[] of tokens to be withdrawn from pool
     /// @param amountsOut uint256[] min amount of tokens expected on withdrawal
     /// @param userData bytes data, used for info about kind of pool exit
     struct WithdrawParams {
-        bytes32 poolId;
+        address pool;
         uint256 bptAmount;
         IERC20[] tokens;
         uint256[] amountsOut;
@@ -67,7 +68,7 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
     }
 
     struct BalancerExtraParams {
-        bytes32 poolId;
+        address pool;
         IERC20[] tokens;
     }
 
@@ -90,33 +91,27 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
         if (minLpMintAmount == 0) {
             revert MustBeMoreThanZero();
         }
-
-        // get bpt address of the pool (for later balance checks)
-        (address poolAddress,) = vault.getPool(balancerExtraParams.poolId);
+        bytes32 poolId = IBasePool(balancerExtraParams.pool).getPoolId();
 
         uint256[] memory assetBalancesBefore = new uint256[](balancerExtraParams.tokens.length);
 
         // verify that we're passing correct pool tokens
         _ensureTokenOrderAndApprovals(
-            balancerExtraParams.tokens.length,
-            amounts,
-            balancerExtraParams.tokens,
-            balancerExtraParams.poolId,
-            assetBalancesBefore
+            balancerExtraParams.tokens.length, amounts, balancerExtraParams.tokens, poolId, assetBalancesBefore
         );
 
         // record balances before deposit
-        uint256 bptBalanceBefore = IERC20(poolAddress).balanceOf(address(this));
+        uint256 bptBalanceBefore = IERC20(balancerExtraParams.pool).balanceOf(address(this));
 
         vault.joinPool(
-            balancerExtraParams.poolId,
+            poolId,
             address(this), // sender
             address(this), // recipient of BPT token
             _getJoinPoolRequest(balancerExtraParams.tokens, amounts, minLpMintAmount)
         );
 
         // make sure we received bpt
-        uint256 bptBalanceAfter = IERC20(poolAddress).balanceOf(address(this));
+        uint256 bptBalanceAfter = IERC20(balancerExtraParams.pool).balanceOf(address(this));
         if (bptBalanceAfter < bptBalanceBefore + minLpMintAmount) {
             revert BalanceMustIncrease();
         }
@@ -132,9 +127,9 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
         emit DeployLiquidity(
             amounts,
             _convertERC20sToAddresses(balancerExtraParams.tokens),
-            [bptBalanceAfter - bptBalanceBefore, bptBalanceAfter, IERC20(poolAddress).totalSupply()],
-            poolAddress,
-            balancerExtraParams.poolId
+            [bptBalanceAfter - bptBalanceBefore, bptBalanceAfter, IERC20(balancerExtraParams.pool).totalSupply()],
+            balancerExtraParams.pool,
+            poolId
         );
     }
 
@@ -149,7 +144,7 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
 
         actualAmounts = _withdraw(
             WithdrawParams({
-                poolId: balancerExtraParams.poolId,
+                pool: balancerExtraParams.pool,
                 bptAmount: maxLpBurnAmount,
                 tokens: balancerExtraParams.tokens,
                 amountsOut: amounts,
@@ -160,11 +155,11 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
 
     /// @notice Withdraw liquidity from Balancer V2 pool (specifying exact LP tokens to burn)
     /// @dev Calls into external contract
-    /// @param poolId Balancer's ID of the pool to have liquidity withdrawn from
+    /// @param pool Balancer Pool to liquidity withdrawn from
     /// @param poolAmountIn Amount of LP tokens to burn in the withdrawal
     /// @param minAmountsOut Array of minimum amounts of tokens to be withdrawn from pool
     function removeLiquidityImbalance(
-        bytes32 poolId,
+        address pool,
         uint256 poolAmountIn,
         IERC20[] memory tokens,
         uint256[] memory minAmountsOut
@@ -174,7 +169,7 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
 
         amountsOut = _withdraw(
             WithdrawParams({
-                poolId: poolId,
+                pool: pool,
                 bptAmount: poolAmountIn,
                 tokens: tokens,
                 amountsOut: minAmountsOut,
@@ -185,7 +180,8 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
 
     function _withdraw(WithdrawParams memory params) private returns (uint256[] memory amountsOut) {
         amountsOut = params.amountsOut;
-        bytes32 poolId = params.poolId;
+
+        bytes32 poolId = IBasePool(params.pool).getPoolId();
 
         uint256 nTokens = params.tokens.length;
         uint256 amountsOutLen = amountsOut.length;
@@ -205,11 +201,10 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
         _checkZeroBalancesWithdrawal(params.tokens, poolTokens, amountsOut);
 
         // grant erc20 approval for vault to spend our tokens
-        (address poolAddress,) = vault.getPool(poolId);
-        LibAdapter._approve(IERC20(poolAddress), address(vault), params.bptAmount);
+        LibAdapter._approve(IERC20(params.pool), address(vault), params.bptAmount);
 
         // record balance before withdraw
-        uint256 bptBalanceBefore = IERC20(poolAddress).balanceOf(address(this));
+        uint256 bptBalanceBefore = IERC20(params.pool).balanceOf(address(this));
         uint256[] memory assetBalancesBefore = new uint256[](poolTokens.length);
         for (uint256 i = 0; i < numTokens; ++i) {
             assetBalancesBefore[i] = poolTokens[i].balanceOf(address(this));
@@ -231,7 +226,7 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
         );
 
         // make sure we burned bpt, and assets were received
-        uint256 bptBalanceAfter = IERC20(poolAddress).balanceOf(address(this));
+        uint256 bptBalanceAfter = IERC20(params.pool).balanceOf(address(this));
         if (bptBalanceAfter >= bptBalanceBefore) {
             revert BalanceMustIncrease();
         }
@@ -251,8 +246,8 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
         emit WithdrawLiquidity(
             amountsOut,
             _convertERC20sToAddresses(params.tokens),
-            [bptBalanceBefore - bptBalanceAfter, bptBalanceAfter, IERC20(poolAddress).totalSupply()],
-            poolAddress,
+            [bptBalanceBefore - bptBalanceAfter, bptBalanceAfter, IERC20(params.pool).totalSupply()],
+            params.pool,
             poolId
         );
     }
