@@ -91,14 +91,13 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
         if (minLpMintAmount == 0) {
             revert MustBeMoreThanZero();
         }
+        Errors.verifyNotZero(balancerExtraParams.pool, "balancerExtraParams.pool");
         bytes32 poolId = IBasePool(balancerExtraParams.pool).getPoolId();
 
         uint256[] memory assetBalancesBefore = new uint256[](balancerExtraParams.tokens.length);
 
         // verify that we're passing correct pool tokens
-        _ensureTokenOrderAndApprovals(
-            balancerExtraParams.tokens.length, amounts, balancerExtraParams.tokens, poolId, assetBalancesBefore
-        );
+        _ensureTokenOrderAndApprovals(amounts, balancerExtraParams.tokens, poolId, assetBalancesBefore);
 
         // record balances before deposit
         uint256 bptBalanceBefore = IERC20(balancerExtraParams.pool).balanceOf(address(this));
@@ -115,12 +114,12 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
         if (bptBalanceAfter < bptBalanceBefore + minLpMintAmount) {
             revert BalanceMustIncrease();
         }
-        // make sure assets were taken out
+        // make sure we spent exactly how much we wanted
         for (uint256 i = 0; i < balancerExtraParams.tokens.length; ++i) {
             //slither-disable-next-line calls-loop
             uint256 currentBalance = balancerExtraParams.tokens[i].balanceOf(address(this));
             if (currentBalance != assetBalancesBefore[i] - amounts[i]) {
-                revert BalanceMustIncrease();
+                revert InvalidBalanceChange();
             }
         }
 
@@ -179,22 +178,21 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
     }
 
     function _withdraw(WithdrawParams memory params) private returns (uint256[] memory amountsOut) {
+        Errors.verifyNotZero(params.pool, "params.pool");
+        // slither-disable-next-line incorrect-equality
+        if (params.bptAmount == 0) revert MustBeMoreThanZero();
+
         amountsOut = params.amountsOut;
 
-        bytes32 poolId = IBasePool(params.pool).getPoolId();
-
         uint256 nTokens = params.tokens.length;
-        uint256 amountsOutLen = amountsOut.length;
-        if (nTokens != amountsOutLen) {
+        if (nTokens == 0 || nTokens != amountsOut.length) {
             revert ArraysLengthMismatch();
         }
-        // slither-disable-next-line incorrect-equality
-        if (nTokens == 0) revert MustBeMoreThanZero();
 
+        bytes32 poolId = IBasePool(params.pool).getPoolId();
         (IERC20[] memory poolTokens,,) = vault.getPoolTokens(poolId);
-        uint256 numTokens = poolTokens.length;
 
-        if (numTokens != amountsOutLen) {
+        if (poolTokens.length != nTokens) {
             revert ArraysLengthMismatch();
         }
 
@@ -205,8 +203,8 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
 
         // record balance before withdraw
         uint256 bptBalanceBefore = IERC20(params.pool).balanceOf(address(this));
-        uint256[] memory assetBalancesBefore = new uint256[](poolTokens.length);
-        for (uint256 i = 0; i < numTokens; ++i) {
+        uint256[] memory assetBalancesBefore = new uint256[](nTokens);
+        for (uint256 i = 0; i < nTokens; ++i) {
             assetBalancesBefore[i] = poolTokens[i].balanceOf(address(this));
         }
 
@@ -228,10 +226,10 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
         // make sure we burned bpt, and assets were received
         uint256 bptBalanceAfter = IERC20(params.pool).balanceOf(address(this));
         if (bptBalanceAfter >= bptBalanceBefore) {
-            revert BalanceMustIncrease();
+            revert InvalidBalanceChange();
         }
 
-        for (uint256 i = 0; i < numTokens; ++i) {
+        for (uint256 i = 0; i < nTokens; ++i) {
             uint256 assetBalanceBefore = assetBalancesBefore[i];
 
             uint256 currentBalance = poolTokens[i].balanceOf(address(this));
@@ -294,9 +292,13 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
         if (!hasNonZeroAmount) revert NoNonZeroAmountProvided();
     }
 
+    /// @notice Validate that given tokens are relying to the given pool and approve spend
     /// @dev Separate function to avoid stack-too-deep errors
+    ///      and combine gas-costly loop operations into single loop
+    /// @param amounts Amounts of corresponding tokens to approve
+    /// @param poolId Id to verify pool tokens against given ones
+    /// @param assetBalancesBefore Array to record initial token balances
     function _ensureTokenOrderAndApprovals(
-        uint256 nTokens,
         uint256[] calldata amounts,
         IERC20[] memory tokens,
         bytes32 poolId,
@@ -304,6 +306,8 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
     ) private {
         // (two part verification: total number checked here, and individual match check below)
         (IERC20[] memory poolAssets,,) = vault.getPoolTokens(poolId);
+
+        uint256 nTokens = amounts.length;
 
         if (poolAssets.length != nTokens) {
             revert ArraysLengthMismatch();
@@ -331,6 +335,11 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
         }
     }
 
+    /// @notice Generate request for Balancer's Vault to join the pool
+    /// @dev Separate function to avoid stack-too-deep errors
+    /// @param tokens Tokens to be deposited into pool
+    /// @param amounts Amounts of corresponding tokens to deposit
+    /// @param poolAmountOut Expected amount of LP tokens to be minted on deposit
     function _getJoinPoolRequest(
         IERC20[] memory tokens,
         uint256[] calldata amounts,
