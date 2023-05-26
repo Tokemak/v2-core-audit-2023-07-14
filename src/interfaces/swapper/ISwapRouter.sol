@@ -11,8 +11,17 @@ interface ISwapRouter {
         bytes data;
     }
 
-    error SwapFailedDuetoInsufficientBuy();
+    error MaxSlippageExceeded();
     error SwapRouteLookupFailed();
+
+    event SwapRouteSet(address indexed token, SwapData[] routes);
+    event SwapForQuoteSuccessful(
+        address indexed assetToken,
+        uint256 sellAmount,
+        address indexed quoteToken,
+        uint256 minBuyAmount,
+        uint256 buyAmount
+    );
 
     function swapForQuote(
         address assetToken,

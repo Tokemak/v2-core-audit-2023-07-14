@@ -5,10 +5,23 @@ import { IERC20, SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/Safe
 
 import { ICurveStableSwap } from "src/interfaces/external/curve/ICurveStableSwap.sol";
 import { ISyncSwapper } from "src/interfaces/swapper/ISyncSwapper.sol";
+import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
+import { BaseAdapter } from "src/swapper/adapters/BaseAdapter.sol";
 
 // TODO: access control??
-contract CurveV2Swap is ISyncSwapper {
+contract CurveV2Swap is BaseAdapter, ISyncSwapper {
     using SafeERC20 for IERC20;
+
+    constructor(address router) BaseAdapter(router) { }
+
+    /// @inheritdoc ISyncSwapper
+    function validate(ISwapRouter.SwapData memory swapData) external view override {
+        (uint256 sellIndex, uint256 buyIndex) = abi.decode(swapData.data, (uint256, uint256));
+        ICurveStableSwap pool = ICurveStableSwap(swapData.pool);
+        address sellAddress = pool.coins(sellIndex);
+        address buyAddress = pool.coins(buyIndex);
+        if (sellAddress != swapData.token && buyAddress != swapData.token) revert DataMismatch();
+    }
 
     /// @inheritdoc ISyncSwapper
     function swap(

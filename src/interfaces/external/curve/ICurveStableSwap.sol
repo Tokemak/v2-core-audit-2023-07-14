@@ -20,7 +20,7 @@ interface ICurveStableSwap {
 
     function calc_withdraw_one_coin(uint256 token_amount, uint256 i) external returns (uint256);
 
-    function coins(uint256 i) external returns (address);
+    function coins(uint256 i) external view returns (address);
 
     function balanceOf(address account) external returns (uint256);
 

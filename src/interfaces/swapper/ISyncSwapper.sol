@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
+
 interface ISyncSwapper {
-    error TokenAddressZero();
+    error DataMismatch();
 
     /**
      * @notice Swaps sellToken for buyToken
@@ -22,4 +24,11 @@ interface ISyncSwapper {
         uint256 minBuyAmount,
         bytes memory data
     ) external returns (uint256 actualBuyAmount);
+
+    /**
+     * @notice Validates the swapData
+     * @dev This function should revert with DataMismatch if the swapData is invalid
+     * @param swapData The swapData to validate
+     */
+    function validate(ISwapRouter.SwapData memory swapData) external view;
 }
