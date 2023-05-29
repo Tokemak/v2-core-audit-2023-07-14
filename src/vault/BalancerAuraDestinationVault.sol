@@ -14,6 +14,7 @@ import { MainRewarder } from "src/rewarders/MainRewarder.sol";
 import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
 import { IClaimableRewardsAdapter } from "src/interfaces/destinations/IClaimableRewardsAdapter.sol";
 import { IVault } from "src/interfaces/external/balancer/IVault.sol";
+import { IBasePool } from "src/interfaces/external/balancer/IBasePool.sol";
 import { AuraAdapter } from "src/destinations/adapters/staking/AuraAdapter.sol";
 import { BalancerV2MetaStablePoolAdapter } from "src/destinations/adapters/BalancerV2MetaStablePoolAdapter.sol";
 
@@ -35,7 +36,7 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
     IERC20[] public poolTokens;
 
     address public staking;
-    address public pool;
+    IBasePool public pool;
 
     function initialize(
         ISystemRegistry _systemRegistry,
@@ -45,8 +46,6 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
         IVault _vault,
         MainRewarder _rewarder,
         ISwapRouter _swapper,
-        IERC20 _lpToken,
-        IERC20[] memory _poolTokens,
         address _staking,
         address _pool
     ) public initializer {
@@ -56,25 +55,26 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
 
         Errors.verifyNotZero(address(_rewarder), "_rewarder");
         Errors.verifyNotZero(address(_swapper), "_swapper");
-        Errors.verifyNotZero(address(_lpToken), "_lpToken");
         Errors.verifyNotZero(address(_staking), "_staking");
         Errors.verifyNotZero(address(_pool), "_pool");
 
         rewarder = _rewarder;
         swapper = _swapper;
         staking = _staking;
-        lpToken = _lpToken;
-        pool = _pool;
+        lpToken = IERC20(_pool);
+        pool = IBasePool(_pool);
 
-        if (_poolTokens.length == 0) revert ArrayLengthMismatch();
-        poolTokens = _poolTokens;
+        bytes32 poolId = pool.getPoolId();
+        (IERC20[] memory balancerPoolTokens,,) = vault.getPoolTokens(poolId);
+        if (balancerPoolTokens.length == 0) revert ArrayLengthMismatch();
+        poolTokens = balancerPoolTokens;
 
         //slither-disable-next-line unused-return
-        trackedTokens.add(address(_lpToken));
+        trackedTokens.add(address(lpToken));
 
-        for (uint256 i = 0; i < _poolTokens.length; ++i) {
+        for (uint256 i = 0; i < balancerPoolTokens.length; ++i) {
             //slither-disable-next-line unused-return
-            trackedTokens.add(address(_poolTokens[i]));
+            trackedTokens.add(address(balancerPoolTokens[i]));
         }
         //slither-disable-end missing-zero-check
     }
@@ -143,7 +143,8 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
         uint256 balancerLpBurnAmount = totalLpBurnAmount - auraLpBurnAmount;
         // all minAmounts are 0, we set the burn LP amount and don't specify the amounts we expect by each token
         uint256[] memory minAmounts = new uint256[](poolTokens.length);
-        uint256[] memory sellAmounts = removeLiquidityImbalance(pool, balancerLpBurnAmount, poolTokens, minAmounts);
+        uint256[] memory sellAmounts =
+            removeLiquidityImbalance(address(pool), balancerLpBurnAmount, poolTokens, minAmounts);
 
         // 3) swap what we receive
         for (uint256 i = 0; i < poolTokens.length; ++i) {
