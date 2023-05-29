@@ -123,6 +123,45 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         assert(aftrerLpBalance < preLpBalance);
     }
 
+    function testRemoveLiquidityImbalanceWstEthCbEth() public {
+        address poolAddress = 0x9c6d47Ff73e0F5E51BE5FD53236e3F595C5793F2;
+        IERC20 lpToken = IERC20(poolAddress);
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 1.5 * 1e18;
+        amounts[1] = 1.5 * 1e18;
+
+        deal(address(WSTETH_MAINNET), address(adapter), 2 * 1e18);
+        deal(address(CBETH_MAINNET), address(adapter), 2 * 1e18);
+
+        uint256 minLpMintAmount = 1;
+
+        IERC20[] memory tokens = new IERC20[](2);
+        tokens[0] = IERC20(WSTETH_MAINNET);
+        tokens[1] = IERC20(CBETH_MAINNET);
+
+        bytes memory extraParams = abi.encode(BalancerExtraParams(poolAddress, tokens));
+        adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
+
+        uint256 preBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
+        uint256 preBalance2 = IERC20(CBETH_MAINNET).balanceOf(address(adapter));
+        uint256 preLpBalance = lpToken.balanceOf(address(adapter));
+
+        uint256[] memory withdrawAmounts = new uint256[](2);
+        withdrawAmounts[0] = 1 * 1e18;
+        withdrawAmounts[1] = 1 * 1e18;
+
+        adapter.removeLiquidityImbalance(poolAddress, preLpBalance, tokens, withdrawAmounts);
+
+        uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalance2 = IERC20(CBETH_MAINNET).balanceOf(address(adapter));
+        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+
+        assert(afterBalance1 > preBalance1);
+        assert(afterBalance2 > preBalance2);
+        assert(aftrerLpBalance == 0);
+    }
+
     function testAddLiquidityWstEthWeth() public {
         address poolAddress = 0x32296969Ef14EB0c6d29669C550D4a0449130230;
         IERC20 lpToken = IERC20(poolAddress);
@@ -195,6 +234,44 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         assert(aftrerLpBalance < preLpBalance);
     }
 
+    function testRemoveLiquidityImbalanceWstEthWeth() public {
+        address poolAddress = 0x32296969Ef14EB0c6d29669C550D4a0449130230;
+        IERC20 lpToken = IERC20(poolAddress);
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 1.5 * 1e18;
+        amounts[1] = 1.5 * 1e18;
+
+        deal(address(WSTETH_MAINNET), address(adapter), 2 * 1e18);
+        deal(address(WETH_MAINNET), address(adapter), 2 * 1e18);
+
+        uint256 minLpMintAmount = 1;
+
+        IERC20[] memory tokens = new IERC20[](2);
+        tokens[0] = IERC20(WSTETH_MAINNET);
+        tokens[1] = IERC20(WETH_MAINNET);
+
+        bytes memory extraParams = abi.encode(BalancerExtraParams(poolAddress, tokens));
+        adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
+
+        uint256 preBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
+        uint256 preBalance2 = IERC20(WETH_MAINNET).balanceOf(address(adapter));
+        uint256 preLpBalance = lpToken.balanceOf(address(adapter));
+
+        uint256[] memory withdrawAmounts = new uint256[](2);
+        withdrawAmounts[0] = 1 * 1e18;
+        withdrawAmounts[1] = 1 * 1e18;
+        adapter.removeLiquidityImbalance(poolAddress, preLpBalance, tokens, withdrawAmounts);
+
+        uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalance2 = IERC20(WETH_MAINNET).balanceOf(address(adapter));
+        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+
+        assert(afterBalance1 > preBalance1);
+        assert(afterBalance2 > preBalance2);
+        assert(aftrerLpBalance == 0);
+    }
+
     function testAddLiquidityRethWeth() public {
         address poolAddress = 0x1E19CF2D73a72Ef1332C882F20534B6519Be0276;
         IERC20 lpToken = IERC20(poolAddress);
@@ -264,6 +341,44 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 > preBalance2);
         assert(aftrerLpBalance < preLpBalance);
+    }
+
+    function testRemoveLiquidityImbalanceRethWeth() public {
+        address poolAddress = 0x1E19CF2D73a72Ef1332C882F20534B6519Be0276;
+        IERC20 lpToken = IERC20(poolAddress);
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 1.5 * 1e18;
+        amounts[1] = 1.5 * 1e18;
+
+        deal(address(RETH_MAINNET), address(adapter), 2 * 1e18);
+        deal(address(WETH_MAINNET), address(adapter), 2 * 1e18);
+
+        uint256 minLpMintAmount = 1;
+
+        IERC20[] memory tokens = new IERC20[](2);
+        tokens[0] = IERC20(RETH_MAINNET);
+        tokens[1] = IERC20(WETH_MAINNET);
+
+        bytes memory extraParams = abi.encode(BalancerExtraParams(poolAddress, tokens));
+        adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
+
+        uint256 preBalance1 = IERC20(RETH_MAINNET).balanceOf(address(adapter));
+        uint256 preBalance2 = IERC20(WETH_MAINNET).balanceOf(address(adapter));
+        uint256 preLpBalance = lpToken.balanceOf(address(adapter));
+
+        uint256[] memory withdrawAmounts = new uint256[](2);
+        withdrawAmounts[0] = 1 * 1e18;
+        withdrawAmounts[1] = 1 * 1e18;
+        adapter.removeLiquidityImbalance(poolAddress, preLpBalance, tokens, withdrawAmounts);
+
+        uint256 afterBalance1 = IERC20(RETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalance2 = IERC20(WETH_MAINNET).balanceOf(address(adapter));
+        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+
+        assert(afterBalance1 > preBalance1);
+        assert(afterBalance2 > preBalance2);
+        assert(aftrerLpBalance == 0);
     }
 
     function testAddLiquidityWstEthWethArbitrum() public {
@@ -340,5 +455,45 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 > preBalance2);
         assert(aftrerLpBalance < preLpBalance);
+    }
+
+    function testRemoveLiquidityImbalanceWstEthWethArbitrum() public {
+        forkArbitrum();
+
+        address poolAddress = 0x36bf227d6BaC96e2aB1EbB5492ECec69C691943f;
+        IERC20 lpToken = IERC20(poolAddress);
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 1.5 * 1e18;
+        amounts[1] = 1.5 * 1e18;
+
+        deal(address(WSTETH_ARBITRUM), address(adapter), 2 * 1e18);
+        deal(address(WETH_ARBITRUM), address(adapter), 2 * 1e18);
+
+        uint256 minLpMintAmount = 1;
+
+        IERC20[] memory tokens = new IERC20[](2);
+        tokens[0] = IERC20(WSTETH_ARBITRUM);
+        tokens[1] = IERC20(WETH_ARBITRUM);
+
+        bytes memory extraParams = abi.encode(BalancerExtraParams(poolAddress, tokens));
+        adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
+
+        uint256 preBalance1 = IERC20(WSTETH_ARBITRUM).balanceOf(address(adapter));
+        uint256 preBalance2 = IERC20(WETH_ARBITRUM).balanceOf(address(adapter));
+        uint256 preLpBalance = lpToken.balanceOf(address(adapter));
+
+        uint256[] memory withdrawAmounts = new uint256[](2);
+        withdrawAmounts[0] = 1 * 1e18;
+        withdrawAmounts[1] = 1 * 1e18;
+        adapter.removeLiquidityImbalance(poolAddress, preLpBalance, tokens, withdrawAmounts);
+
+        uint256 afterBalance1 = IERC20(WSTETH_ARBITRUM).balanceOf(address(adapter));
+        uint256 afterBalance2 = IERC20(WETH_ARBITRUM).balanceOf(address(adapter));
+        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+
+        assert(afterBalance1 > preBalance1);
+        assert(afterBalance2 > preBalance2);
+        assert(aftrerLpBalance == 0);
     }
 }
