@@ -15,6 +15,7 @@ import { Errors } from "src/utils/Errors.sol";
 
 // TODO: Ensure that baseAsset decimals are the same as the Vaults decimals
 // TODO: Evaluate the conditions to burn destination vault shares
+// TODO: Restrict function visibility so only LMP Vault could access
 abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
     using SafeERC20 for ERC20;
     using SafeERC20 for IERC20;
