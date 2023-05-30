@@ -20,9 +20,9 @@ contract BalancerV2Swap is BaseAdapter, ISyncSwapper {
 
     error VaultAddressZero();
 
-    constructor(address router, address balancerVault) BaseAdapter(router) {
-        Errors.verifyNotZero(balancerVault, "balancerVault");
-        vault = IVault(balancerVault);
+    constructor(address _router, address _balancerVault) BaseAdapter(_router) {
+        Errors.verifyNotZero(_balancerVault, "_balancerVault");
+        vault = IVault(_balancerVault);
     }
 
     /// @inheritdoc ISyncSwapper

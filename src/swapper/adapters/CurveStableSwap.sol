@@ -16,7 +16,7 @@ contract CurveV2Swap is BaseAdapter, ISyncSwapper {
 
     error InvalidIndex();
 
-    constructor(address router) BaseAdapter(router) { }
+    constructor(address _router) BaseAdapter(_router) { }
 
     /// @inheritdoc ISyncSwapper
     function validate(ISwapRouter.SwapData memory swapData) external view override {
@@ -25,6 +25,7 @@ contract CurveV2Swap is BaseAdapter, ISyncSwapper {
         ICurveStableSwap pool = ICurveStableSwap(swapData.pool);
 
         // this call will fail if the sellIndex is out of bounds
+        // slither-disable-next-line unused-return
         pool.coins(_int128ToUint256(sellIndex));
 
         address buyAddress = pool.coins(_int128ToUint256(buyIndex));
@@ -53,9 +54,11 @@ contract CurveV2Swap is BaseAdapter, ISyncSwapper {
         if (value < 0) {
             revert InvalidIndex();
         }
+        //slither-disable-start assembly
         // solhint-disable-next-line no-inline-assembly
         assembly {
             result := value
         }
+        //slither-disable-end assembly
     }
 }

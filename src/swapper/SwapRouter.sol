@@ -4,6 +4,7 @@ pragma solidity 0.8.17;
 
 import { Address } from "openzeppelin-contracts/utils/Address.sol";
 import { IERC20, SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
+import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
 import { Errors } from "src/utils/Errors.sol";
 import { ISyncSwapper } from "src/interfaces/swapper/ISyncSwapper.sol";
@@ -12,7 +13,7 @@ import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
 
-contract SwapRouter is ISwapRouter, SecurityBase {
+contract SwapRouter is ISwapRouter, SecurityBase, ReentrancyGuard {
     using Address for address;
     using SafeERC20 for IERC20;
 
@@ -47,6 +48,7 @@ contract SwapRouter is ISwapRouter, SecurityBase {
             Errors.verifyNotZero(swap.pool, "swap pool");
             Errors.verifyNotZero(address(swap.swapper), "swap swapper");
 
+            //slither-disable-next-line calls-loop
             swap.swapper.validate(swap);
 
             swapRoute.push(swap);
@@ -69,7 +71,7 @@ contract SwapRouter is ISwapRouter, SecurityBase {
         uint256 sellAmount,
         address quoteToken,
         uint256 minBuyAmount
-    ) external onlyLMPVault(msg.sender) returns (uint256) {
+    ) external onlyLMPVault(msg.sender) nonReentrant returns (uint256) {
         if (sellAmount == 0) revert Errors.ZeroAmount();
         if (assetToken == quoteToken) revert Errors.InvalidParams();
 
