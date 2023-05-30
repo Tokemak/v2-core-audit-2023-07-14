@@ -57,7 +57,7 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
 
     function forkOptimism() private {
         string memory endpoint = vm.envString("OPTIMISM_MAINNET_RPC_URL");
-        uint256 forkId = vm.createFork(endpoint);
+        uint256 forkId = vm.createFork(endpoint, 101_774_971);
         vm.selectFork(forkId);
         assertEq(vm.activeFork(), forkId);
         adapter = new CurveV2FactoryCryptoAdapter();
