@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
 import { Address } from "openzeppelin-contracts/utils/Address.sol";
@@ -8,7 +9,7 @@ import { Errors } from "src/utils/Errors.sol";
 import { ISyncSwapper } from "src/interfaces/swapper/ISyncSwapper.sol";
 import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
-import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
+import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
 
 contract SwapRouter is ISwapRouter, SecurityBase {
@@ -22,8 +23,8 @@ contract SwapRouter is ISwapRouter, SecurityBase {
     mapping(address => mapping(address => SwapData[])) private swapRoutes;
 
     modifier onlyLMPVault(address vaultAddress) {
-        ILMPVaultRegistry lmpVaultRegistry = systemRegistry.lmpVaultRegistry();
-        if (!lmpVaultRegistry.isVault(vaultAddress)) revert Errors.AccessDenied();
+        IDestinationVaultRegistry destinationVaultRegistry = systemRegistry.destinationVaultRegistry();
+        if (!destinationVaultRegistry.isRegistered(vaultAddress)) revert Errors.AccessDenied();
         _;
     }
 
@@ -69,7 +70,7 @@ contract SwapRouter is ISwapRouter, SecurityBase {
         address quoteToken,
         uint256 minBuyAmount
     ) external onlyLMPVault(msg.sender) returns (uint256) {
-        if (sellAmount == 0 || minBuyAmount == 0) revert Errors.ZeroAmount();
+        if (sellAmount == 0) revert Errors.ZeroAmount();
         if (assetToken == quoteToken) revert Errors.InvalidParams();
 
         SwapData[] memory routes = swapRoutes[assetToken][quoteToken];
@@ -101,12 +102,13 @@ contract SwapRouter is ISwapRouter, SecurityBase {
         }
         uint256 balanceAfter = IERC20(quoteToken).balanceOf(address(this));
 
-        if (balanceAfter - balanceBefore < minBuyAmount) revert MaxSlippageExceeded();
+        uint256 balanceDiff = balanceAfter - balanceBefore;
+        if (balanceDiff < minBuyAmount) revert MaxSlippageExceeded();
 
-        IERC20(quoteToken).safeTransfer(msg.sender, currentAmount);
+        IERC20(quoteToken).safeTransfer(msg.sender, balanceDiff);
 
-        emit SwapForQuoteSuccessful(assetToken, sellAmount, quoteToken, minBuyAmount, currentAmount);
+        emit SwapForQuoteSuccessful(assetToken, sellAmount, quoteToken, minBuyAmount, balanceDiff);
 
-        return currentAmount;
+        return balanceDiff;
     }
 }

@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
 import { Test } from "forge-std/Test.sol";
@@ -13,7 +14,7 @@ import { CurveV2Swap } from "src/swapper/adapters/CurveStableSwap.sol";
 import { ISyncSwapper } from "src/interfaces/swapper/ISyncSwapper.sol";
 import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
 import { ISystemBound } from "src/interfaces/ISystemBound.sol";
-import { ILMPVaultRegistry, LMPVaultRegistry } from "src/vault/LMPVaultRegistry.sol";
+import { IDestinationVaultRegistry, DestinationVaultRegistry } from "src/vault/DestinationVaultRegistry.sol";
 import { IAccessController, AccessController } from "src/security/AccessController.sol";
 
 import {
@@ -26,7 +27,7 @@ contract SwapRouterTest is Test {
 
     SystemRegistry public systemRegistry;
     AccessController private accessController;
-    LMPVaultRegistry public lmpVaultRegistry;
+    DestinationVaultRegistry public destinationVaultRegistry;
     SwapRouter private swapRouter;
 
     BalancerV2Swap private balSwapper;
@@ -40,12 +41,14 @@ contract SwapRouterTest is Test {
         systemRegistry = new SystemRegistry();
         accessController = new AccessController(address(systemRegistry));
         systemRegistry.setAccessController(address(accessController));
-        lmpVaultRegistry = new LMPVaultRegistry(systemRegistry);
+        destinationVaultRegistry = new DestinationVaultRegistry(systemRegistry);
 
-        systemRegistry.setLMPVaultRegistry(address(lmpVaultRegistry));
+        systemRegistry.setDestinationVaultRegistry(address(destinationVaultRegistry));
 
         vm.mockCall(
-            address(lmpVaultRegistry), abi.encodeWithSelector(ILMPVaultRegistry.isVault.selector), abi.encode(true)
+            address(destinationVaultRegistry),
+            abi.encodeWithSelector(IDestinationVaultRegistry.isRegistered.selector),
+            abi.encode(true)
         );
 
         swapRouter = new SwapRouter(systemRegistry);
@@ -139,7 +142,9 @@ contract SwapRouterTest is Test {
         IERC20(WETH_MAINNET).approve(address(swapRouter), 4 * 1e18);
 
         vm.mockCall(
-            address(lmpVaultRegistry), abi.encodeWithSelector(ILMPVaultRegistry.isVault.selector), abi.encode(false)
+            address(destinationVaultRegistry),
+            abi.encodeWithSelector(IDestinationVaultRegistry.isRegistered.selector),
+            abi.encode(false)
         );
 
         vm.expectRevert(Errors.AccessDenied.selector);
@@ -149,12 +154,6 @@ contract SwapRouterTest is Test {
     function test_swapForQuote_Revert_IfZeroAmount() public {
         address asset = WETH_MAINNET;
         address quote = STETH_MAINNET;
-
-        vm.expectRevert(Errors.ZeroAmount.selector);
-        swapRouter.swapForQuote(asset, 0, quote, 0);
-
-        vm.expectRevert(Errors.ZeroAmount.selector);
-        swapRouter.swapForQuote(asset, 1, quote, 0);
 
         vm.expectRevert(Errors.ZeroAmount.selector);
         swapRouter.swapForQuote(asset, 0, quote, 1);
