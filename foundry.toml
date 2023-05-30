@@ -4,6 +4,7 @@ src = 'src'
 out = 'out'
 libs = ['lib']
 solc = "0.8.17"
+evm_version = "shanghai"
 
 [fmt]
 bracket_spacing = true
