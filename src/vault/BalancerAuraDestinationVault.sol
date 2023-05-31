@@ -141,6 +141,11 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
 
         // 2) withdraw Balancer
         uint256 balancerLpBurnAmount = totalLpBurnAmount - auraLpBurnAmount;
+        // slither-disable-next-line incorrect-equality
+        if (balancerLpBurnAmount == 0) {
+            // If 100% of tokens were in Aura we want use this amount to withdraw from Balancer
+            balancerLpBurnAmount = auraLpBurnAmount;
+        }
         // all minAmounts are 0, we set the burn LP amount and don't specify the amounts we expect by each token
         uint256[] memory minAmounts = new uint256[](poolTokens.length);
         uint256[] memory sellAmounts =
