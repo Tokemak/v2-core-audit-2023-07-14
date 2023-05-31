@@ -1,4 +1,6 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
+
 pragma solidity 0.8.17;
 
 import { ILMPVaultRegistry } from "./vault/ILMPVaultRegistry.sol";
@@ -6,6 +8,7 @@ import { IAccessController } from "./security/IAccessController.sol";
 import { ILMPVaultRouter } from "src/interfaces/vault/ILMPVaultRouter.sol";
 import { ILMPVaultFactory } from "src/interfaces/vault/ILMPVaultFactory.sol";
 import { IDestinationRegistry } from "./destinations/IDestinationRegistry.sol";
+import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
 import { IDestinationVaultRegistry } from "./vault/IDestinationVaultRegistry.sol";
 import { IAccessController } from "src/interfaces/security/IAccessController.sol";
@@ -42,4 +45,8 @@ interface ISystemRegistry {
     /// @notice Get the stats calculator registry for this system
     /// @return registry instance of the registry for this system
     function statsCalculatorRegistry() external view returns (IStatsCalculatorRegistry registry);
+
+    /// @notice Get the root price oracle for this system
+    /// @return oracle instance of the root price oracle for this system
+    function rootPriceOracle() external view returns (IRootPriceOracle oracle);
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { ISfrxEth } from "src/interfaces/external/sfrxeth/ISfrxEth.sol";
+import { ISfrxEth } from "src/interfaces/external/frax/ISfrxEth.sol";
 import { BaseValueProvider } from "src/pricing/value-providers/base/BaseValueProvider.sol";
 import { Errors } from "src/utils/Errors.sol";
 

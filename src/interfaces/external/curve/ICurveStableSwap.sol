@@ -30,5 +30,11 @@ interface ICurveStableSwap {
         uint256 sellAmount,
         uint256 minBuyAmount
     ) external payable returns (uint256);
+
+    function get_virtual_price() external view returns (uint256);
+
+    function withdraw_admin_fees() external;
+
+    function owner() external view returns (address);
 }
 // slither-disable-end naming-convention

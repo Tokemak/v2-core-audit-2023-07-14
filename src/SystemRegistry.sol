@@ -1,4 +1,6 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
+
 pragma solidity 0.8.17;
 
 import { Errors } from "src/utils/Errors.sol";
@@ -8,6 +10,7 @@ import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { ILMPVaultRouter } from "src/interfaces/vault/ILMPVaultRouter.sol";
 import { ILMPVaultFactory } from "src/interfaces/vault/ILMPVaultFactory.sol";
 import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
+import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { IAccessController } from "src/interfaces/security/IAccessController.sol";
 import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 import { IDestinationRegistry } from "src/interfaces/destinations/IDestinationRegistry.sol";
@@ -28,6 +31,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     IAccessController private _accessController;
     IDestinationRegistry private _destinationTemplateRegistry;
     ILMPVaultRouter private _lmpVaultRouter;
+    IRootPriceOracle private _rootPriceOracle;
 
     mapping(bytes32 => ILMPVaultFactory) private _lmpVaultFactoryByType;
     EnumerableSet.Bytes32Set private _lmpVaultFactoryTypes;
@@ -42,10 +46,10 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     event AccessControllerSet(address newAddress);
     event DestinationTemplateRegistrySet(address newAddress);
     event LMPVaultRouterSet(address newAddress);
-
     event LMPVaultFactorySet(bytes32 vaultType, address factoryAddress);
     event LMPVaultFactoryRemoved(bytes32 vaultType, address factoryAddress);
     event StatsCalculatorRegistrySet(address newAddress);
+    event RootPriceOracleSet(address rootPriceOracle);
 
     /* ******************************** */
     /* Errors                           */
@@ -54,6 +58,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     error AlreadySet(string param);
     error SystemMismatch(address ours, address theirs);
     error InvalidContract(address addr);
+    error DuplicateSet(address addr);
 
     /* ******************************** */
     /* Views                            */
@@ -96,6 +101,11 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     /// @inheritdoc ISystemRegistry
     function statsCalculatorRegistry() external view returns (IStatsCalculatorRegistry) {
         return _statsCalculatorRegistry;
+    }
+
+    /// @inheritdoc ISystemRegistry
+    function rootPriceOracle() external view returns (IRootPriceOracle) {
+        return _rootPriceOracle;
     }
 
     /* ******************************** */
@@ -196,6 +206,23 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         _statsCalculatorRegistry = IStatsCalculatorRegistry(registry);
 
         verifySystemsAgree(address(_statsCalculatorRegistry));
+    }
+
+    /// @notice Set the Root Price Oracle for this instance of the system
+    /// @dev This value can be set multiple times, but never back to 0
+    /// @param oracle Address of the oracle
+    function setRootPriceOracle(address oracle) external onlyOwner {
+        Errors.verifyNotZero(oracle, "oracle");
+
+        if (oracle == address(_rootPriceOracle)) {
+            revert DuplicateSet(oracle);
+        }
+
+        emit RootPriceOracleSet(oracle);
+
+        _rootPriceOracle = IRootPriceOracle(oracle);
+
+        verifySystemsAgree(address(_rootPriceOracle));
     }
 
     /// @notice Verifies that a system bound contract matches this contract

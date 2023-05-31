@@ -22,3 +22,5 @@ test/destinations/adapters/BeethovenAdapter.t.sol:ethereum-rule-1:139
 test/destinations/adapters/BeethovenAdapter.t.sol:ethereum-rule-1:105
 test/destinations/adapters/BeethovenAdapter.t.sol:ethereum-rule-1:66
 test/destinations/adapters/BalancerV2MetaStablePoolAdapter.t.sol:ethereum-rule-1:53
+4fb581d5901b1bfc9ecbb39e8cf45ba4179f77c1:test/oracles/providers/CurveV1StableEthOracle.t.sol:generic-api-key:22
+4fb581d5901b1bfc9ecbb39e8cf45ba4179f77c1:test/oracles/providers/CurveV1StableEthOracle.t.sol:generic-api-key:98

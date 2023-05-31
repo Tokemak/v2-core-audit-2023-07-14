@@ -19,6 +19,7 @@ contract SystemRegistryTest is Test {
     event StatsCalculatorRegistrySet(address newAddress);
     event DestinationVaultRegistrySet(address newAddress);
     event DestinationTemplateRegistrySet(address newAddress);
+    event RootPriceOracleSet(address rootPriceOracle);
 
     function setUp() public {
         _systemRegistry = new SystemRegistry();
@@ -417,6 +418,72 @@ contract SystemRegistryTest is Test {
         address emptyContract = address(new EmptyContract());
         vm.expectRevert(abi.encodeWithSelector(SystemRegistry.InvalidContract.selector, emptyContract));
         _systemRegistry.setStatsCalculatorRegistry(emptyContract);
+    }
+
+    /* ******************************** */
+    /* Root Price Oracle
+    /* ******************************** */
+
+    function testSystemRegistryRootPriceOracleCanSetMultipleTimes() public {
+        address oracle = vm.addr(1);
+        mockSystemBound(oracle);
+        _systemRegistry.setRootPriceOracle(oracle);
+        assertEq(address(_systemRegistry.rootPriceOracle()), oracle);
+
+        address oracle2 = vm.addr(2);
+        mockSystemBound(oracle2);
+        _systemRegistry.setRootPriceOracle(oracle2);
+        assertEq(address(_systemRegistry.rootPriceOracle()), oracle2);
+    }
+
+    function testSystemRegistryRootPriceOracleCantSetDup() public {
+        address oracle = vm.addr(1);
+        mockSystemBound(oracle);
+        _systemRegistry.setRootPriceOracle(oracle);
+
+        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.DuplicateSet.selector, address(oracle)));
+        _systemRegistry.setRootPriceOracle(oracle);
+    }
+
+    function testSystemRegistryRootPriceOracleEmitsEventWithNewAddress() public {
+        address oracle = vm.addr(3);
+
+        vm.expectEmit(true, true, true, true);
+        emit RootPriceOracleSet(oracle);
+
+        mockSystemBound(oracle);
+        _systemRegistry.setRootPriceOracle(oracle);
+    }
+
+    function testSystemRegistryRootPriceOracleOnlyCallableByOwner() public {
+        address oracle = vm.addr(3);
+        address newOwner = vm.addr(4);
+
+        vm.expectRevert("Ownable: caller is not the owner");
+        vm.prank(newOwner);
+        _systemRegistry.setRootPriceOracle(oracle);
+    }
+
+    function testSystemRegistryRootPriceOracleSystemsMatch() public {
+        address oracle = vm.addr(1);
+        address fakeOracle = vm.addr(2);
+        vm.mockCall(oracle, abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector), abi.encode(fakeOracle));
+        vm.expectRevert(
+            abi.encodeWithSelector(SystemRegistry.SystemMismatch.selector, address(_systemRegistry), fakeOracle)
+        );
+        _systemRegistry.setRootPriceOracle(oracle);
+    }
+
+    function testSystemRegistryRootPriceOracleInvalidContractCaught() public {
+        // When its not a contract
+        address fakeOracle = vm.addr(2);
+        vm.expectRevert();
+        _systemRegistry.setRootPriceOracle(fakeOracle);
+
+        // When it is a contract, just incorrect
+        address emptyContract = address(new EmptyContract());
+        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.InvalidContract.selector, emptyContract));
+        _systemRegistry.setRootPriceOracle(emptyContract);
     }
 
     /* ******************************** */

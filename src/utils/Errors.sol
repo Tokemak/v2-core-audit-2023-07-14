@@ -1,6 +1,8 @@
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+import { ISystemBound } from "src/interfaces/ISystemBound.sol";
+
 library Errors {
     ///////////////////////////////////////////////////////////////////
     //                       Set errors
@@ -26,6 +28,8 @@ library Errors {
     // Used to check storage slot set before deleting.
     error MustBeSet();
 
+    error SystemMismatch(address source1, address source2);
+
     function verifyNotZero(address addr, string memory paramName) external pure {
         if (addr == address(0)) {
             revert ZeroAddress(paramName);
@@ -41,6 +45,12 @@ library Errors {
     function verifyNotZero(uint256 num, string memory paramName) external pure {
         if (num == 0) {
             revert InvalidParam(paramName);
+        }
+    }
+
+    function verifySystemsMatch(ISystemBound component1, ISystemBound component2) external view {
+        if (component1.getSystemRegistry() != component2.getSystemRegistry()) {
+            revert SystemMismatch(address(component1), address(component2));
         }
     }
 }

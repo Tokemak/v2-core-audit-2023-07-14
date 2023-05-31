@@ -1,6 +1,6 @@
 # Foundry Template
 
-[![Github Actions][gha-badge]][gha] [![Foundry][foundry-badge]][foundry] [![semantic-release: convential commits][commits-badge]][commits] [![protected by: gitleaks][gitleaks-badge]][gitleaks] [![License: MIT][license-badge]][license]
+[![Github Actions][gha-badge]][gha] [![Foundry][foundry-badge]][foundry] [![semantic-release: conventional commits][commits-badge]][commits] [![protected by: gitleaks][gitleaks-badge]][gitleaks] [![License: MIT][license-badge]][license]
 
 [gha]: https://github.com/codenutt/foundry-template/actions
 [gha-badge]: https://github.com/codenutt/foundry-template/actions/workflows/ci.yml/badge.svg

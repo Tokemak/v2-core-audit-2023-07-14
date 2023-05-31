@@ -5,7 +5,7 @@ import { Test, StdCheats, StdUtils } from "forge-std/Test.sol";
 import { CurveResolverMainnet } from "src/utils/CurveResolverMainnet.sol";
 import { ICurveMetaRegistry } from "src/interfaces/external/curve/ICurveMetaRegistry.sol";
 
-contract DestinationVaultBaseTests is Test {
+contract CurveResolverMainnetTests is Test {
     CurveResolverMainnet private resolver;
 
     function setUp() public {
