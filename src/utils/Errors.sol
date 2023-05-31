@@ -30,6 +30,9 @@ library Errors {
     // Used to check storage slot set before deleting.
     error MustBeSet();
 
+    error ApprovalFailed(address token);
+    error FlashLoanFailed(address token);
+
     error SystemMismatch(address source1, address source2);
 
     function verifyNotZero(address addr, string memory paramName) external pure {

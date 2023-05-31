@@ -3,9 +3,11 @@ pragma solidity 0.8.17;
 
 /* solhint-disable func-name-mixedcase */
 
-import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
+import { IERC20, ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import { AccessController } from "src/security/AccessController.sol";
 import { MockERC20 } from "test/mocks/MockERC20.sol";
+import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC3156FlashBorrower } from "openzeppelin-contracts/interfaces/IERC3156FlashBorrower.sol";
 import { IDestinationVault, DestinationVault } from "src/vault/DestinationVault.sol";
 import { ILMPVaultRegistry, LMPVaultRegistry } from "src/vault/LMPVaultRegistry.sol";
 import { ILMPVaultFactory, LMPVaultFactory } from "src/vault/LMPVaultFactory.sol";
@@ -22,6 +24,8 @@ import { TestDestinationVault } from "test/mocks/TestDestinationVault.sol";
 import { WETH9_ADDRESS } from "test/utils/Addresses.sol";
 
 contract LMPVaultBaseTest is BaseTest {
+    using SafeERC20 for IERC20;
+
     IDestinationVault public destinationVault;
     IDestinationVault public destinationVault2;
     LMPVault public lmpVault;
@@ -72,7 +76,9 @@ contract LMPVaultBaseTest is BaseTest {
     }
 
     //////////////////////////////////////////////////////////////////////
+    //                                                                  //
     //				    Destination Vaults lists						//
+    //                                                                  //
     //////////////////////////////////////////////////////////////////////
 
     function test_DestinationVault_add() public {
@@ -137,5 +143,81 @@ contract LMPVaultBaseTest is BaseTest {
         emit DestinationVaultRemoved(destinations[0]);
         lmpVault.removeDestinations(destinations);
         assert(lmpVault.getDestinations().length == numDestinationsBefore - 1);
+    }
+
+    //////////////////////////////////////////////////////////////////////
+    //                                                                  //
+    //			                Rebalancer                      		//
+    //                                                                  //
+    //////////////////////////////////////////////////////////////////////
+
+    function test_Rebalancer() public {
+        (address lmpAddress, address dAddress1, address dAddress2, address baseAssetAddress) =
+            _setupRebalancerInitialState();
+
+        // do actual rebalance, target shares: d1=75, d2=25
+        deal(address(baseAsset), address(this), 25);
+        lmpVault.rebalance(dAddress2, baseAssetAddress, 25, dAddress1, baseAssetAddress, 25);
+
+        // check final balances
+        assertEq(destinationVault.balanceOf(lmpAddress), 75, "final lmp d1's shares != 75");
+        assertEq(destinationVault2.balanceOf(lmpAddress), 25, "final lmp d2's shares != 25");
+    }
+
+    function test_FlashRebalancer() public {
+        (address lmpAddress, address dAddress1, address dAddress2, address baseAssetAddress) =
+            _setupRebalancerInitialState();
+
+        // do actual rebalance, target shares: d1=75, d2=25
+        deal(address(baseAsset), address(this), 25);
+        lmpVault.flashRebalance(
+            IERC3156FlashBorrower(address(this)), dAddress2, baseAssetAddress, 25, dAddress1, baseAssetAddress, 25, ""
+        );
+
+        // check final balances
+        assertEq(destinationVault.balanceOf(lmpAddress), 75, "final lmp d1's shares != 75");
+        assertEq(destinationVault2.balanceOf(lmpAddress), 25, "final lmp d2's shares != 25");
+    }
+
+    // @dev Callback support from lmpVault to provide underlying for the "IN"
+    function onFlashLoan(
+        address, /* initiator */
+        address token,
+        uint256 amount,
+        uint256,
+        bytes calldata
+    ) external returns (bytes32) {
+        // transfer dv underlying lp from swapper to here
+        IERC20(token).safeTransfer(msg.sender, amount);
+    }
+
+    function _setupRebalancerInitialState()
+        public
+        returns (address lmpAddress, address dAddress1, address dAddress2, address baseAssetAddress)
+    {
+        // add destination vaults
+        _addDestinationVault(destinationVault);
+        _addDestinationVault(destinationVault2);
+
+        lmpAddress = address(lmpVault);
+        dAddress1 = address(destinationVault);
+        dAddress2 = address(destinationVault2);
+        baseAssetAddress = address(baseAsset);
+
+        // initial desired state of lmp balance in destination vaults:
+        //
+        // DestinationVault1: 100 shares
+        // DestinationVault2: 0 shares
+
+        // init swapper balance
+        deal(address(baseAsset), address(this), 100);
+        // approve lmpVault's spending of underlyer
+        baseAsset.approve(lmpAddress, 25);
+
+        // init d1's lmpVault shares
+        deal(address(baseAsset), dAddress1, 100); // enough underlying for math to work
+        deal(dAddress1, lmpAddress, 100); // d1's shares to lmpVault
+        assertEq(destinationVault.balanceOf(lmpAddress), 100, "initial: lmpVault shares in d1 != 100");
+        assertEq(destinationVault2.balanceOf(lmpAddress), 0, "initial: lmpVault shares in d2 != 0");
     }
 }

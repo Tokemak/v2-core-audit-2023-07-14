@@ -21,6 +21,11 @@ contract TestDestinationVault is DestinationVault {
         initialize(ISystemRegistry(address(0)), IERC20Metadata(token), "ABC", abi.encode(""));
     }
 
+    function underlying() public view override returns (address) {
+        // just return the test baseasset for now (ignore extra level of wrapping)
+        return address(baseAsset);
+    }
+
     function mint(address to, uint256 amount) public {
         _mint(to, amount);
     }

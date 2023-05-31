@@ -44,7 +44,6 @@ contract LMPVaultFactory is ILMPVaultFactory, SecurityBase {
             new LMPVault(
                 systemRegistry,
                 _vaultAsset,
-                address(accessController),
                 _rewarder
             )
         );

@@ -74,7 +74,7 @@ abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
     }
 
     /// @inheritdoc IDestinationVault
-    function underlying() public view returns (address) {
+    function underlying() public view virtual returns (address) {
         revert Errors.NotImplemented();
     }
 
@@ -222,16 +222,30 @@ abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
         totalActual = amount - remaining;
     }
 
-    /// @notice Deposit underlying to receive destination vault shares
-    /// @param amount Amount of base asset to deposit
-    // solhint-disable-next-line no-unused-vars
+    /// @dev 1:1 ratio is assumed
+    /// @inheritdoc IDestinationVault
     function depositUnderlying(uint256 amount) public returns (uint256 shares) {
-        revert Errors.NotImplemented();
+        // transfer underlying
+        IERC20(underlying()).safeTransferFrom(msg.sender, address(this), amount);
+        // mint shares
+        _mint(msg.sender, amount);
+
+        return amount;
     }
 
-    // solhint-disable-next-line no-unused-vars
+    /// @dev 1:1 ratio is assumed
+    /// @inheritdoc IDestinationVault
     function withdrawUnderlying(uint256 shares) public returns (uint256 amount) {
-        revert Errors.NotImplemented();
+        // make sure there's enough
+        if (balanceOf(msg.sender) < shares) revert Errors.InsufficientBalance(address(this));
+
+        // burn shares
+        _burn(msg.sender, shares);
+
+        // transfer underlying
+        IERC20(underlying()).safeTransfer(msg.sender, shares);
+
+        return shares;
     }
 
     /// @inheritdoc IDestinationVault

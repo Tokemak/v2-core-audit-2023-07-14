@@ -57,7 +57,6 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
     constructor(
         ISystemRegistry _systemRegistry,
         address _vaultAsset,
-        address _accessController,
         address _rewarder
     )
         ERC20(
@@ -75,17 +74,6 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         Errors.verifyNotZero(_rewarder, "rewarder");
 
         rewarder = IMainRewarder(_rewarder);
-
-        // TODO: trackedAssets!
-
-        // // fill out tracked assets collection
-        // NOTE: this code will be moved to strategy in the upcoming strategy work update
-        // _trackedAssets.add(_vaultAsset);
-        // address[] memory _strategyAssets = strategy.getDestinations();
-        // for (uint256 i = 0; i < _strategyAssets.length; ++i) {
-        //     //slither-disable-next-line unused-return
-        //     _trackedAssets.add(_strategyAssets[i]);
-        // }
 
         // init withdrawalqueue to empty (slither issue)
         withdrawalQueue = new IDestinationVault[](0);
@@ -589,6 +577,11 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
     ) public onlyOwner {
         address swapper = msg.sender;
 
+        // make sure there's something to do
+        if (amountIn == 0 && amountOut == 0) {
+            revert Errors.InvalidParams();
+        }
+
         // make sure we have a valid path
         (bool success, string memory message) =
             LMPStrategy.verifyRebalance(destinationIn, tokenIn, amountIn, destinationOut, tokenOut, amountOut);
@@ -597,34 +590,29 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         }
 
         //
-        // Handle increase ("In")
+        // Handle decrease (shares going "Out", cashing in shares and sending underlying back to swapper)
         //
+        if (amountOut > 0) {
+            // withdraw underlying from dv
+            uint256 underlyerReceived = IDestinationVault(destinationOut).withdrawUnderlying(amountOut);
 
-        // transfer dv underlying lp from swapper to here
-        IERC20(tokenIn).safeTransferFrom(swapper, address(this), amountIn);
-
-        // deposit to dv
-        uint256 sharesReceived = IDestinationVault(destinationIn).depositUnderlying(amountIn);
-        // NOTE: for now it's assumed to be 1:1. If this changes, we'll need to update slippage check
-        // NOTE: slippage check taken out due to assumption that `verifyRebalance` will already check all that
-        // if (sharesReceived != amountIn) {
-        //     revert Errors.SlippageExceeded(amountIn, sharesReceived);
-        // }
+            // send to swapper
+            IERC20(tokenOut).safeTransfer(swapper, underlyerReceived);
+        }
 
         //
-        // Handle decrease ("Out")
+        // Handle increase (shares coming "In", getting underlying from the swapper and trading for new shares)
         //
+        if (amountIn > 0) {
+            // transfer dv underlying lp from swapper to here
+            IERC20(tokenIn).safeTransferFrom(swapper, address(this), amountIn);
 
-        // withdraw underlying from dv
-        uint256 underlyerReceived = IDestinationVault(tokenOut).withdrawUnderlying(amountOut);
-        // NOTE: for now it's assumed to be 1:1. If this changes, we'll need to update slippage check
-        // NOTE: slippage check taken out due to assumption that `verifyRebalance` will already check all that
-        // if (lpReceived != amountOut) {
-        //     revert Errors.SlippageExceeded(amountOut, lpReceived);
-        // }
+            // deposit to dv (already checked in `verifyRebalance` so no need to check return of deposit)
 
-        // send to swapper
-        IERC20(tokenOut).safeTransfer(swapper, underlyerReceived);
+            if (!IERC20(tokenIn).approve(destinationIn, amountIn)) revert Errors.ApprovalFailed(tokenIn);
+            // slither-disable-next-line unused-return
+            IDestinationVault(destinationIn).depositUnderlying(amountIn);
+        }
     }
 
     /// @inheritdoc IStrategy
@@ -640,6 +628,11 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
     ) public onlyOwner {
         address swapper = msg.sender;
 
+        // make sure there's something to do
+        if (amountIn == 0 && amountOut == 0) {
+            revert Errors.InvalidParams();
+        }
+
         // make sure we have a valid path
         (bool success, string memory message) =
             LMPStrategy.verifyRebalance(destinationIn, tokenIn, amountIn, destinationOut, tokenOut, amountOut);
@@ -650,39 +643,36 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         //
         // Handle "Out"
         //
+        if (amountOut > 0) {
+            // withdraw underlying from dv
+            uint256 underlyingReceived = IDestinationVault(destinationOut).withdrawUnderlying(amountOut);
 
-        // withdraw underlying from dv
-        uint256 underlyingReceived = IDestinationVault(destinationOut).withdrawUnderlying(amountOut);
-        // NOTE: for now it's assumed to be 1:1. If this changes, we'll need to update slippage check
-        // if (underlyingReceived != amountOut) {
-        //     revert Errors.SlippageExceeded(amountOut, underlyingReceived);
-        // }
-        // send to receiver (?? @samhagan receiver or swapper or is it the same?)
-        IERC20(tokenOut).safeTransfer(address(receiver), underlyingReceived);
+            // send to receiver (?? @samhagan receiver or swapper or is it the same?)
+            IERC20(tokenOut).safeTransfer(address(receiver), underlyingReceived);
+        }
 
         //
         // Handle "In"
         //
+        if (amountIn > 0) {
+            // get "before" counts
+            // uint256 dvSharesBefore = IERC20(destinationIn).balanceOf(address(this));
+            uint256 tokenInBalanceBefore = IERC20(tokenIn).balanceOf(address(this));
 
-        // get "before" counts
-        uint256 dvSharesBefore = IERC20(destinationIn).balanceOf(address(this));
-        uint256 tokenInBalanceBefore = IERC20(tokenIn).balanceOf(address(this));
+            // flash loan
+            // TODO: vet out mechanics fit!! (and checks for returns!)
+            //slither-disable-next-line unused-return
+            receiver.onFlashLoan(swapper, tokenIn, amountIn, 0, data);
 
-        // flash loan
-        receiver.onFlashLoan(address(this), tokenIn, amountIn, 0, data);
+            // verify that vault balance of underlyerIn increased
+            if (IERC20(tokenIn).balanceOf(address(this)) != tokenInBalanceBefore + amountIn) {
+                revert Errors.FlashLoanFailed(tokenIn);
+            }
 
-        // verify that vault balance of underlyerIn increased
-        require(
-            IERC20(tokenIn).balanceOf(address(this)) == tokenInBalanceBefore + amountIn, "insufficient tokens received"
-        );
-
-        // deposit to destinationVault
-        IDestinationVault(destinationOut).depositUnderlying(amountIn);
-
-        // check to make sure we got shares
-        // TODO: build in proper mapping instead of implied 1:1
-        if (IERC20(destinationIn).balanceOf(address(this)) != dvSharesBefore + amountIn) {
-            revert Errors.SlippageExceeded(amountIn, 0);
+            // deposit to dv
+            if (!IERC20(tokenIn).approve(destinationIn, amountIn)) revert Errors.ApprovalFailed(tokenIn);
+            // slither-disable-next-line unused-return
+            IDestinationVault(destinationIn).depositUnderlying(amountIn);
         }
     }
 
@@ -695,7 +685,6 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         address tokenOut,
         uint256 amountOut
     ) public view returns (bool success, string memory message) {
-        (success, message) =
-            LMPStrategy.verifyRebalance(destinationIn, tokenIn, amountIn, destinationOut, tokenOut, amountOut);
+        return LMPStrategy.verifyRebalance(destinationIn, tokenIn, amountIn, destinationOut, tokenOut, amountOut);
     }
 }

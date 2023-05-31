@@ -1,4 +1,3 @@
-/* solhint-disable unused-parameter, state-mutability, no-unused-vars */
 // SPDX-License-Identifier: UNLICENSED
 // Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
@@ -24,6 +23,9 @@ library LMPStrategy {
         address tokenOut,
         uint256 amountOut
     ) internal view returns (bool success, string memory message) {
+        // TODO: remove: setting dummy vars to avoid "unused parameter" warnings for now
+        destinationIn = tokenIn = destinationOut = tokenOut = address(0);
+        amountIn = amountOut = 0;
         // short-circuit for now
         // TODO: proper checks
         return (true, "");
