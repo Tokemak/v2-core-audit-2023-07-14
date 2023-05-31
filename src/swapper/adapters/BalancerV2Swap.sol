@@ -18,18 +18,37 @@ contract BalancerV2Swap is BaseAdapter, ISyncSwapper {
 
     IVault public immutable vault;
 
-    error VaultAddressZero();
-
     constructor(address _router, address _balancerVault) BaseAdapter(_router) {
         Errors.verifyNotZero(_balancerVault, "_balancerVault");
         vault = IVault(_balancerVault);
     }
 
     /// @inheritdoc ISyncSwapper
-    function validate(ISwapRouter.SwapData memory swapData) external view override {
+    function validate(
+        address fromAddress,
+        address toAddress,
+        ISwapRouter.SwapData memory swapData
+    ) external view override {
         bytes32 poolId = abi.decode(swapData.data, (bytes32));
         bytes32 id = IBasePool(swapData.pool).getPoolId();
-        if (id != poolId) revert DataMismatch();
+
+        // verify that the toAddress is the token being swapped for
+        if (toAddress != swapData.token) revert DataMismatch("swapData.token");
+
+        // verify that the swapData.pool has the same id as the encoded poolId
+        if (id != poolId) revert DataMismatch("poolId");
+
+        string memory funcSelector = "getPoolTokenInfo(bytes32,address)";
+
+        // verify that the fromAddress and toAddress are in the pool
+        // slither-disable-start low-level-calls,missing-zero-check
+        // solhint-disable-next-line avoid-low-level-calls
+        (bool success,) = address(vault).staticcall(abi.encodeWithSignature(funcSelector, poolId, fromAddress));
+        if (!success) revert DataMismatch("fromAddress");
+
+        (success,) = address(vault).staticcall(abi.encodeWithSignature(funcSelector, poolId, toAddress));
+        if (!success) revert DataMismatch("toAddress");
+        // slither-disable-end low-level-calls,missing-zero-check
     }
 
     /// @inheritdoc ISyncSwapper

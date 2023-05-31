@@ -4,7 +4,7 @@ pragma solidity 0.8.17;
 import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
 
 interface ISyncSwapper {
-    error DataMismatch();
+    error DataMismatch(string element);
 
     /**
      * @notice Swaps sellToken for buyToken
@@ -26,9 +26,12 @@ interface ISyncSwapper {
     ) external returns (uint256 actualBuyAmount);
 
     /**
-     * @notice Validates the swapData
-     * @dev This function should revert with DataMismatch if the swapData is invalid
-     * @param swapData The swapData to validate
+     * @notice Validates that the swapData contains the correct information, comparing it with the given 'from' and 'to'
+     * addresses
+     * @dev This function should revert with a DataMismatch error if the swapData is invalid
+     * @param fromAddress The address from which the swap originates
+     * @param toAddress The address to which the swap is directed
+     * @param swapData The data associated with the swap that needs to be validated
      */
-    function validate(ISwapRouter.SwapData memory swapData) external view;
+    function validate(address fromAddress, address toAddress, ISwapRouter.SwapData memory swapData) external view;
 }

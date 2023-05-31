@@ -132,6 +132,28 @@ interface IVault {
         returns (IERC20[] memory tokens, uint256[] memory balances, uint256 lastChangeBlock);
 
     /**
+     * @dev Returns detailed information for a Pool's registered token.
+     *
+     * `cash` is the number of tokens the Vault currently holds for the Pool. `managed` is the number of tokens
+     * withdrawn and held outside the Vault by the Pool's token Asset Manager. The Pool's total balance for `token`
+     * equals the sum of `cash` and `managed`.
+     *
+     * Internally, `cash` and `managed` are stored using 112 bits. No action can ever cause a Pool's token `cash`,
+     * `managed` or `total` balance to be greater than 2^112 - 1.
+     *
+     * `lastChangeBlock` is the number of the block in which `token`'s total balance was last modified (via either a
+     * join, exit, swap, or Asset Manager update). This value is useful to avoid so-called 'sandwich attacks', for
+     * example when developing price oracles. A change of zero (e.g. caused by a swap with amount zero) is considered a
+     * change for this purpose, and will update `lastChangeBlock`.
+     *
+     * `assetManager` is the Pool's token Asset Manager.
+     */
+    function getPoolTokenInfo(
+        bytes32 poolId,
+        IERC20 token
+    ) external view returns (uint256 cash, uint256 managed, uint256 lastChangeBlock, address assetManager);
+
+    /**
      * @dev Called by users to join a Pool, which transfers tokens from `sender` into the Pool's balance. This will
      * trigger custom Pool behavior, which will typically grant something in return to `recipient` - often tokenized
      * Pool shares.

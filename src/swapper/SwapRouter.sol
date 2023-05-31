@@ -33,6 +33,7 @@ contract SwapRouter is ISwapRouter, SecurityBase, ReentrancyGuard {
         systemRegistry = _systemRegistry;
     }
 
+    /// @inheritdoc ISwapRouter
     function setSwapRoute(address assetToken, SwapData[] calldata _swapRoute) external onlyOwner {
         Errors.verifyNotZero(assetToken, "assetToken");
 
@@ -41,17 +42,21 @@ contract SwapRouter is ISwapRouter, SecurityBase, ReentrancyGuard {
         delete swapRoutes[assetToken][quoteToken];
         SwapData[] storage swapRoute = swapRoutes[assetToken][quoteToken];
 
-        for (uint256 i = 0; i < length; ++i) {
-            SwapData memory swap = _swapRoute[i];
+        address fromToken = assetToken;
+        for (uint256 hop = 0; hop < length; ++hop) {
+            SwapData memory route = _swapRoute[hop];
 
-            Errors.verifyNotZero(swap.token, "swap token");
-            Errors.verifyNotZero(swap.pool, "swap pool");
-            Errors.verifyNotZero(address(swap.swapper), "swap swapper");
+            Errors.verifyNotZero(route.token, "swap token");
+            Errors.verifyNotZero(route.pool, "swap pool");
+            Errors.verifyNotZero(address(route.swapper), "swap swapper");
+
+            address toToken = route.token;
 
             //slither-disable-next-line calls-loop
-            swap.swapper.validate(swap);
+            route.swapper.validate(fromToken, toToken, route);
 
-            swapRoute.push(swap);
+            swapRoute.push(route);
+            fromToken = route.token;
         }
 
         emit SwapRouteSet(assetToken, _swapRoute);
@@ -62,10 +67,7 @@ contract SwapRouter is ISwapRouter, SecurityBase, ReentrancyGuard {
         // we accept ETH so we can unwrap WETH
     }
 
-    /// @dev it swaps asset token for quote
-    /// @param assetToken address
-    /// @param sellAmount exact amount of asset to swap
-    /// @return amount of quote token
+    /// @inheritdoc ISwapRouter
     function swapForQuote(
         address assetToken,
         uint256 sellAmount,
@@ -86,6 +88,7 @@ contract SwapRouter is ISwapRouter, SecurityBase, ReentrancyGuard {
         address currentToken = assetToken;
         uint256 currentAmount = sellAmount;
         for (uint256 hop = 0; hop < length; ++hop) {
+            // @todo forward the original error message instead of "SwapFailed"
             bytes memory data = address(routes[hop].swapper).functionDelegateCall(
                 abi.encodeWithSelector(
                     ISyncSwapper.swap.selector,
