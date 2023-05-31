@@ -14,7 +14,7 @@ abstract contract BaseValueProviderLP is BaseValueProvider {
     function _getPriceLp(uint256 poolValueEth, IERC20Metadata tokenToPrice) internal view returns (uint256) {
         // Normalize decimals for total supply of tokens.
         uint8 tokenDecimals = tokenToPrice.decimals();
-        uint256 tokenTotalSupply = tokenToPrice.decimals();
+        uint256 tokenTotalSupply = tokenToPrice.totalSupply();
         uint256 normalizedTotalSupply =
             TokemakPricingPrecision.checkAndNormalizeDecimals(tokenDecimals, tokenTotalSupply);
 

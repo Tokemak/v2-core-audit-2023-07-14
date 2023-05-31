@@ -58,7 +58,7 @@ abstract contract CurveV1PoolCalculatorBase is BaseStatsCalculator, Initializabl
 
         // We will register a calculator specific to meta pools and should
         // ignore underlying tokens here
-        (uint256 nCoins,) = curveRegistry.get_n_coins(decodedInitData.poolAddress);
+        uint256 nCoins = curveRegistry.get_n_coins(decodedInitData.poolAddress)[0];
         if (nCoins == 0) {
             revert InvalidPool(decodedInitData.poolAddress);
         }
