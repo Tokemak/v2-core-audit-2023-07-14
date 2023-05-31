@@ -92,10 +92,12 @@ contract CurveValueProvider is BaseValueProviderLP {
      *      that registry can be used.
      * @param lpToken Address of lp token to get price for.
      */
+    // slither-disable-start similar-names
     function registerCurveLPToken(address lpToken, PoolRegistryLocation registry) external onlyOwner {
         Errors.verifyNotZero(lpToken, "lpToken");
         if (pools[lpToken].pool != address(0)) revert CurvePoolAlreadyRegistered();
 
+        // slither-disable-next-line uninitialized-local
         address pool; // For event
         if (registry == PoolRegistryLocation.MetaStableRegistry) {
             pool = REGISTRY.get_pool_from_lp_token(lpToken);
@@ -148,6 +150,7 @@ contract CurveValueProvider is BaseValueProviderLP {
 
         emit CurvePoolRegistered(lpToken, pool);
     }
+    // slither-disable-end similar-names
 
     /**
      * @notice Used to remove Curve pool from `pools` mapping

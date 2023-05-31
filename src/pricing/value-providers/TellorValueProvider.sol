@@ -85,7 +85,7 @@ contract TellorValueProvider is BaseValueProviderDenominations, UsingTellor {
      */
     // slither-disable-start timestamp
     function getPrice(address tokenToPrice) external view override onlyValueOracle returns (uint256) {
-        TellorInfo memory tellorInfo = tellorQueryInfo[tokenToPrice];
+        TellorInfo memory tellorInfo = _getQueryInfo(tokenToPrice);
         uint256 timestamp = block.timestamp;
         // Giving time for Tellor network to dispute price
         (bytes memory value, uint256 timestampRetrieved) = getDataBefore(tellorInfo.queryId, timestamp - 30 minutes);
