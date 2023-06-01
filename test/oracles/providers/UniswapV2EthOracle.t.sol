@@ -22,17 +22,24 @@ contract UniswapV2EthOracleTests is Test {
         uint256 mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"), 17_269_656);
         vm.selectFork(mainnetFork);
 
+        _systemRegistry = ISystemRegistry(vm.addr(34_343));
         _rootPriceOracle = IRootPriceOracle(vm.addr(324));
-        _accessController = IAccessController(vm.addr(6));
-        _systemRegistry = _generateSystemRegistry(address(_accessController), address(_rootPriceOracle));
+        _accessController = new AccessController(address(_systemRegistry));
+        _generateSystemRegistry(address(_systemRegistry), address(_accessController), address(_rootPriceOracle));
         _oracle = new UniswapV2EthOracle(_systemRegistry);
 
         // Ensure the onlyOwner call passes
-        vm.mockCall(
-            address(_accessController),
-            abi.encodeWithSelector(AccessController.verifyOwner.selector, address(this)),
-            abi.encode("")
-        );
+        _accessController.grantRole(0x00, address(this));
+    }
+
+    function testRegistrationSecurity() public {
+        address mockPool = vm.addr(25);
+
+        address testUser1 = vm.addr(34_343);
+        vm.prank(testUser1);
+
+        vm.expectRevert(abi.encodeWithSelector(IAccessController.AccessDenied.selector));
+        _oracle.register(mockPool);
     }
 
     function testSimplePrice() public {
@@ -310,14 +317,11 @@ contract UniswapV2EthOracleTests is Test {
         );
     }
 
-    function _generateSystemRegistry(address accessControl, address rootOracle) internal returns (ISystemRegistry) {
-        address registry = vm.addr(327_849);
+    function _generateSystemRegistry(address registry, address accessControl, address rootOracle) internal {
         vm.mockCall(registry, abi.encodeWithSelector(ISystemRegistry.rootPriceOracle.selector), abi.encode(rootOracle));
 
         vm.mockCall(
             registry, abi.encodeWithSelector(ISystemRegistry.accessController.selector), abi.encode(accessControl)
         );
-
-        return ISystemRegistry(registry);
     }
 }

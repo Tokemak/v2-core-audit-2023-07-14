@@ -23,7 +23,7 @@ contract RootPriceOracle is SecurityBase, IRootPriceOracle {
     error MissingTokenOracle(address token);
     error MappingDoesNotExist(address token);
     error ReplaceOldMismatch(address token, address oldExpected, address oldActual);
-    error ReplaceAlreadyMatches(address token, address oldOracle, address newOracle);
+    error ReplaceAlreadyMatches(address token, address newOracle);
 
     constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
         Errors.verifyNotZero(address(_systemRegistry), "_systemRegistry");
@@ -70,7 +70,7 @@ contract RootPriceOracle is SecurityBase, IRootPriceOracle {
         // If the old and new values match we can assume you're not doing
         // what you think you're doing so we just fail
         if (oldOracle == newOracle) {
-            revert ReplaceAlreadyMatches(token, address(oldOracle), address(newOracle));
+            revert ReplaceAlreadyMatches(token, address(newOracle));
         }
 
         tokenMappings[token] = newOracle;

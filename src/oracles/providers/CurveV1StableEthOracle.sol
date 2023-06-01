@@ -164,4 +164,13 @@ contract CurveV1StableEthOracle is SecurityBase, IPriceOracle {
     function getSystemRegistry() external view returns (address registry) {
         return address(systemRegistry);
     }
+
+    function getLpTokenToUnderlying(address lpToken) external view returns (address[] memory tokens) {
+        uint256 len = lpTokenToUnderlying[lpToken].length;
+        tokens = new address[](len);
+
+        for (uint256 i = 0; i < len; i++) {
+            tokens[i] = lpTokenToUnderlying[lpToken][i];
+        }
+    }
 }

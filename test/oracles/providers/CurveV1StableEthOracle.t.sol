@@ -2,6 +2,7 @@
 pragma solidity 0.8.17;
 
 import { Vm } from "forge-std/Vm.sol";
+import { Roles } from "src/libs/Roles.sol";
 import { Test, StdCheats, StdUtils } from "forge-std/Test.sol";
 import { IstEth } from "src/interfaces/external/lido/IstEth.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
@@ -24,7 +25,7 @@ contract CurveV1StableEthOracleTests is Test {
 
     IRootPriceOracle private rootPriceOracle;
     ISystemRegistry private systemRegistry;
-    IAccessController private accessController;
+    AccessController private accessController;
     CurveResolverMainnet private curveResolver;
     CurveV1StableEthOracle private oracle;
 
@@ -34,18 +35,15 @@ contract CurveV1StableEthOracleTests is Test {
         uint256 mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"), 17_379_099);
         vm.selectFork(mainnetFork);
 
+        systemRegistry = ISystemRegistry(vm.addr(327_849));
         rootPriceOracle = IRootPriceOracle(vm.addr(324));
-        accessController = IAccessController(vm.addr(6));
-        systemRegistry = generateSystemRegistry(address(accessController), address(rootPriceOracle));
+        accessController = new AccessController(address(systemRegistry));
+        generateSystemRegistry(address(systemRegistry), address(accessController), address(rootPriceOracle));
         curveResolver = new CurveResolverMainnet(ICurveMetaRegistry(0xF98B45FA17DE75FB1aD0e7aFD971b0ca00e379fC));
         oracle = new CurveV1StableEthOracle(systemRegistry, curveResolver);
 
         // Ensure the onlyOwner call passes
-        vm.mockCall(
-            address(accessController),
-            abi.encodeWithSelector(AccessController.verifyOwner.selector, address(this)),
-            abi.encode("")
-        );
+        accessController.grantRole(0x00, address(this));
     }
 
     function testStEthEthPrice() public {
@@ -83,6 +81,122 @@ contract CurveV1StableEthOracleTests is Test {
         assertApproxEqAbs(price, 549_453_000_000_000, 5e16);
     }
 
+    function testUnregisterSecurity() public {
+        oracle.registerPool(
+            0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7, 0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490, false
+        );
+
+        address testUser1 = vm.addr(34_343);
+        vm.prank(testUser1);
+
+        vm.expectRevert(abi.encodeWithSelector(IAccessController.AccessDenied.selector));
+        oracle.unregister(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490);
+    }
+
+    function testUnregisterMustExist() public {
+        oracle.registerPool(
+            0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7, 0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490, false
+        );
+
+        address notRegisteredToken = vm.addr(33);
+        vm.expectRevert(abi.encodeWithSelector(CurveV1StableEthOracle.NotRegistered.selector, notRegisteredToken));
+        oracle.unregister(notRegisteredToken);
+    }
+
+    function testUnregister() public {
+        oracle.registerPool(
+            0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7, 0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490, true
+        );
+
+        address[] memory tokens = oracle.getLpTokenToUnderlying(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490);
+        (address pool, uint8 checkReentrancy) = oracle.lpTokenToPool(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490);
+
+        assertEq(tokens.length, 3);
+        assertEq(tokens[0], 0x6B175474E89094C44Da98b954EedeAC495271d0F);
+        assertEq(tokens[1], 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+        assertEq(tokens[2], 0xdAC17F958D2ee523a2206206994597C13D831ec7);
+        assertEq(pool, 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7);
+        assertEq(checkReentrancy, 1);
+
+        oracle.unregister(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490);
+
+        address[] memory afterTokens = oracle.getLpTokenToUnderlying(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490);
+        (address afterPool, uint8 afterCheckReentrancy) =
+            oracle.lpTokenToPool(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490);
+
+        assertEq(afterTokens.length, 0);
+        assertEq(afterPool, address(0));
+        assertEq(afterCheckReentrancy, 0);
+    }
+
+    function testRegistrationSecurity() public {
+        address mockPool = vm.addr(25);
+        address matchingLP = vm.addr(26);
+
+        address testUser1 = vm.addr(34_343);
+        vm.prank(testUser1);
+
+        vm.expectRevert(abi.encodeWithSelector(IAccessController.AccessDenied.selector));
+        oracle.registerPool(mockPool, matchingLP, true);
+    }
+
+    function testPoolRegistration() public {
+        address mockResolver = vm.addr(24);
+        address mockPool = vm.addr(25);
+        address matchingLP = vm.addr(26);
+        address nonMatchingLP = vm.addr(27);
+
+        address[8] memory tokens;
+
+        // Not stable swap
+        vm.mockCall(
+            mockResolver,
+            abi.encodeWithSelector(CurveResolverMainnet.resolveWithLpToken.selector, mockPool),
+            abi.encode(tokens, 0, matchingLP, false)
+        );
+
+        CurveV1StableEthOracle localOracle =
+            new CurveV1StableEthOracle(systemRegistry, CurveResolverMainnet(mockResolver));
+
+        vm.expectRevert(abi.encodeWithSelector(CurveV1StableEthOracle.NotStableSwap.selector, mockPool));
+        localOracle.registerPool(mockPool, matchingLP, true);
+
+        // stable swap but not matching
+        vm.mockCall(
+            mockResolver,
+            abi.encodeWithSelector(CurveResolverMainnet.resolveWithLpToken.selector, mockPool),
+            abi.encode(tokens, 0, nonMatchingLP, true)
+        );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(CurveV1StableEthOracle.ResolverMismatch.selector, matchingLP, nonMatchingLP)
+        );
+        localOracle.registerPool(mockPool, matchingLP, true);
+    }
+
+    function testNoTokensWillRevert() public {
+        address mockResolver = vm.addr(24);
+        address mockPool = vm.addr(25);
+        address matchingLP = vm.addr(26);
+
+        address[8] memory tokens;
+
+        CurveV1StableEthOracle localOracle =
+            new CurveV1StableEthOracle(systemRegistry, CurveResolverMainnet(mockResolver));
+
+        // stable swap but not matching
+        vm.mockCall(
+            mockResolver,
+            abi.encodeWithSelector(CurveResolverMainnet.resolveWithLpToken.selector, mockPool),
+            abi.encode(tokens, 0, matchingLP, true)
+        );
+
+        localOracle.registerPool(mockPool, matchingLP, true);
+
+        vm.expectRevert(abi.encodeWithSelector(CurveV1StableEthOracle.NotRegistered.selector, matchingLP));
+        oracle.getPriceEth(matchingLP);
+    }
+
     function testReentrancy() public {
         mockRootPrice(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE, 1e18); //ETH
         mockRootPrice(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84, 1e18); //stETH
@@ -116,8 +230,11 @@ contract CurveV1StableEthOracleTests is Test {
         );
     }
 
-    function generateSystemRegistry(address accessControl, address rootOracle) internal returns (ISystemRegistry) {
-        address registry = vm.addr(327_849);
+    function generateSystemRegistry(
+        address registry,
+        address accessControl,
+        address rootOracle
+    ) internal returns (ISystemRegistry) {
         vm.mockCall(registry, abi.encodeWithSelector(ISystemRegistry.rootPriceOracle.selector), abi.encode(rootOracle));
 
         vm.mockCall(
