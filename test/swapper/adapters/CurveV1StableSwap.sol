@@ -10,7 +10,6 @@ import { IVault } from "src/interfaces/external/balancer/IVault.sol";
 import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
 import { ISyncSwapper } from "src/interfaces/swapper/ISyncSwapper.sol";
 import { CurveV1StableSwap } from "src/swapper/adapters/CurveV1StableSwap.sol";
-import { IDestinationVaultRegistry, DestinationVaultRegistry } from "src/vault/DestinationVaultRegistry.sol";
 import { ICurveV1StableSwap } from "src/interfaces/external/curve/ICurveV1StableSwap.sol";
 
 import { STETH_MAINNET, WETH_MAINNET, RANDOM } from "test/utils/Addresses.sol";

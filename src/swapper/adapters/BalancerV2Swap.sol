@@ -7,12 +7,11 @@ import { IERC20, SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/Safe
 import { Errors } from "src/utils/Errors.sol";
 import { IVault } from "src/interfaces/external/balancer/IVault.sol";
 import { IAsset } from "src/interfaces/external/balancer/IAsset.sol";
-import { ISyncSwapper } from "src/interfaces/swapper/ISyncSwapper.sol";
 import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
 import { IBasePool } from "src/interfaces/external/balancer/IBasePool.sol";
-import { BaseAdapter } from "src/swapper/adapters/BaseAdapter.sol";
+import { BaseAdapter, ISyncSwapper } from "src/swapper/adapters/BaseAdapter.sol";
 
-contract BalancerV2Swap is BaseAdapter, ISyncSwapper {
+contract BalancerV2Swap is BaseAdapter {
     using SafeERC20 for IERC20;
 
     IVault public immutable vault;
@@ -51,7 +50,7 @@ contract BalancerV2Swap is BaseAdapter, ISyncSwapper {
         address buyTokenAddress,
         uint256 minBuyAmount,
         bytes memory data
-    ) external override onlyRouter returns (uint256 actualBuyAmount) {
+    ) external override onlyRouter returns (uint256) {
         bytes32 poolId = abi.decode(data, (bytes32));
 
         IVault.SingleSwap memory singleSwap = IVault.SingleSwap(
@@ -62,8 +61,6 @@ contract BalancerV2Swap is BaseAdapter, ISyncSwapper {
 
         IERC20(sellTokenAddress).safeApprove(address(vault), sellAmount);
 
-        // slither-disable-next-line timestamp
-        // solhint-disable-next-line not-rely-on-time
         return vault.swap(singleSwap, funds, minBuyAmount, block.timestamp);
     }
 }

@@ -4,13 +4,11 @@ pragma solidity 0.8.17;
 
 import { IERC20, SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 
-import { Errors } from "src/utils/Errors.sol";
 import { ICurveV2StableSwap } from "src/interfaces/external/curve/ICurveV2StableSwap.sol";
-import { ISyncSwapper } from "src/interfaces/swapper/ISyncSwapper.sol";
 import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
-import { BaseAdapter } from "src/swapper/adapters/BaseAdapter.sol";
+import { BaseAdapter, ISyncSwapper } from "src/swapper/adapters/BaseAdapter.sol";
 
-contract CurveV2StableSwap is BaseAdapter, ISyncSwapper {
+contract CurveV2StableSwap is BaseAdapter {
     using SafeERC20 for IERC20;
 
     constructor(address _router) BaseAdapter(_router) { }
@@ -37,7 +35,7 @@ contract CurveV2StableSwap is BaseAdapter, ISyncSwapper {
         address,
         uint256 minBuyAmount,
         bytes memory data
-    ) external override onlyRouter returns (uint256 actualBuyAmount) {
+    ) external override onlyRouter returns (uint256) {
         (uint256 sellIndex, uint256 buyIndex) = abi.decode(data, (uint256, uint256));
         ICurveV2StableSwap pool = ICurveV2StableSwap(poolAddress);
 

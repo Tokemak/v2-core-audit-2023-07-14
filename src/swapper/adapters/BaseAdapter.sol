@@ -4,8 +4,9 @@ pragma solidity 0.8.17;
 
 import { Errors } from "src/utils/Errors.sol";
 import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
+import { ISyncSwapper } from "src/interfaces/swapper/ISyncSwapper.sol";
 
-contract BaseAdapter {
+abstract contract BaseAdapter is ISyncSwapper {
     ISwapRouter public immutable router;
 
     constructor(address _router) {

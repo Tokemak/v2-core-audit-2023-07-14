@@ -13,7 +13,6 @@ import { BalancerV2Swap } from "src/swapper/adapters/BalancerV2Swap.sol";
 import { CurveV1StableSwap } from "src/swapper/adapters/CurveV1StableSwap.sol";
 import { ISyncSwapper } from "src/interfaces/swapper/ISyncSwapper.sol";
 import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
-import { ISystemBound } from "src/interfaces/ISystemBound.sol";
 import { IDestinationVaultRegistry, DestinationVaultRegistry } from "src/vault/DestinationVaultRegistry.sol";
 import { IAccessController, AccessController } from "src/security/AccessController.sol";
 
@@ -38,6 +37,7 @@ contract SwapRouterTest is Test {
         uint256 forkId = vm.createFork(endpoint, 16_728_070);
         vm.selectFork(forkId);
 
+        // setup system
         systemRegistry = new SystemRegistry();
         accessController = new AccessController(address(systemRegistry));
         systemRegistry.setAccessController(address(accessController));
@@ -51,8 +51,8 @@ contract SwapRouterTest is Test {
             abi.encode(true)
         );
 
+        // setup swap router
         swapRouter = new SwapRouter(systemRegistry);
-
         balSwapper = new BalancerV2Swap(address(swapRouter), BALANCER_VAULT);
         curveSwapper = new CurveV1StableSwap(address(swapRouter));
 
@@ -202,7 +202,7 @@ contract SwapRouterTest is Test {
         assertGe(val, 0);
     }
 
-    function testSwapCurveOneHop() public {
+    function test_swap_CurveOneHop() public {
         uint256 sellAmount = 1e18;
         // swap STETH with Curve pool
         address asset = WETH_MAINNET;
@@ -215,7 +215,7 @@ contract SwapRouterTest is Test {
         assertGe(val, 0);
     }
 
-    function testSwapCurveTwoHop() public {
+    function test_swap_CurveTwoHop() public {
         uint256 sellAmount = 1e18;
         // swap STETH with Curve pool
         address asset = WETH_MAINNET;
@@ -229,7 +229,7 @@ contract SwapRouterTest is Test {
         assertGe(val, 0);
     }
 
-    function testSwapBalancer() public {
+    function test_swap_Balancer() public {
         uint256 sellAmount = 1e18;
         // swap WSTETH with Balancer pool
         address asset = WETH_MAINNET;
