@@ -10,7 +10,7 @@ import { SystemRegistry } from "src/SystemRegistry.sol";
 import { Errors } from "src/utils/Errors.sol";
 import { SwapRouter } from "src/swapper/SwapRouter.sol";
 import { BalancerV2Swap } from "src/swapper/adapters/BalancerV2Swap.sol";
-import { CurveV2Swap } from "src/swapper/adapters/CurveStableSwap.sol";
+import { CurveV1StableSwap } from "src/swapper/adapters/CurveStableSwap.sol";
 import { ISyncSwapper } from "src/interfaces/swapper/ISyncSwapper.sol";
 import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
 import { ISystemBound } from "src/interfaces/ISystemBound.sol";
@@ -31,7 +31,7 @@ contract SwapRouterTest is Test {
     SwapRouter private swapRouter;
 
     BalancerV2Swap private balSwapper;
-    CurveV2Swap private curveSwapper;
+    CurveV1StableSwap private curveSwapper;
 
     function setUp() public {
         string memory endpoint = vm.envString("MAINNET_RPC_URL");
@@ -54,7 +54,7 @@ contract SwapRouterTest is Test {
         swapRouter = new SwapRouter(systemRegistry);
 
         balSwapper = new BalancerV2Swap(address(swapRouter), BALANCER_VAULT);
-        curveSwapper = new CurveV2Swap(address(swapRouter));
+        curveSwapper = new CurveV1StableSwap(address(swapRouter));
 
         // setup input for Balancer 1-hop WETH -> WSTETH
         ISwapRouter.SwapData[] memory balSwapRoute = new ISwapRouter.SwapData[](1);
@@ -96,7 +96,7 @@ contract SwapRouterTest is Test {
     }
 
     function test_setSwapRoute_Revert_WhenVerifyNotZeroError() public {
-        CurveV2Swap swapper = new CurveV2Swap(address(swapRouter));
+        CurveV1StableSwap swapper = new CurveV1StableSwap(address(swapRouter));
 
         ISwapRouter.SwapData[] memory swapRoute = new ISwapRouter.SwapData[](1);
 

@@ -5,6 +5,7 @@ import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
 
 interface ISyncSwapper {
     error DataMismatch(string element);
+    error InvalidIndex();
 
     /**
      * @notice Swaps sellToken for buyToken

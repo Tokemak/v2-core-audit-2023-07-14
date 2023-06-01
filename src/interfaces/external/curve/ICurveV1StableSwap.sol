@@ -3,7 +3,7 @@ pragma solidity 0.8.17;
 
 // solhint-disable func-name-mixedcase, var-name-mixedcase
 // slither-disable-start naming-convention
-interface ICurveStableSwap {
+interface ICurveV1StableSwap {
     function add_liquidity(uint256[2] memory amounts, uint256 min_mint_amount) external payable;
 
     function add_liquidity(uint256[3] memory amounts, uint256 min_mint_amount) external payable;

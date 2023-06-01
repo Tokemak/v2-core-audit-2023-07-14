@@ -5,7 +5,7 @@ import { Test } from "forge-std/Test.sol";
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
-import { ICurveStableSwap } from "../../../../src/interfaces/external/curve/ICurveStableSwap.sol";
+import { ICurveV1StableSwap } from "../../../../src/interfaces/external/curve/ICurveV1StableSwap.sol";
 import { ILiquidityGaugeV2 } from "../../../../src/interfaces/external/curve/ILiquidityGaugeV2.sol";
 import { CurveRewardsAdapter } from "../../../../src/destinations/adapters/rewards/CurveRewardsAdapter.sol";
 import { IClaimableRewardsAdapter } from "../../../../src/interfaces/destinations/IClaimableRewardsAdapter.sol";
@@ -26,7 +26,7 @@ contract CurveRewardsAdapterTest is Test {
     function addLiquidityETH(address curvePool, uint256 amountEth, address tokenAddress, uint256 tokenAmount) private {
         IERC20(tokenAddress).approve(curvePool, tokenAmount);
         uint256[2] memory amounts = [amountEth, tokenAmount];
-        ICurveStableSwap(curvePool).add_liquidity{ value: amountEth }(amounts, 1);
+        ICurveV1StableSwap(curvePool).add_liquidity{ value: amountEth }(amounts, 1);
     }
 
     function addLiquidity(
@@ -39,7 +39,7 @@ contract CurveRewardsAdapterTest is Test {
         IERC20(tokenAAddress).approve(curvePool, tokenAAmount);
         IERC20(tokenBAddress).approve(curvePool, tokenBAmount);
         uint256[2] memory amounts = [tokenAAmount, tokenBAmount];
-        ICurveStableSwap(curvePool).add_liquidity(amounts, 1);
+        ICurveV1StableSwap(curvePool).add_liquidity(amounts, 1);
     }
 
     function deposit(address curveGauge, address curveLpToken) private {
