@@ -9,6 +9,7 @@ import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IPriceOracle } from "src/interfaces/oracles/IPriceOracle.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IVault as IBalancerVault } from "src/interfaces/external/balancer/IVault.sol";
+import { IProtocolFeesCollector } from "src/interfaces/external/balancer/IProtocolFeesCollector.sol";
 import { IBalancerMetaStablePool } from "src/interfaces/external/balancer/IBalancerMetaStablePool.sol";
 
 /// @title Price oracle for Balancer Meta Stable pools
@@ -52,21 +53,27 @@ contract BalancerLPMetaStableEthOracle is IPriceOracle {
             revert InvalidTokenCount(token, tokens.length);
         }
 
-        // Calculate the virtual price of the pool taking into account swap fees
-        uint256 totalSupply = pool.totalSupply(); // e18
-        uint256 unscaledInv = pool.getRate() * totalSupply; // e36
-        uint256 lastInvariant = pool.getLastInvariant(); // e18
-        uint256 delta = unscaledInv - lastInvariant; // e36 - e18 -> e36
-        uint256 scaledInv = unscaledInv - ((delta * pool.getSwapFeePercentage()) / 1e18); // e36 - e18 -> e36
-        uint256 virtualPrice = scaledInv / totalSupply; // e36 / e18 -> e18
-
         // Use the min price of the tokens
         uint256 px0 = systemRegistry.rootPriceOracle().getPriceInEth(address(tokens[0]));
         uint256 px1 = systemRegistry.rootPriceOracle().getPriceInEth(address(tokens[1]));
 
-        // Intentional precision loss, prices should always be in e18
-        // slither-disable-next-line divide-before-multiply
+        // Calculate the virtual price of the pool removing accrued admin fees
+        // that haven't been taken yet by Balancer
+        // slither-disable-start divide-before-multiply
+        uint256 virtualPrice = pool.getRate(); // e18
+        uint256 totalSupply = pool.totalSupply(); // e18
+        uint256 unscaledInv = (virtualPrice * totalSupply) / 1e18; // e18
+        uint256 lastInvariant = pool.getLastInvariant(); // e18
+        if (unscaledInv > lastInvariant) {
+            uint256 delta = unscaledInv - lastInvariant; // e18 - e18 -> e18
+            uint256 swapFee = balancerVault.getProtocolFeesCollector().getSwapFeePercentage(); //e18
+            uint256 protocolPortion = ((delta * swapFee) / 1e18); // e18
+            uint256 scaledInv = unscaledInv - protocolPortion; // e18 - e18 -> e18
+            virtualPrice = scaledInv * 1e18 / totalSupply; // e36 / e18 -> e18
+        }
+
         price = ((px0 > px1 ? px1 : px0) * virtualPrice) / 1e18;
+        // slither-disable-end divide-before-multiply
     }
 
     function getSystemRegistry() external view returns (address registry) {
