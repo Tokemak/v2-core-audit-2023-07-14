@@ -10,12 +10,13 @@ import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { IVault as IBalancerVault } from "src/interfaces/external/balancer/IVault.sol";
 import { IBalancerMetaStablePool } from "src/interfaces/external/balancer/IBalancerMetaStablePool.sol";
 import { BalancerLPMetaStableEthOracle } from "src/oracles/providers/BalancerLPMetaStableEthOracle.sol";
+import { BAL_VAULT, WSTETH_MAINNET, CBETH_MAINNET, CBETH_WSTETH_BAL_POOL } from "test/utils/Addresses.sol";
 
 contract BalancerLPMetaStableEthOracleTests is Test {
-    IBalancerVault private constant VAULT = IBalancerVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
-    address private constant WSTETH = address(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
-    address private constant CBETH = address(0xBe9895146f7AF43049ca1c1AE358B0541Ea49704);
-    address private constant WSTETH_CBETH_POOL = address(0x9c6d47Ff73e0F5E51BE5FD53236e3F595C5793F2);
+    IBalancerVault private constant VAULT = IBalancerVault(BAL_VAULT);
+    address private constant WSTETH = address(WSTETH_MAINNET);
+    address private constant CBETH = address(CBETH_MAINNET);
+    address private constant WSTETH_CBETH_POOL = address(CBETH_WSTETH_BAL_POOL);
 
     IRootPriceOracle private rootPriceOracle;
     ISystemRegistry private systemRegistry;
@@ -41,7 +42,7 @@ contract BalancerLPMetaStableEthOracleTests is Test {
         mockRootPrice(WSTETH, 1_123_300_000_000_000_000); //wstETH
         mockRootPrice(CBETH, 1_034_300_000_000_000_000); //cbETH
 
-        uint256 price = oracle.getPriceEth(WSTETH_CBETH_POOL);
+        uint256 price = oracle.getPriceInEth(WSTETH_CBETH_POOL);
 
         assertEq(price > 99e16, true);
         assertEq(price < 11e17, true);
@@ -61,7 +62,7 @@ contract BalancerLPMetaStableEthOracleTests is Test {
         assertEq(tester.priceReceived(), type(uint256).max);
 
         // Runs getPriceEth outside of a vault operation
-        uint256 price = oracle.getPriceEth(WSTETH_CBETH_POOL);
+        uint256 price = oracle.getPriceInEth(WSTETH_CBETH_POOL);
         assertEq(price > 99e16, true);
         assertEq(price < 11e17, true);
     }
@@ -90,7 +91,7 @@ contract BalancerLPMetaStableEthOracleTests is Test {
         );
 
         vm.expectRevert(abi.encodeWithSelector(BalancerLPMetaStableEthOracle.InvalidTokenCount.selector, mockPool, 1));
-        localOracle.getPriceEth(mockPool);
+        localOracle.getPriceInEth(mockPool);
     }
 
     function testInvalidPoolIdReverts() public {
@@ -100,13 +101,13 @@ contract BalancerLPMetaStableEthOracleTests is Test {
         vm.mockCall(mockPool, abi.encodeWithSelector(IBalancerMetaStablePool.getPoolId.selector), abi.encode(badPoolId));
 
         vm.expectRevert("BAL#500");
-        oracle.getPriceEth(mockPool);
+        oracle.getPriceInEth(mockPool);
     }
 
     function mockRootPrice(address token, uint256 price) internal {
         vm.mockCall(
             address(rootPriceOracle),
-            abi.encodeWithSelector(IRootPriceOracle.getPriceEth.selector, token),
+            abi.encodeWithSelector(IRootPriceOracle.getPriceInEth.selector, token),
             abi.encode(price)
         );
     }
@@ -173,7 +174,7 @@ contract ReentrancyTester {
 
     receive() external payable {
         if (msg.sender == balancerVault) {
-            try oracle.getPriceEth(address(0x9c6d47Ff73e0F5E51BE5FD53236e3F595C5793F2)) returns (uint256 price) {
+            try oracle.getPriceInEth(address(CBETH_WSTETH_BAL_POOL)) returns (uint256 price) {
                 priceReceived = price;
             } catch (bytes memory err) {
                 if (keccak256(abi.encodeWithSelector(BalancerVaultReentrancy.selector)) == keccak256(err)) {

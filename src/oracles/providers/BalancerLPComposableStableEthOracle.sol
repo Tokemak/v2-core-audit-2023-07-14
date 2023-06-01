@@ -35,7 +35,7 @@ contract BalancerLPComposableStableEthOracle is IPriceOracle {
     }
 
     /// @inheritdoc IPriceOracle
-    function getPriceEth(address token) external returns (uint256 price) {
+    function getPriceInEth(address token) external returns (uint256 price) {
         Errors.verifyNotZero(token, "token");
 
         BalancerUtilities.checkReentrancy(address(balancerVault));
@@ -54,7 +54,7 @@ contract BalancerLPComposableStableEthOracle is IPriceOracle {
             if (i != bptIndex) {
                 // Our prices are always in 1e18
                 // slither-disable-next-line calls-loop
-                uint256 tokenPrice = systemRegistry.rootPriceOracle().getPriceEth(address(tokens[i]));
+                uint256 tokenPrice = systemRegistry.rootPriceOracle().getPriceInEth(address(tokens[i]));
                 if (tokenPrice < minPrice) {
                     minPrice = tokenPrice;
                 }

@@ -13,10 +13,7 @@ regex = '''(?:\'|"|\s|^)(?:0x)?[a-fA-F0-9]{64}(?:\'|"|\s|;|$)'''
 
 [allowlist]
 paths = [
-  '''lib/forge-std/(.*?)''',
-  '''lib/openzeppelin-contracts/(.*?)''',
-  '''lib/prb-math/(.*?)''',
-  '''lib/openzeppelin-contracts-upgradeable/(.*?)''',
+  '''lib/(.*?)''',
   '''out/(.*?)''',
   '''cache/(.*?)''',
   '''node_modules/(.*?)''',

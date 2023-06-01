@@ -35,7 +35,7 @@ contract BalancerLPMetaStableEthOracle is IPriceOracle {
     }
 
     /// @inheritdoc IPriceOracle
-    function getPriceEth(address token) external returns (uint256 price) {
+    function getPriceInEth(address token) external returns (uint256 price) {
         Errors.verifyNotZero(token, "token");
 
         BalancerUtilities.checkReentrancy(address(balancerVault));
@@ -61,8 +61,8 @@ contract BalancerLPMetaStableEthOracle is IPriceOracle {
         uint256 virtualPrice = scaledInv / totalSupply; // e36 / e18 -> e18
 
         // Use the min price of the tokens
-        uint256 px0 = systemRegistry.rootPriceOracle().getPriceEth(address(tokens[0]));
-        uint256 px1 = systemRegistry.rootPriceOracle().getPriceEth(address(tokens[1]));
+        uint256 px0 = systemRegistry.rootPriceOracle().getPriceInEth(address(tokens[0]));
+        uint256 px1 = systemRegistry.rootPriceOracle().getPriceInEth(address(tokens[1]));
 
         // Intentional precision loss, prices should always be in e18
         // slither-disable-next-line divide-before-multiply

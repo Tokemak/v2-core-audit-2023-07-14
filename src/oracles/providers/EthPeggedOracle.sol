@@ -21,7 +21,7 @@ contract EthPeggedOracle is IPriceOracle {
     }
 
     /// @inheritdoc IPriceOracle
-    function getPriceEth(address) external returns (uint256 price) {
+    function getPriceInEth(address) external returns (uint256 price) {
         price = 1e18;
     }
 

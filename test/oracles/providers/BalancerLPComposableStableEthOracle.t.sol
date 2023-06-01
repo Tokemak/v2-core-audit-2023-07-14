@@ -10,16 +10,31 @@ import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { IVault as IBalancerVault } from "src/interfaces/external/balancer/IVault.sol";
 import { IBalancerComposableStablePool } from "src/interfaces/external/balancer/IBalancerComposableStablePool.sol";
 import { BalancerLPComposableStableEthOracle } from "src/oracles/providers/BalancerLPComposableStableEthOracle.sol";
+import {
+    BAL_VAULT,
+    WSTETH_MAINNET,
+    RETH_MAINNET,
+    SFRXETH_MAINNET,
+    WSETH_RETH_SFRXETH_BAL_POOL,
+    CBETH_MAINNET,
+    UNI_ETH_MAINNET,
+    WETH_MAINNET,
+    DAI_MAINNET,
+    USDC_MAINNET,
+    UNI_WETH_POOL,
+    USDT_MAINNET,
+    CBETH_WSTETH_BAL_POOL
+} from "test/utils/Addresses.sol";
 
 contract BalancerLPComposableStableEthOracleTests is Test {
-    IBalancerVault private constant VAULT = IBalancerVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
-    address private constant WSTETH = address(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
-    address private constant RETH = address(0xae78736Cd615f374D3085123A210448E74Fc6393);
-    address private constant SFRXETH = address(0xac3E018457B222d93114458476f3E3416Abbe38F);
-    address private constant WSTETH_RETH_SFRXETH_POOL = address(0x5aEe1e99fE86960377DE9f88689616916D5DcaBe);
-    address private constant UNIETH = address(0xF1376bceF0f78459C0Ed0ba5ddce976F1ddF51F4);
-    address private constant WETH = address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-    address private constant UNIETH_WETH_POOL = address(0xbFCe47224B4A938865E3e2727DC34E0fAA5b1D82);
+    IBalancerVault private constant VAULT = IBalancerVault(BAL_VAULT);
+    address private constant WSTETH = address(WSTETH_MAINNET);
+    address private constant RETH = address(RETH_MAINNET);
+    address private constant SFRXETH = address(SFRXETH_MAINNET);
+    address private constant WSTETH_RETH_SFRXETH_POOL = address(WSETH_RETH_SFRXETH_BAL_POOL);
+    address private constant UNIETH = address(UNI_ETH_MAINNET);
+    address private constant WETH = address(WETH_MAINNET);
+    address private constant UNIETH_WETH_POOL = address(UNI_WETH_POOL);
 
     IRootPriceOracle private rootPriceOracle;
     ISystemRegistry private systemRegistry;
@@ -46,23 +61,23 @@ contract BalancerLPComposableStableEthOracleTests is Test {
         mockRootPrice(RETH, 1_071_929_592_001_012_800); //rETH
         mockRootPrice(SFRXETH, 1_039_355_991_640_087_568); //sfrxETH
 
-        uint256 price = oracle.getPriceEth(WSTETH_RETH_SFRXETH_POOL);
+        uint256 price = oracle.getPriceInEth(WSTETH_RETH_SFRXETH_POOL);
 
         assertEq(price > 99e16, true);
         assertEq(price < 11e17, true);
     }
 
     function testUsdBasedPool() public {
-        mockRootPrice(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48, 535_370_000_000_000); //USDC
-        mockRootPrice(0x6B175474E89094C44Da98b954EedeAC495271d0F, 534_820_000_000_000); //DAI
-        mockRootPrice(0xdAC17F958D2ee523a2206206994597C13D831ec7, 535_540_000_000_000); //USDT
+        mockRootPrice(USDC_MAINNET, 535_370_000_000_000); //USDC
+        mockRootPrice(DAI_MAINNET, 534_820_000_000_000); //DAI
+        mockRootPrice(USDT_MAINNET, 535_540_000_000_000); //USDT
 
         // //solhint-disable-next-line max-line-length
         // https://app.balancer.fi/#/ethereum/pool/0x79c58f70905f734641735bc61e45c19dd9ad60bc0000000000000000000004e7
         // Pool Value at the time: $4,349,961
         // Actual Supply: 4351658.079624087001833240
         // Eth Price: $1,868.05
-        uint256 price = oracle.getPriceEth(0x79c58f70905F734641735BC61e45c19dD9Ad60bC);
+        uint256 price = oracle.getPriceInEth(0x79c58f70905F734641735BC61e45c19dD9Ad60bC);
 
         assertApproxEqAbs(price, 535_109_000_000_000, 10_000_000_000_000);
     }
@@ -72,7 +87,7 @@ contract BalancerLPComposableStableEthOracleTests is Test {
         mockRootPrice(RETH, 1_071_929_592_001_012_800); //rETH
         mockRootPrice(SFRXETH, 1_039_355_991_640_087_568); //sfrxETH
 
-        uint256 price = oracle.getPriceEth(WSTETH_RETH_SFRXETH_POOL);
+        uint256 price = oracle.getPriceInEth(WSTETH_RETH_SFRXETH_POOL);
 
         assertEq(price < 90e16, true);
     }
@@ -120,7 +135,7 @@ contract BalancerLPComposableStableEthOracleTests is Test {
                 BalancerLPComposableStableEthOracle.InvalidPrice.selector, mockPool, type(uint256).max
             )
         );
-        localOracle.getPriceEth(mockPool);
+        localOracle.getPriceInEth(mockPool);
     }
 
     function testInvalidPoolIdReverts() public {
@@ -131,7 +146,7 @@ contract BalancerLPComposableStableEthOracleTests is Test {
         );
 
         vm.expectRevert("BAL#500");
-        oracle.getPriceEth(mockPool);
+        oracle.getPriceInEth(mockPool);
     }
 
     function testEnsureBptTokenNotPricedIn() public {
@@ -140,7 +155,7 @@ contract BalancerLPComposableStableEthOracleTests is Test {
         mockRootPrice(SFRXETH, 1_039_355_991_640_087_568); //sfrxETH
         mockRootPrice(WSTETH_RETH_SFRXETH_POOL, 10_000_039_355_991_640_087_568); //sfrxETH
 
-        uint256 price = oracle.getPriceEth(WSTETH_RETH_SFRXETH_POOL);
+        uint256 price = oracle.getPriceInEth(WSTETH_RETH_SFRXETH_POOL);
 
         assertEq(price > 99e16, true);
         assertEq(price < 11e17, true);
@@ -149,7 +164,7 @@ contract BalancerLPComposableStableEthOracleTests is Test {
     function mockRootPrice(address token, uint256 price) internal {
         vm.mockCall(
             address(rootPriceOracle),
-            abi.encodeWithSelector(IRootPriceOracle.getPriceEth.selector, token),
+            abi.encodeWithSelector(IRootPriceOracle.getPriceInEth.selector, token),
             abi.encode(price)
         );
     }
@@ -221,7 +236,7 @@ contract ReentrancyTester {
 
     receive() external payable {
         if (msg.sender == balancerVault) {
-            try oracle.getPriceEth(address(0x5aEe1e99fE86960377DE9f88689616916D5DcaBe)) returns (uint256 price) {
+            try oracle.getPriceInEth(address(WSETH_RETH_SFRXETH_BAL_POOL)) returns (uint256 price) {
                 priceReceived = price;
             } catch (bytes memory err) {
                 if (keccak256(abi.encodeWithSelector(BalancerVaultReentrancy.selector)) == keccak256(err)) {

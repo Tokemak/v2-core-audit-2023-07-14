@@ -55,8 +55,6 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     /* Errors                           */
     /* ******************************** */
 
-    error AlreadySet(string param);
-    error SystemMismatch(address ours, address theirs);
     error InvalidContract(address addr);
     error DuplicateSet(address addr);
 
@@ -119,7 +117,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         Errors.verifyNotZero(registry, "lmpVaultRegistry");
 
         if (address(_lmpVaultRegistry) != address(0)) {
-            revert AlreadySet("lmpVaultRegistry");
+            revert Errors.AlreadySet("lmpVaultRegistry");
         }
 
         emit LMPVaultRegistrySet(registry);
@@ -147,7 +145,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         Errors.verifyNotZero(registry, "destinationVaultRegistry");
 
         if (address(_destinationVaultRegistry) != address(0)) {
-            revert AlreadySet("destinationVaultRegistry");
+            revert Errors.AlreadySet("destinationVaultRegistry");
         }
 
         emit DestinationVaultRegistrySet(registry);
@@ -164,7 +162,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         Errors.verifyNotZero(controller, "accessController");
 
         if (address(_accessController) != address(0)) {
-            revert AlreadySet("accessController");
+            revert Errors.AlreadySet("accessController");
         }
 
         emit AccessControllerSet(controller);
@@ -181,7 +179,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         Errors.verifyNotZero(registry, "destinationTemplateRegistry");
 
         if (address(_destinationTemplateRegistry) != address(0)) {
-            revert AlreadySet("destinationTemplateRegistry");
+            revert Errors.AlreadySet("destinationTemplateRegistry");
         }
 
         emit DestinationTemplateRegistrySet(registry);
@@ -198,7 +196,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         Errors.verifyNotZero(registry, "statsCalculatorRegistry");
 
         if (address(_statsCalculatorRegistry) != address(0)) {
-            revert AlreadySet("statsCalculatorRegistry");
+            revert Errors.AlreadySet("statsCalculatorRegistry");
         }
 
         emit StatsCalculatorRegistrySet(registry);
@@ -236,7 +234,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         if (success) {
             address depRegistry = abi.decode(data, (address));
             if (depRegistry != address(this)) {
-                revert SystemMismatch(address(this), depRegistry);
+                revert Errors.SystemMismatch(address(this), depRegistry);
             }
         } else {
             revert InvalidContract(dep);

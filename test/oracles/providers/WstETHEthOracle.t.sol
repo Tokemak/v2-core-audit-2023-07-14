@@ -2,8 +2,9 @@
 pragma solidity 0.8.17;
 
 //import { console } from "forge-std/console.sol";
-import { IwstEth } from "src/interfaces/external/lido/IwstEth.sol";
+import { WSTETH_MAINNET } from "test/utils/Addresses.sol";
 import { Test, StdCheats, StdUtils } from "forge-std/Test.sol";
+import { IwstEth } from "src/interfaces/external/lido/IwstEth.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { WstETHEthOracle } from "src/oracles/providers/WstETHEthOracle.sol";
 import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
@@ -23,13 +24,13 @@ contract WstETHEthOracleTests is Test {
 
         _rootPriceOracle = IRootPriceOracle(vm.addr(324));
         _systemRegistry = _generateSystemRegistry(address(_rootPriceOracle));
-        _oracle = new WstETHEthOracle(_systemRegistry, 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
-        _wstETH = IwstEth(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
+        _oracle = new WstETHEthOracle(_systemRegistry, WSTETH_MAINNET);
+        _wstETH = IwstEth(WSTETH_MAINNET);
     }
 
     function testBasicPrice() public {
         _mockRootPrice(_wstETH.stETH(), 999_259_060_000_000_000);
-        uint256 price = _oracle.getPriceEth(address(_wstETH));
+        uint256 price = _oracle.getPriceInEth(address(_wstETH));
 
         assertApproxEqAbs(price, 1_125_000_000_000_000_000, 1e17);
     }
@@ -37,7 +38,7 @@ contract WstETHEthOracleTests is Test {
     function testOnlyWeth() public {
         address fakeAddr = vm.addr(34_343);
         vm.expectRevert(abi.encodeWithSelector(WstETHEthOracle.InvalidToken.selector, fakeAddr));
-        _oracle.getPriceEth(address(fakeAddr));
+        _oracle.getPriceInEth(address(fakeAddr));
     }
 
     function _generateToken(uint8 decimals) internal returns (address) {
@@ -49,7 +50,7 @@ contract WstETHEthOracleTests is Test {
     function _mockRootPrice(address token, uint256 price) internal {
         vm.mockCall(
             address(_rootPriceOracle),
-            abi.encodeWithSelector(IRootPriceOracle.getPriceEth.selector, token),
+            abi.encodeWithSelector(IRootPriceOracle.getPriceInEth.selector, token),
             abi.encode(price)
         );
     }

@@ -97,7 +97,7 @@ contract RootPriceOracle is SecurityBase, IRootPriceOracle {
 
     /// @dev This and all price oracles are not view fn's so that we can perform the Curve reentrancy check
     /// @inheritdoc IRootPriceOracle
-    function getPriceEth(address token) external returns (uint256) {
+    function getPriceInEth(address token) external returns (uint256) {
         // Skip the token address(0) check and just rely on the oracle lookup
         // Emit token so we can figure out what was actually 0 later
         IPriceOracle oracle = tokenMappings[token];
@@ -105,7 +105,7 @@ contract RootPriceOracle is SecurityBase, IRootPriceOracle {
             revert MissingTokenOracle(token);
         }
 
-        return oracle.getPriceEth(token);
+        return oracle.getPriceInEth(token);
     }
 
     function getSystemRegistry() external view returns (address registry) {

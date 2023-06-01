@@ -174,7 +174,7 @@ contract RootPriceOracleTests is Test {
         mockSystemBound(oracle, address(_systemRegistry));
         _rootPriceOracle.registerMapping(token, IPriceOracle(oracle));
 
-        uint256 price = _rootPriceOracle.getPriceEth(token);
+        uint256 price = _rootPriceOracle.getPriceInEth(token);
 
         assertEq(price, 5e18);
     }
@@ -187,12 +187,12 @@ contract RootPriceOracleTests is Test {
         _rootPriceOracle.registerMapping(token, IPriceOracle(oracle));
 
         vm.expectRevert(abi.encodeWithSelector(RootPriceOracle.MissingTokenOracle.selector, vm.addr(44)));
-        _rootPriceOracle.getPriceEth(vm.addr(44));
+        _rootPriceOracle.getPriceInEth(vm.addr(44));
     }
 
     function mockOracle(address oracle, address token, uint256 price) internal {
         vm.mockCall(
-            address(oracle), abi.encodeWithSelector(IPriceOracle.getPriceEth.selector, token), abi.encode(price)
+            address(oracle), abi.encodeWithSelector(IPriceOracle.getPriceInEth.selector, token), abi.encode(price)
         );
     }
 

@@ -46,14 +46,14 @@ contract WstETHEthOracle is IPriceOracle {
     }
 
     /// @inheritdoc IPriceOracle
-    function getPriceEth(address token) external returns (uint256 price) {
+    function getPriceInEth(address token) external returns (uint256 price) {
         // This oracle is only setup to handle a single token but could possibly be
         // configured incorrectly at the root level and receive others to price.
         if (token != address(wstETH)) {
             revert InvalidToken(token);
         }
 
-        uint256 stETHPrice = systemRegistry.rootPriceOracle().getPriceEth(address(stETH));
+        uint256 stETHPrice = systemRegistry.rootPriceOracle().getPriceInEth(address(stETH));
 
         // Our prices are always in 1e18 so just use steths precision to get back to 1e18;
         price = (wstETH.stEthPerToken() * stETHPrice) / stETHPrecision;

@@ -11,5 +11,5 @@ interface IPriceOracle is ISystemBound {
     /// @dev May require additional registration with the provider before being used for a token
     /// @param token Token to get the price of
     /// @return price The price of the token in ETH
-    function getPriceEth(address token) external returns (uint256 price);
+    function getPriceInEth(address token) external returns (uint256 price);
 }

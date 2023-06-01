@@ -57,7 +57,7 @@ contract UniswapV2EthOracleTests is Test {
         _mockUniV2Pool(pool, token0, token1, totalSupply, reserve0, reserve1);
         _oracle.register(pool);
 
-        uint256 price = _oracle.getPriceEth(pool);
+        uint256 price = _oracle.getPriceInEth(pool);
 
         assertEq(price, 20e18);
     }
@@ -77,7 +77,7 @@ contract UniswapV2EthOracleTests is Test {
         _mockUniV2Pool(pool, token0, token1, totalSupply, reserve0, reserve1);
         _oracle.register(pool);
 
-        uint256 price = _oracle.getPriceEth(pool);
+        uint256 price = _oracle.getPriceInEth(pool);
 
         assertEq(price, 20e18);
     }
@@ -115,7 +115,7 @@ contract UniswapV2EthOracleTests is Test {
         _mockUniV2Pool(pool, token0, token1, totalSupply, reserve0, reserve1);
         _oracle.register(pool);
 
-        uint256 price = _oracle.getPriceEth(pool);
+        uint256 price = _oracle.getPriceInEth(pool);
 
         assertEq(price, 20e18);
     }
@@ -135,7 +135,7 @@ contract UniswapV2EthOracleTests is Test {
         _mockUniV2Pool(pool, token0, token1, totalSupply, reserve0, reserve1);
         _oracle.register(pool);
 
-        uint256 price = _oracle.getPriceEth(pool);
+        uint256 price = _oracle.getPriceInEth(pool);
 
         assertEq(price, 20e18);
     }
@@ -155,7 +155,7 @@ contract UniswapV2EthOracleTests is Test {
         _mockUniV2Pool(pool, token0, token1, totalSupply, reserve0, reserve1);
         _oracle.register(pool);
 
-        uint256 price = _oracle.getPriceEth(pool);
+        uint256 price = _oracle.getPriceInEth(pool);
 
         assertEq(price, 20e18);
     }
@@ -175,7 +175,7 @@ contract UniswapV2EthOracleTests is Test {
         _mockUniV2Pool(pool, token0, token1, totalSupply, reserve0, reserve1);
         _oracle.register(pool);
 
-        uint256 price = _oracle.getPriceEth(pool);
+        uint256 price = _oracle.getPriceInEth(pool);
 
         assertEq(price, 20e18);
     }
@@ -195,7 +195,7 @@ contract UniswapV2EthOracleTests is Test {
         _mockUniV2Pool(pool, token0, token1, totalSupply, reserve0, reserve1);
         _oracle.register(pool);
 
-        uint256 price = _oracle.getPriceEth(pool);
+        uint256 price = _oracle.getPriceInEth(pool);
 
         assertEq(price, 20e18);
     }
@@ -215,7 +215,7 @@ contract UniswapV2EthOracleTests is Test {
         _mockUniV2Pool(pool, token0, token1, totalSupply, reserve0, reserve1);
         _oracle.register(pool);
 
-        uint256 price = _oracle.getPriceEth(pool);
+        uint256 price = _oracle.getPriceInEth(pool);
 
         assertEq(price, 20e18);
     }
@@ -235,7 +235,7 @@ contract UniswapV2EthOracleTests is Test {
         _mockUniV2Pool(pool, token0, token1, totalSupply, reserve0, reserve1);
         _oracle.register(pool);
 
-        uint256 price = _oracle.getPriceEth(pool);
+        uint256 price = _oracle.getPriceInEth(pool);
 
         assertEq(price, 20e18);
     }
@@ -255,7 +255,7 @@ contract UniswapV2EthOracleTests is Test {
         _mockUniV2Pool(pool, token0, token1, totalSupply, reserve0, reserve1);
         _oracle.register(pool);
 
-        uint256 price = _oracle.getPriceEth(pool);
+        uint256 price = _oracle.getPriceInEth(pool);
 
         assertApproxEqAbs(price, 40e18, 1e6);
     }
@@ -275,7 +275,7 @@ contract UniswapV2EthOracleTests is Test {
         _mockUniV2Pool(pool, token0, token1, totalSupply, reserve0, reserve1);
         _oracle.register(pool);
 
-        uint256 price = _oracle.getPriceEth(pool);
+        uint256 price = _oracle.getPriceInEth(pool);
 
         assertApproxEqAbs(price, 35e18, 1e18);
     }
@@ -312,7 +312,7 @@ contract UniswapV2EthOracleTests is Test {
     function _mockRootPrice(address token, uint256 price) internal {
         vm.mockCall(
             address(_rootPriceOracle),
-            abi.encodeWithSelector(IRootPriceOracle.getPriceEth.selector, token),
+            abi.encodeWithSelector(IRootPriceOracle.getPriceInEth.selector, token),
             abi.encode(price)
         );
     }

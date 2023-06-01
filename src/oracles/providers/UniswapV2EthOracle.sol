@@ -92,7 +92,7 @@ contract UniswapV2EthOracle is SecurityBase, IPriceOracle {
     }
 
     /// @inheritdoc IPriceOracle
-    function getPriceEth(address token) external returns (uint256 price) {
+    function getPriceInEth(address token) external returns (uint256 price) {
         IUniswapV2Pair pair = IUniswapV2Pair(token);
 
         PairRegistration memory registration = registrations[token];
@@ -100,8 +100,8 @@ contract UniswapV2EthOracle is SecurityBase, IPriceOracle {
 
         uint256 totalSupply = pair.totalSupply();
 
-        uint256 px0 = systemRegistry.rootPriceOracle().getPriceEth(registration.token0);
-        uint256 px1 = systemRegistry.rootPriceOracle().getPriceEth(registration.token1);
+        uint256 px0 = systemRegistry.rootPriceOracle().getPriceInEth(registration.token0);
+        uint256 px1 = systemRegistry.rootPriceOracle().getPriceInEth(registration.token1);
         (uint256 reserve0, uint256 reserve1) = _getReserves(token);
         uint256 sqR = Math.sqrt(uint256(reserve0) * uint256(reserve1) * registration.numeratorPad); // >= e18
         uint256 sqP = Math.sqrt(px0 * px1); // e18

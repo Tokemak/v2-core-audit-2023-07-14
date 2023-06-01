@@ -33,7 +33,7 @@ contract SystemRegistryTest is Test {
         address lmpVault = vm.addr(1);
         mockSystemBound(lmpVault);
         _systemRegistry.setLMPVaultRegistry(lmpVault);
-        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.AlreadySet.selector, "lmpVaultRegistry"));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AlreadySet.selector, "lmpVaultRegistry"));
         _systemRegistry.setLMPVaultRegistry(lmpVault);
     }
 
@@ -42,7 +42,7 @@ contract SystemRegistryTest is Test {
         mockSystemBound(lmpVault);
         _systemRegistry.setLMPVaultRegistry(lmpVault);
         lmpVault = vm.addr(2);
-        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.AlreadySet.selector, "lmpVaultRegistry"));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AlreadySet.selector, "lmpVaultRegistry"));
         _systemRegistry.setLMPVaultRegistry(lmpVault);
     }
 
@@ -84,9 +84,7 @@ contract SystemRegistryTest is Test {
         address fakeRegistry = vm.addr(2);
         bytes memory registry = abi.encode(fakeRegistry);
         vm.mockCall(lmpVault, abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector), registry);
-        vm.expectRevert(
-            abi.encodeWithSelector(SystemRegistry.SystemMismatch.selector, address(_systemRegistry), fakeRegistry)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Errors.SystemMismatch.selector, address(_systemRegistry), fakeRegistry));
         _systemRegistry.setLMPVaultRegistry(lmpVault);
     }
 
@@ -110,7 +108,7 @@ contract SystemRegistryTest is Test {
         address destinationVault = vm.addr(1);
         mockSystemBound(destinationVault);
         _systemRegistry.setDestinationVaultRegistry(destinationVault);
-        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.AlreadySet.selector, "destinationVaultRegistry"));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AlreadySet.selector, "destinationVaultRegistry"));
         _systemRegistry.setDestinationVaultRegistry(destinationVault);
     }
 
@@ -119,7 +117,7 @@ contract SystemRegistryTest is Test {
         mockSystemBound(destinationVault);
         _systemRegistry.setDestinationVaultRegistry(destinationVault);
         destinationVault = vm.addr(2);
-        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.AlreadySet.selector, "destinationVaultRegistry"));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AlreadySet.selector, "destinationVaultRegistry"));
         _systemRegistry.setDestinationVaultRegistry(destinationVault);
     }
 
@@ -162,9 +160,7 @@ contract SystemRegistryTest is Test {
         vm.mockCall(
             destinationVault, abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector), abi.encode(fakeRegistry)
         );
-        vm.expectRevert(
-            abi.encodeWithSelector(SystemRegistry.SystemMismatch.selector, address(_systemRegistry), fakeRegistry)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Errors.SystemMismatch.selector, address(_systemRegistry), fakeRegistry));
         _systemRegistry.setDestinationVaultRegistry(destinationVault);
     }
 
@@ -188,7 +184,7 @@ contract SystemRegistryTest is Test {
         address destinationTemplate = vm.addr(1);
         mockSystemBound(destinationTemplate);
         _systemRegistry.setDestinationTemplateRegistry(destinationTemplate);
-        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.AlreadySet.selector, "destinationTemplateRegistry"));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AlreadySet.selector, "destinationTemplateRegistry"));
         _systemRegistry.setDestinationTemplateRegistry(destinationTemplate);
     }
 
@@ -197,7 +193,7 @@ contract SystemRegistryTest is Test {
         mockSystemBound(destinationTemplate);
         _systemRegistry.setDestinationTemplateRegistry(destinationTemplate);
         destinationTemplate = vm.addr(2);
-        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.AlreadySet.selector, "destinationTemplateRegistry"));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AlreadySet.selector, "destinationTemplateRegistry"));
         _systemRegistry.setDestinationTemplateRegistry(destinationTemplate);
     }
 
@@ -242,9 +238,7 @@ contract SystemRegistryTest is Test {
             abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector),
             abi.encode(fakeRegistry)
         );
-        vm.expectRevert(
-            abi.encodeWithSelector(SystemRegistry.SystemMismatch.selector, address(_systemRegistry), fakeRegistry)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Errors.SystemMismatch.selector, address(_systemRegistry), fakeRegistry));
         _systemRegistry.setDestinationTemplateRegistry(destinationTemplate);
     }
 
@@ -268,7 +262,7 @@ contract SystemRegistryTest is Test {
         address accessController = vm.addr(1);
         mockSystemBound(accessController);
         _systemRegistry.setAccessController(accessController);
-        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.AlreadySet.selector, "accessController"));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AlreadySet.selector, "accessController"));
         _systemRegistry.setAccessController(accessController);
     }
 
@@ -277,7 +271,7 @@ contract SystemRegistryTest is Test {
         mockSystemBound(accessController);
         _systemRegistry.setAccessController(accessController);
         accessController = vm.addr(2);
-        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.AlreadySet.selector, "accessController"));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AlreadySet.selector, "accessController"));
         _systemRegistry.setAccessController(accessController);
     }
 
@@ -321,7 +315,7 @@ contract SystemRegistryTest is Test {
             controller, abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector), abi.encode(fakeController)
         );
         vm.expectRevert(
-            abi.encodeWithSelector(SystemRegistry.SystemMismatch.selector, address(_systemRegistry), fakeController)
+            abi.encodeWithSelector(Errors.SystemMismatch.selector, address(_systemRegistry), fakeController)
         );
         _systemRegistry.setAccessController(controller);
     }
@@ -346,7 +340,7 @@ contract SystemRegistryTest is Test {
         address statsCalcRegistry = vm.addr(1);
         mockSystemBound(statsCalcRegistry);
         _systemRegistry.setStatsCalculatorRegistry(statsCalcRegistry);
-        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.AlreadySet.selector, "statsCalculatorRegistry"));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AlreadySet.selector, "statsCalculatorRegistry"));
         _systemRegistry.setStatsCalculatorRegistry(statsCalcRegistry);
     }
 
@@ -355,7 +349,7 @@ contract SystemRegistryTest is Test {
         mockSystemBound(statsCalcRegistry);
         _systemRegistry.setStatsCalculatorRegistry(statsCalcRegistry);
         statsCalcRegistry = vm.addr(2);
-        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.AlreadySet.selector, "statsCalculatorRegistry"));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AlreadySet.selector, "statsCalculatorRegistry"));
         _systemRegistry.setStatsCalculatorRegistry(statsCalcRegistry);
     }
 
@@ -401,9 +395,7 @@ contract SystemRegistryTest is Test {
             abi.encode(fakeStatsCalcRegistry)
         );
         vm.expectRevert(
-            abi.encodeWithSelector(
-                SystemRegistry.SystemMismatch.selector, address(_systemRegistry), fakeStatsCalcRegistry
-            )
+            abi.encodeWithSelector(Errors.SystemMismatch.selector, address(_systemRegistry), fakeStatsCalcRegistry)
         );
         _systemRegistry.setStatsCalculatorRegistry(statsCalcRegistry);
     }
@@ -468,9 +460,7 @@ contract SystemRegistryTest is Test {
         address oracle = vm.addr(1);
         address fakeOracle = vm.addr(2);
         vm.mockCall(oracle, abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector), abi.encode(fakeOracle));
-        vm.expectRevert(
-            abi.encodeWithSelector(SystemRegistry.SystemMismatch.selector, address(_systemRegistry), fakeOracle)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Errors.SystemMismatch.selector, address(_systemRegistry), fakeOracle));
         _systemRegistry.setRootPriceOracle(oracle);
     }
 

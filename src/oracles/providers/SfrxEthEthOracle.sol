@@ -46,14 +46,14 @@ contract SfrxEthEthOracle is IPriceOracle {
     }
 
     /// @inheritdoc IPriceOracle
-    function getPriceEth(address token) external returns (uint256 price) {
+    function getPriceInEth(address token) external returns (uint256 price) {
         // This oracle is only setup to handle a single token but could possibly be
         // configured incorrectly at the root level and receive others to price.
         if (token != address(sfrxETH)) {
             revert InvalidToken(token);
         }
 
-        uint256 frxETHPrice = systemRegistry.rootPriceOracle().getPriceEth(address(frxETH));
+        uint256 frxETHPrice = systemRegistry.rootPriceOracle().getPriceInEth(address(frxETH));
 
         // Our prices are always in 1e18 so just use frxETH precision to get back to 1e18;
         price = (sfrxETH.pricePerShare() * frxETHPrice) / frxETHPrecision;

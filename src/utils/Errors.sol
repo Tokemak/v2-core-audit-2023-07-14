@@ -18,7 +18,7 @@ library Errors {
     error InvalidAddress(address addr);
     error InvalidParam(string paramName);
     error InvalidParams();
-
+    error AlreadySet(string param);
     error ItemNotFound();
     error ItemExists();
     error MissingRole(bytes32 role, address user);

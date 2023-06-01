@@ -113,7 +113,7 @@ contract CurveV1StableEthOracle is SecurityBase, IPriceOracle {
     }
 
     /// @inheritdoc IPriceOracle
-    function getPriceEth(address token) external returns (uint256 price) {
+    function getPriceInEth(address token) external returns (uint256 price) {
         Errors.verifyNotZero(token, "token");
 
         address[] memory tokens = lpTokenToUnderlying[token];
@@ -143,7 +143,7 @@ contract CurveV1StableEthOracle is SecurityBase, IPriceOracle {
 
             // Our prices are always in 1e18
             // slither-disable-next-line calls-loop
-            uint256 tokenPrice = systemRegistry.rootPriceOracle().getPriceEth(iToken);
+            uint256 tokenPrice = systemRegistry.rootPriceOracle().getPriceInEth(iToken);
             if (tokenPrice < minPrice) {
                 minPrice = tokenPrice;
             }

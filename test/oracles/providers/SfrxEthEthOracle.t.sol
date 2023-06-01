@@ -3,6 +3,7 @@ pragma solidity 0.8.17;
 
 //import { console } from "forge-std/console.sol";
 
+import { SFRXETH_MAINNET } from "test/utils/Addresses.sol";
 import { Test, StdCheats, StdUtils } from "forge-std/Test.sol";
 import { ISfrxEth } from "src/interfaces/external/frax/ISfrxEth.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
@@ -11,8 +12,6 @@ import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 contract SfrxEthEthOracleTests is Test {
-    address private constant SFRX_ETH = 0xac3E018457B222d93114458476f3E3416Abbe38F;
-
     uint256 private _addrIx;
 
     IRootPriceOracle private _rootPriceOracle;
@@ -26,13 +25,13 @@ contract SfrxEthEthOracleTests is Test {
 
         _rootPriceOracle = IRootPriceOracle(vm.addr(324));
         _systemRegistry = _generateSystemRegistry(address(_rootPriceOracle));
-        _oracle = new SfrxEthEthOracle(_systemRegistry, SFRX_ETH);
-        _sfrxETH = ISfrxEth(SFRX_ETH);
+        _oracle = new SfrxEthEthOracle(_systemRegistry, SFRXETH_MAINNET);
+        _sfrxETH = ISfrxEth(SFRXETH_MAINNET);
     }
 
     function testBasicPrice() public {
         _mockRootPrice(_sfrxETH.asset(), 998_907_980_000_000_000);
-        uint256 price = _oracle.getPriceEth(address(_sfrxETH));
+        uint256 price = _oracle.getPriceInEth(address(_sfrxETH));
 
         assertApproxEqAbs(price, 1_041_589_000_000_000_000, 5e16);
     }
@@ -40,7 +39,7 @@ contract SfrxEthEthOracleTests is Test {
     function testOnlySftxEth() public {
         address fakeAddr = vm.addr(34_343);
         vm.expectRevert(abi.encodeWithSelector(SfrxEthEthOracle.InvalidToken.selector, fakeAddr));
-        _oracle.getPriceEth(address(fakeAddr));
+        _oracle.getPriceInEth(address(fakeAddr));
     }
 
     function _generateToken(uint8 decimals) internal returns (address) {
@@ -52,7 +51,7 @@ contract SfrxEthEthOracleTests is Test {
     function _mockRootPrice(address token, uint256 price) internal {
         vm.mockCall(
             address(_rootPriceOracle),
-            abi.encodeWithSelector(IRootPriceOracle.getPriceEth.selector, token),
+            abi.encodeWithSelector(IRootPriceOracle.getPriceInEth.selector, token),
             abi.encode(price)
         );
     }
