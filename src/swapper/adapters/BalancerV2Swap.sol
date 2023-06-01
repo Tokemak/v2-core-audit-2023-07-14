@@ -12,7 +12,6 @@ import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
 import { IBasePool } from "src/interfaces/external/balancer/IBasePool.sol";
 import { BaseAdapter } from "src/swapper/adapters/BaseAdapter.sol";
 
-// TODO: access control??
 contract BalancerV2Swap is BaseAdapter, ISyncSwapper {
     using SafeERC20 for IERC20;
 

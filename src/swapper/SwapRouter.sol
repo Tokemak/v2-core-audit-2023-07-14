@@ -2,7 +2,6 @@
 // Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
-import { Address } from "openzeppelin-contracts/utils/Address.sol";
 import { IERC20, SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
@@ -14,7 +13,6 @@ import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaul
 import { SecurityBase } from "src/security/SecurityBase.sol";
 
 contract SwapRouter is ISwapRouter, SecurityBase, ReentrancyGuard {
-    using Address for address;
     using SafeERC20 for IERC20;
 
     ISystemRegistry private immutable systemRegistry;
@@ -76,6 +74,8 @@ contract SwapRouter is ISwapRouter, SecurityBase, ReentrancyGuard {
     ) external onlyLMPVault(msg.sender) nonReentrant returns (uint256) {
         if (sellAmount == 0) revert Errors.ZeroAmount();
         if (assetToken == quoteToken) revert Errors.InvalidParams();
+        Errors.verifyNotZero(assetToken, "assetToken");
+        Errors.verifyNotZero(quoteToken, "quoteToken");
 
         SwapData[] memory routes = swapRoutes[assetToken][quoteToken];
         uint256 length = routes.length;
@@ -85,11 +85,14 @@ contract SwapRouter is ISwapRouter, SecurityBase, ReentrancyGuard {
         IERC20(assetToken).safeTransferFrom(msg.sender, address(this), sellAmount);
         uint256 balanceBefore = IERC20(quoteToken).balanceOf(address(this));
 
+        // disable slither because it doesn't understand that zero check is done in the setSwapRoute function
+        // slither-disable-next-line missing-zero-check
         address currentToken = assetToken;
         uint256 currentAmount = sellAmount;
         for (uint256 hop = 0; hop < length; ++hop) {
-            // @todo forward the original error message instead of "SwapFailed"
-            bytes memory data = address(routes[hop].swapper).functionDelegateCall(
+            // slither-disable-start low-level-calls,calls-loop
+            // solhint-disable-next-line avoid-low-level-calls
+            (bool success, bytes memory data) = address(routes[hop].swapper).delegatecall(
                 abi.encodeWithSelector(
                     ISyncSwapper.swap.selector,
                     routes[hop].pool,
@@ -98,9 +101,21 @@ contract SwapRouter is ISwapRouter, SecurityBase, ReentrancyGuard {
                     routes[hop].token,
                     0,
                     routes[hop].data
-                ),
-                "SwapFailed"
+                )
             );
+            // slither-disable-end low-level-calls,calls-loop
+
+            if (!success) {
+                if (data.length == 0) revert SwapFailed();
+
+                // forward the original revert error
+                //slither-disable-start assembly
+                //solhint-disable-next-line no-inline-assembly
+                assembly {
+                    revert(add(32, data), mload(data))
+                }
+                //slither-disable-end assembly
+            }
 
             currentToken = routes[hop].token;
             currentAmount = abi.decode(data, (uint256));

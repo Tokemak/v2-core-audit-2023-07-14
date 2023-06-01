@@ -10,7 +10,6 @@ import { ISyncSwapper } from "src/interfaces/swapper/ISyncSwapper.sol";
 import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
 import { BaseAdapter } from "src/swapper/adapters/BaseAdapter.sol";
 
-// TODO: access control??xx
 contract CurveV2Swap is BaseAdapter, ISyncSwapper {
     using SafeERC20 for IERC20;
 
