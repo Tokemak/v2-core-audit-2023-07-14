@@ -2,6 +2,7 @@
 pragma solidity 0.8.17;
 
 import { Vm } from "forge-std/Vm.sol";
+import { console } from "forge-std/console.sol";
 import { Test, StdCheats, StdUtils } from "forge-std/Test.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IAsset } from "src/interfaces/external/balancer/IAsset.sol";
@@ -10,7 +11,16 @@ import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { IVault as IBalancerVault } from "src/interfaces/external/balancer/IVault.sol";
 import { IBalancerMetaStablePool } from "src/interfaces/external/balancer/IBalancerMetaStablePool.sol";
 import { BalancerLPMetaStableEthOracle } from "src/oracles/providers/BalancerLPMetaStableEthOracle.sol";
-import { BAL_VAULT, WSTETH_MAINNET, CBETH_MAINNET, CBETH_WSTETH_BAL_POOL } from "test/utils/Addresses.sol";
+import {
+    BAL_VAULT,
+    WSTETH_MAINNET,
+    CBETH_MAINNET,
+    RETH_WETH_BAL_POOL,
+    CBETH_WSTETH_BAL_POOL,
+    RETH_MAINNET,
+    WSETH_WETH_BAL_POOL,
+    WETH_MAINNET
+} from "test/utils/Addresses.sol";
 
 contract BalancerLPMetaStableEthOracleTests is Test {
     IBalancerVault private constant VAULT = IBalancerVault(BAL_VAULT);
@@ -25,7 +35,7 @@ contract BalancerLPMetaStableEthOracleTests is Test {
     event ReceivedPrice();
 
     function setUp() public {
-        uint256 mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"), 17_269_656);
+        uint256 mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"), 17_388_462);
         vm.selectFork(mainnetFork);
 
         rootPriceOracle = IRootPriceOracle(vm.addr(324));
@@ -46,6 +56,31 @@ contract BalancerLPMetaStableEthOracleTests is Test {
 
         assertEq(price > 99e16, true);
         assertEq(price < 11e17, true);
+    }
+
+    function testRethWethPool() public {
+        // Total Supply: 40893.881129584322594816
+        // Pool Value: $78,770,836
+        // Eth Price: $1,869.39
+        mockRootPrice(RETH_MAINNET, 1_072_922_000_000_000_000);
+        mockRootPrice(WETH_MAINNET, 1e18);
+
+        uint256 price = oracle.getPriceInEth(RETH_WETH_BAL_POOL);
+
+        assertApproxEqAbs(price, 1_030_402_225_000_000_000, 5e16);
+    }
+
+    function testWstETHWETHPool() public {
+        // Total Supply: 60320.675215389868866280
+        // Pool Value: $116,616,209
+        // Eth Price: $1,869.39
+
+        mockRootPrice(WSTETH_MAINNET, 1_125_652_000_000_000_000);
+        mockRootPrice(WETH_MAINNET, 1e18);
+
+        uint256 price = oracle.getPriceInEth(WSETH_WETH_BAL_POOL);
+
+        assertApproxEqAbs(price, 1_034_172_082_000_000_000, 5e16);
     }
 
     function testReentrancyGuard() public {
