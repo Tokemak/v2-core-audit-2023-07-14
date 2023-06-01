@@ -29,7 +29,8 @@ interface ISwapRouter {
      * @param assetToken The asset token for which the swap route is being set.
      * @param _swapRoute The new swap route as an array of SwapData. The last element represents the quoteToken.
      * @dev Each 'hop' in the swap route is validated using the respective swapper's validate function. The validate
-     * function ensures that the encoded data contains the correct 'from' and 'to' addresses.
+     * function ensures that the encoded data contains the correct 'fromAddress' and 'toAddress' (swapData.token), and
+     * verifies that these tokens are in the pool.
      */
     function setSwapRoute(address assetToken, SwapData[] calldata _swapRoute) external;
 

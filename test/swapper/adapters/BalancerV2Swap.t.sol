@@ -38,17 +38,6 @@ contract BalancerV2SwapTest is Test {
         });
     }
 
-    function test_validate_Revert_IfDataMismatch() public {
-        ISwapRouter.SwapData memory wrongRoute = ISwapRouter.SwapData({
-            token: RANDOM,
-            pool: 0x32296969Ef14EB0c6d29669C550D4a0449130230,
-            swapper: adapter,
-            data: abi.encode(0x32296969ef14eb0c6d29669c550d4a0449130230000200000000000000000080)
-        });
-        vm.expectRevert(abi.encodeWithSelector(ISyncSwapper.DataMismatch.selector, "swapData.token"));
-        adapter.validate(WSTETH_MAINNET, WSTETH_MAINNET, wrongRoute);
-    }
-
     function test_validate_Revert_IfFromAddressMismatch() public {
         bytes32 poolId = abi.decode(route.data, (bytes32));
 
@@ -59,7 +48,7 @@ contract BalancerV2SwapTest is Test {
             abi.encode("REVERT_MESSAGE")
         );
         vm.expectRevert(abi.encodeWithSelector(ISyncSwapper.DataMismatch.selector, "fromAddress"));
-        adapter.validate(WETH_MAINNET, WSTETH_MAINNET, route);
+        adapter.validate(WETH_MAINNET, route);
     }
 
     function test_validate_Revert_IfToAddressMismatch() public {
@@ -72,10 +61,10 @@ contract BalancerV2SwapTest is Test {
             abi.encode("REVERT_MESSAGE")
         );
         vm.expectRevert(abi.encodeWithSelector(ISyncSwapper.DataMismatch.selector, "toAddress"));
-        adapter.validate(WETH_MAINNET, WSTETH_MAINNET, route);
+        adapter.validate(WETH_MAINNET, route);
     }
 
     function test_validate_Works() public view {
-        adapter.validate(WETH_MAINNET, WSTETH_MAINNET, route);
+        adapter.validate(WETH_MAINNET, route);
     }
 }

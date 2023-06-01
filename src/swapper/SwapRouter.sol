@@ -48,10 +48,8 @@ contract SwapRouter is ISwapRouter, SecurityBase, ReentrancyGuard {
             Errors.verifyNotZero(route.pool, "swap pool");
             Errors.verifyNotZero(address(route.swapper), "swap swapper");
 
-            address toToken = route.token;
-
             //slither-disable-next-line calls-loop
-            route.swapper.validate(fromToken, toToken, route);
+            route.swapper.validate(fromToken, route);
 
             swapRoute.push(route);
             fromToken = route.token;

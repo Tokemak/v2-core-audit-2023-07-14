@@ -26,12 +26,11 @@ interface ISyncSwapper {
     ) external returns (uint256 actualBuyAmount);
 
     /**
-     * @notice Validates that the swapData contains the correct information, comparing it with the given 'from' and 'to'
-     * addresses
+     * @notice Validates that the swapData contains the correct information, ensuring that the encoded data contains the
+     * correct 'fromAddress' and 'toAddress' (swapData.token), and verifies that these tokens are in the pool
      * @dev This function should revert with a DataMismatch error if the swapData is invalid
      * @param fromAddress The address from which the swap originates
-     * @param toAddress The address to which the swap is directed
      * @param swapData The data associated with the swap that needs to be validated
      */
-    function validate(address fromAddress, address toAddress, ISwapRouter.SwapData memory swapData) external view;
+    function validate(address fromAddress, ISwapRouter.SwapData memory swapData) external view;
 }

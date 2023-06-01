@@ -18,15 +18,8 @@ contract CurveV2Swap is BaseAdapter, ISyncSwapper {
     constructor(address _router) BaseAdapter(_router) { }
 
     /// @inheritdoc ISyncSwapper
-    function validate(
-        address fromAddress,
-        address toAddress,
-        ISwapRouter.SwapData memory swapData
-    ) external view override {
+    function validate(address fromAddress, ISwapRouter.SwapData memory swapData) external view override {
         (int128 sellIndex, int128 buyIndex) = abi.decode(swapData.data, (int128, int128));
-
-        // verify that the toAddress is the token being swapped for
-        if (toAddress != swapData.token) revert DataMismatch("swapData.token");
 
         ICurveStableSwap pool = ICurveStableSwap(swapData.pool);
 
@@ -35,7 +28,7 @@ contract CurveV2Swap is BaseAdapter, ISyncSwapper {
 
         // verify that the fromAddress and toAddress are in the pool
         if (fromAddress != sellAddress) revert DataMismatch("fromAddress");
-        if (toAddress != buyAddress) revert DataMismatch("toAddress");
+        if (swapData.token != buyAddress) revert DataMismatch("toAddress");
     }
 
     /// @inheritdoc ISyncSwapper

@@ -23,16 +23,9 @@ contract BalancerV2Swap is BaseAdapter, ISyncSwapper {
     }
 
     /// @inheritdoc ISyncSwapper
-    function validate(
-        address fromAddress,
-        address toAddress,
-        ISwapRouter.SwapData memory swapData
-    ) external view override {
+    function validate(address fromAddress, ISwapRouter.SwapData memory swapData) external view override {
         bytes32 poolId = abi.decode(swapData.data, (bytes32));
         bytes32 id = IBasePool(swapData.pool).getPoolId();
-
-        // verify that the toAddress is the token being swapped for
-        if (toAddress != swapData.token) revert DataMismatch("swapData.token");
 
         // verify that the swapData.pool has the same id as the encoded poolId
         if (id != poolId) revert DataMismatch("poolId");
@@ -45,7 +38,7 @@ contract BalancerV2Swap is BaseAdapter, ISyncSwapper {
         (bool success,) = address(vault).staticcall(abi.encodeWithSignature(funcSelector, poolId, fromAddress));
         if (!success) revert DataMismatch("fromAddress");
 
-        (success,) = address(vault).staticcall(abi.encodeWithSignature(funcSelector, poolId, toAddress));
+        (success,) = address(vault).staticcall(abi.encodeWithSignature(funcSelector, poolId, swapData.token));
         if (!success) revert DataMismatch("toAddress");
         // slither-disable-end low-level-calls,missing-zero-check
     }
