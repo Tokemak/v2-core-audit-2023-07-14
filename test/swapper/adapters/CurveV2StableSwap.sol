@@ -9,15 +9,15 @@ import { IERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import { IVault } from "src/interfaces/external/balancer/IVault.sol";
 import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
 import { ISyncSwapper } from "src/interfaces/swapper/ISyncSwapper.sol";
-import { CurveV1StableSwap } from "src/swapper/adapters/CurveV1StableSwap.sol";
+import { CurveV2StableSwap } from "src/swapper/adapters/CurveV2StableSwap.sol";
 import { IDestinationVaultRegistry, DestinationVaultRegistry } from "src/vault/DestinationVaultRegistry.sol";
-import { ICurveV1StableSwap } from "src/interfaces/external/curve/ICurveV1StableSwap.sol";
+import { ICurveV2StableSwap } from "src/interfaces/external/curve/ICurveV2StableSwap.sol";
 
-import { STETH_MAINNET, WETH_MAINNET, RANDOM } from "test/utils/Addresses.sol";
+import { LDO_MAINNET, WETH_MAINNET, RANDOM } from "test/utils/Addresses.sol";
 
 // solhint-disable func-name-mixedcase
-contract CurveV1StableSwapTest is Test {
-    CurveV1StableSwap private adapter;
+contract CurveV2StableSwapTest is Test {
+    CurveV2StableSwap private adapter;
 
     ISwapRouter.SwapData private route;
 
@@ -26,12 +26,12 @@ contract CurveV1StableSwapTest is Test {
         uint256 forkId = vm.createFork(endpoint, 16_728_070);
         vm.selectFork(forkId);
 
-        adapter = new CurveV1StableSwap(address(this));
+        adapter = new CurveV2StableSwap(address(this));
 
-        // route WETH_MAINNET -> STETH_MAINNET
+        // route WETH_MAINNET -> LDO_MAINNET
         route = ISwapRouter.SwapData({
-            token: STETH_MAINNET,
-            pool: 0x828b154032950C8ff7CF8085D841723Db2696056,
+            token: LDO_MAINNET,
+            pool: 0x9409280DC1e6D33AB7A8C6EC03e5763FB61772B5,
             swapper: adapter,
             data: abi.encode(0, 1)
         });
@@ -39,14 +39,14 @@ contract CurveV1StableSwapTest is Test {
 
     function test_validate_Revert_IfFromAddressMismatch() public {
         // pretend that the pool doesn't have WETH_MAINNET
-        vm.mockCall(route.pool, abi.encodeWithSelector(ICurveV1StableSwap.coins.selector, 0), abi.encode(RANDOM));
+        vm.mockCall(route.pool, abi.encodeWithSelector(ICurveV2StableSwap.coins.selector, 0), abi.encode(RANDOM));
         vm.expectRevert(abi.encodeWithSelector(ISyncSwapper.DataMismatch.selector, "fromAddress"));
         adapter.validate(WETH_MAINNET, route);
     }
 
     function test_validate_Revert_IfToAddressMismatch() public {
-        // pretend that the pool doesn't have STETH_MAINNET
-        vm.mockCall(route.pool, abi.encodeWithSelector(ICurveV1StableSwap.coins.selector, 1), abi.encode(RANDOM));
+        // pretend that the pool doesn't have LDO_MAINNET
+        vm.mockCall(route.pool, abi.encodeWithSelector(ICurveV2StableSwap.coins.selector, 1), abi.encode(RANDOM));
         vm.expectRevert(abi.encodeWithSelector(ISyncSwapper.DataMismatch.selector, "toAddress"));
         adapter.validate(WETH_MAINNET, route);
     }
@@ -64,7 +64,7 @@ contract CurveV1StableSwapTest is Test {
         // solhint-disable-next-line avoid-low-level-calls
         (bool success, bytes memory data) = address(adapter).delegatecall(
             abi.encodeWithSelector(
-                ISyncSwapper.swap.selector, route.pool, WETH_MAINNET, sellAmount, STETH_MAINNET, 1, route.data
+                ISyncSwapper.swap.selector, route.pool, WETH_MAINNET, sellAmount, LDO_MAINNET, 1, route.data
             )
         );
 

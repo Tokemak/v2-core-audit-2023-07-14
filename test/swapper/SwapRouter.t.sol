@@ -10,7 +10,7 @@ import { SystemRegistry } from "src/SystemRegistry.sol";
 import { Errors } from "src/utils/Errors.sol";
 import { SwapRouter } from "src/swapper/SwapRouter.sol";
 import { BalancerV2Swap } from "src/swapper/adapters/BalancerV2Swap.sol";
-import { CurveV1StableSwap } from "src/swapper/adapters/CurveStableSwap.sol";
+import { CurveV1StableSwap } from "src/swapper/adapters/CurveV1StableSwap.sol";
 import { ISyncSwapper } from "src/interfaces/swapper/ISyncSwapper.sol";
 import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
 import { ISystemBound } from "src/interfaces/ISystemBound.sol";
