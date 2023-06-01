@@ -34,6 +34,7 @@ contract RootPriceOracle is SecurityBase, IRootPriceOracle {
     /// @notice Register a new token to oracle mapping
     /// @dev May require additional registration in the oracle itself
     /// @param token address of the token to register
+    /// @param oracle address of the oracle to use to lookup price
     function registerMapping(address token, IPriceOracle oracle) external onlyOwner {
         Errors.verifyNotZero(token, "token");
         Errors.verifyNotZero(address(oracle), "oracle");
@@ -97,7 +98,7 @@ contract RootPriceOracle is SecurityBase, IRootPriceOracle {
 
     /// @dev This and all price oracles are not view fn's so that we can perform the Curve reentrancy check
     /// @inheritdoc IRootPriceOracle
-    function getPriceInEth(address token) external returns (uint256) {
+    function getPriceInEth(address token) external returns (uint256 price) {
         // Skip the token address(0) check and just rely on the oracle lookup
         // Emit token so we can figure out what was actually 0 later
         IPriceOracle oracle = tokenMappings[token];
@@ -105,7 +106,7 @@ contract RootPriceOracle is SecurityBase, IRootPriceOracle {
             revert MissingTokenOracle(token);
         }
 
-        return oracle.getPriceInEth(token);
+        price = oracle.getPriceInEth(token);
     }
 
     function getSystemRegistry() external view returns (address registry) {
