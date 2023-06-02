@@ -18,4 +18,8 @@ library LibAdapter {
         }
         if (currentAllowance > amount) token.safeDecreaseAllowance(spender, currentAllowance);
     }
+
+    function _approve(address token, address spender, uint256 amount) internal {
+        _approve(IERC20(token), spender, amount);
+    }
 }

@@ -53,9 +53,8 @@ contract BalancerV2Swap is BaseAdapter {
     ) external override onlyRouter returns (uint256) {
         bytes32 poolId = abi.decode(data, (bytes32));
 
-        IVault.SingleSwap memory singleSwap = IVault.SingleSwap(
-            poolId, IVault.SwapKind.GIVEN_IN, IAsset(sellTokenAddress), IAsset(buyTokenAddress), sellAmount, ""
-        );
+        IVault.SingleSwap memory singleSwap =
+            IVault.SingleSwap(poolId, IVault.SwapKind.GIVEN_IN, sellTokenAddress, buyTokenAddress, sellAmount, "");
 
         IVault.FundManagement memory funds = IVault.FundManagement(address(this), false, payable(address(this)), false);
 

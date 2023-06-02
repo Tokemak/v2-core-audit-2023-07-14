@@ -4,7 +4,6 @@ pragma solidity 0.8.17;
 import { Test, StdCheats, StdUtils } from "forge-std/Test.sol";
 import { BalancerUtilities } from "src/libs/BalancerUtilities.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
-import { IAsset } from "src/interfaces/external/balancer/IAsset.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { IVault as IBalancerVault } from "src/interfaces/external/balancer/IVault.sol";
@@ -203,10 +202,10 @@ contract ReentrancyTester {
     }
 
     function run() external {
-        IAsset[] memory assets = new IAsset[](3);
-        assets[0] = IAsset(poolAddress);
-        assets[1] = IAsset(address(0));
-        assets[2] = IAsset(address(nonWethToken));
+        address[] memory assets = new address[](3);
+        assets[0] = poolAddress;
+        assets[1] = address(0);
+        assets[2] = address(nonWethToken);
 
         uint256[] memory amounts = new uint256[](3);
         amounts[0] = 0;

@@ -8,7 +8,6 @@ import { Initializable } from "openzeppelin-contracts/proxy/utils/Initializable.
 import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
 import { IPoolAdapter } from "src/interfaces/destinations/IPoolAdapter.sol";
-import { IAsset } from "src/interfaces/external/balancer/IAsset.sol";
 import { IVault } from "src/interfaces/external/balancer/IVault.sol";
 import { IBalancerPool } from "src/interfaces/external/balancer/IBalancerPool.sol";
 import { LibAdapter } from "src/libs/LibAdapter.sol";
@@ -110,7 +109,10 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
             address(this), // sender
             address(this), // recipient of BPT token
             _getJoinPoolRequest(
-                IBalancerPool(balancerExtraParams.pool), balancerExtraParams.tokens, amounts, minLpMintAmount
+                IBalancerPool(balancerExtraParams.pool),
+                _convertERC20sToAddresses(balancerExtraParams.tokens),
+                amounts,
+                minLpMintAmount
             )
         );
 
@@ -232,7 +234,7 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
 
         // As we're exiting the pool we need to make an ExitPoolRequest instead
         IVault.ExitPoolRequest memory request = IVault.ExitPoolRequest({
-            assets: _convertERC20sToAssets(poolTokens),
+            assets: _convertERC20sToAddresses(poolTokens),
             minAmountsOut: amountsOut,
             userData: params.userData,
             toInternalBalance: false
@@ -270,29 +272,6 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
             params.pool,
             poolId
         );
-    }
-
-    /**
-     * @dev This helper function is a fast and cheap way to convert between IERC20[] and IAsset[] types
-     */
-    function _convertERC20sToAssets(IERC20[] memory tokens) internal pure returns (IAsset[] memory assets) {
-        //slither-disable-start assembly
-        //solhint-disable-next-line no-inline-assembly
-        assembly {
-            assets := tokens
-        }
-        //slither-disable-end assembly
-    }
-
-    function _convertERC20sToAddresses(IERC20[] memory tokens)
-        internal
-        pure
-        returns (address[] memory tokenAddresses)
-    {
-        tokenAddresses = new address[](tokens.length);
-        for (uint256 i = 0; i < tokens.length; ++i) {
-            tokenAddresses[i] = address(tokens[i]);
-        }
     }
 
     // run through tokens and make sure it matches the pool's assets
@@ -356,12 +335,12 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
     /// @param poolAmountOut Expected amount of LP tokens to be minted on deposit
     function _getJoinPoolRequest(
         IBalancerPool pool,
-        IERC20[] memory tokens,
+        address[] memory tokens,
         uint256[] calldata amounts,
         uint256 poolAmountOut
     ) private view returns (IVault.JoinPoolRequest memory joinRequest) {
         joinRequest = IVault.JoinPoolRequest({
-            assets: _convertERC20sToAssets(tokens),
+            assets: tokens,
             maxAmountsIn: amounts, // maxAmountsIn,
             userData: abi.encode(
                 JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT,
@@ -394,5 +373,17 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
         } else {
             userAmounts = amounts;
         }
+    }
+
+    /**
+     * @dev This helper function is a fast and cheap way to convert between IERC20[] and IAsset[] types
+     */
+    function _convertERC20sToAddresses(IERC20[] memory tokens) internal pure returns (address[] memory assets) {
+        //slither-disable-start assembly
+        //solhint-disable-next-line no-inline-assembly
+        assembly {
+            assets := tokens
+        }
+        //slither-disable-end assembly
     }
 }

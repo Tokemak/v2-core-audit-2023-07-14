@@ -3,7 +3,6 @@
 pragma solidity 0.8.17;
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import { IAsset } from "./IAsset.sol";
 import { IProtocolFeesCollector } from "src/interfaces/external/balancer/IProtocolFeesCollector.sol";
 
 /**
@@ -47,7 +46,7 @@ interface IVault {
      */
     struct UserBalanceOp {
         UserBalanceOpKind kind;
-        IAsset asset;
+        address asset;
         uint256 amount;
         address sender;
         address payable recipient;
@@ -193,7 +192,7 @@ interface IVault {
     ) external payable;
 
     struct JoinPoolRequest {
-        IAsset[] assets;
+        address[] assets;
         uint256[] maxAmountsIn;
         bytes userData;
         bool fromInternalBalance;
@@ -242,7 +241,7 @@ interface IVault {
     ) external;
 
     struct ExitPoolRequest {
-        IAsset[] assets;
+        address[] assets;
         uint256[] minAmountsOut;
         bytes userData;
         bool toInternalBalance;
@@ -358,8 +357,8 @@ interface IVault {
     struct SingleSwap {
         bytes32 poolId;
         SwapKind kind;
-        IAsset assetIn;
-        IAsset assetOut;
+        address assetIn;
+        address assetOut;
         uint256 amount;
         bytes userData;
     }

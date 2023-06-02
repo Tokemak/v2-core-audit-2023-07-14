@@ -6,7 +6,6 @@ import { Roles } from "src/libs/Roles.sol";
 import { Test, StdCheats, StdUtils } from "forge-std/Test.sol";
 import { IstEth } from "src/interfaces/external/lido/IstEth.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
-import { IAsset } from "src/interfaces/external/balancer/IAsset.sol";
 import { AccessController } from "src/security/AccessController.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { CurveResolverMainnet } from "src/utils/CurveResolverMainnet.sol";
