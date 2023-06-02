@@ -109,7 +109,9 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
             IBalancerPool(balancerExtraParams.pool).getPoolId(),
             address(this), // sender
             address(this), // recipient of BPT token
-            _getJoinPoolRequest(balancerExtraParams.tokens, amounts, minLpMintAmount)
+            _getJoinPoolRequest(
+                IBalancerPool(balancerExtraParams.pool), balancerExtraParams.tokens, amounts, minLpMintAmount
+            )
         );
 
         // make sure we received bpt
@@ -121,8 +123,12 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
         for (uint256 i = 0; i < balancerExtraParams.tokens.length; ++i) {
             //slither-disable-next-line calls-loop
             uint256 currentBalance = balancerExtraParams.tokens[i].balanceOf(address(this));
+
             if (currentBalance != assetBalancesBefore[i] - amounts[i]) {
-                revert InvalidBalanceChange();
+                // For composable pools it might be a case that we deposit 0 LP tokens and our LP balance increases
+                if (address(balancerExtraParams.tokens[i]) != address(balancerExtraParams.pool)) {
+                    revert InvalidBalanceChange();
+                }
             }
         }
 
@@ -207,6 +213,7 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
 
         // record balance before withdraw
         uint256 bptBalanceBefore = IERC20(params.pool).balanceOf(address(this));
+
         uint256[] memory assetBalancesBefore = new uint256[](nTokens);
         for (uint256 i = 0; i < nTokens; ++i) {
             assetBalancesBefore[i] = poolTokens[i].balanceOf(address(this));
@@ -323,7 +330,8 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
             IERC20 currentToken = tokens[i];
 
             // as per new requirements, 0 amounts are not allowed even though balancer supports it
-            if (currentAmount == 0) {
+            // LP token is an exception for composable pools
+            if (currentAmount == 0 && address(currentToken) != address(pool)) {
                 revert MustBeMoreThanZero();
             }
             // make sure asset is supported (and matches the pool's assets)
@@ -345,19 +353,44 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
     /// @param amounts Amounts of corresponding tokens to deposit
     /// @param poolAmountOut Expected amount of LP tokens to be minted on deposit
     function _getJoinPoolRequest(
+        IBalancerPool pool,
         IERC20[] memory tokens,
         uint256[] calldata amounts,
         uint256 poolAmountOut
-    ) private pure returns (IVault.JoinPoolRequest memory joinRequest) {
+    ) private view returns (IVault.JoinPoolRequest memory joinRequest) {
         joinRequest = IVault.JoinPoolRequest({
             assets: _convertERC20sToAssets(tokens),
             maxAmountsIn: amounts, // maxAmountsIn,
             userData: abi.encode(
                 JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT,
-                amounts, //maxAmountsIn,
+                _getUserAmounts(pool, amounts), //maxAmountsIn,
                 poolAmountOut
                 ),
             fromInternalBalance: false
         });
+    }
+
+    function _getUserAmounts(
+        IBalancerPool pool,
+        uint256[] calldata amounts
+    ) private view returns (uint256[] memory userAmounts) {
+        // Using the presence of a getBptIndex() fn as an indicator of pool type
+        // slither-disable-next-line low-level-calls
+        (bool success, bytes memory data) = address(pool).staticcall(abi.encodeWithSignature("getBptIndex()"));
+
+        if (success) {
+            userAmounts = new uint256[](amounts.length-1);
+            uint256 bptIndex = abi.decode(data, (uint256));
+            uint256 userAmountsIndex = 0;
+            for (uint256 i = 0; i < amounts.length; ++i) {
+                if (i == bptIndex) {
+                    continue;
+                }
+                userAmounts[userAmountsIndex] = amounts[i];
+                userAmountsIndex++;
+            }
+        } else {
+            userAmounts = amounts;
+        }
     }
 }
