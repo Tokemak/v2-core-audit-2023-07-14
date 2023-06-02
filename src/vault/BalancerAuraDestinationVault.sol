@@ -13,7 +13,7 @@ import { DestinationVault } from "src/vault/DestinationVault.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { MainRewarder } from "src/rewarders/MainRewarder.sol";
 import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
-import { IClaimableRewardsAdapter } from "src/interfaces/destinations/IClaimableRewardsAdapter.sol";
+import { BalancerV2LPValueProvider } from "src/pricing/value-providers/BalancerV2LPValueProvider.sol";
 import { IVault } from "src/interfaces/external/balancer/IVault.sol";
 import { IBalancerPool } from "src/interfaces/external/balancer/IBalancerPool.sol";
 import { AuraAdapter } from "src/destinations/adapters/staking/AuraAdapter.sol";
@@ -32,6 +32,7 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
 
     MainRewarder public rewarder;
     ISwapRouter public swapper;
+    BalancerV2LPValueProvider public pricingProvider;
 
     IERC20[] public poolTokens;
 
@@ -46,6 +47,7 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
         IVault _vault,
         MainRewarder _rewarder,
         ISwapRouter _swapper,
+        BalancerV2LPValueProvider _pricingProvider,
         address _staking,
         address _pool
     ) public initializer {
@@ -56,10 +58,12 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
         Errors.verifyNotZero(address(_rewarder), "_rewarder");
         Errors.verifyNotZero(address(_swapper), "_swapper");
         Errors.verifyNotZero(address(_staking), "_staking");
+        Errors.verifyNotZero(address(_pricingProvider), "_pricingProvider");
         Errors.verifyNotZero(address(_pool), "_pool");
 
         rewarder = _rewarder;
         swapper = _swapper;
+        pricingProvider = _pricingProvider;
         staking = _staking;
         pool = _pool;
 
@@ -91,12 +95,9 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
     }
 
     function debtValue() public view override returns (uint256 value) {
-        // solhint-disable-next-line no-unused-vars
-        uint256 auraCurrentBalance = auraBalance();
-        // solhint-disable-next-line no-unused-vars
+        uint256 auraLPBalance = auraBalance();
         uint256 balancerLpAmount = balancerBalance();
-        // TODO: integrate pricing:
-        // value += lpAmountPrice;
+        value = (auraLPBalance + balancerLpAmount) * pricingProvider.getPrice(pool);
     }
 
     function rewardValue() public view override returns (uint256 value) {
@@ -105,10 +106,9 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
         //slither-disable-start calls-loop
         for (uint256 i = 0; i < rewarder.extraRewardsLength(); ++i) {
             IERC20 rewardToken = IERC20(rewarder.extraRewards(i));
-            // solhint-disable-next-line no-unused-vars
             uint256 rewardAmount = rewardToken.balanceOf(address(this));
-            // TODO: integrate pricing:
-            // value += rewardPrice;
+            uint256 rewardPrice = rewardAmount * pricingProvider.getPrice(address(rewardToken));
+            value += rewardPrice;
         }
         //slither-disable-end calls-loop
     }
