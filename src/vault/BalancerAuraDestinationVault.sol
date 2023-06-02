@@ -15,7 +15,7 @@ import { MainRewarder } from "src/rewarders/MainRewarder.sol";
 import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
 import { IClaimableRewardsAdapter } from "src/interfaces/destinations/IClaimableRewardsAdapter.sol";
 import { IVault } from "src/interfaces/external/balancer/IVault.sol";
-import { IBasePool } from "src/interfaces/external/balancer/IBasePool.sol";
+import { IBalancerPool } from "src/interfaces/external/balancer/IBalancerPool.sol";
 import { AuraAdapter } from "src/destinations/adapters/staking/AuraAdapter.sol";
 import { BalancerV2MetaStablePoolAdapter } from "src/destinations/adapters/BalancerV2MetaStablePoolAdapter.sol";
 
@@ -33,11 +33,10 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
     MainRewarder public rewarder;
     ISwapRouter public swapper;
 
-    IERC20 public lpToken;
     IERC20[] public poolTokens;
 
     address public staking;
-    IBasePool public pool;
+    address public pool;
 
     function initialize(
         ISystemRegistry _systemRegistry,
@@ -62,16 +61,15 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
         rewarder = _rewarder;
         swapper = _swapper;
         staking = _staking;
-        lpToken = IERC20(_pool);
-        pool = IBasePool(_pool);
+        pool = _pool;
 
-        bytes32 poolId = pool.getPoolId();
+        bytes32 poolId = IBalancerPool(pool).getPoolId();
         (IERC20[] memory balancerPoolTokens,,) = vault.getPoolTokens(poolId);
         if (balancerPoolTokens.length == 0) revert ArrayLengthMismatch();
         poolTokens = balancerPoolTokens;
 
         //slither-disable-next-line unused-return
-        trackedTokens.add(address(lpToken));
+        trackedTokens.add(_pool);
 
         for (uint256 i = 0; i < balancerPoolTokens.length; ++i) {
             //slither-disable-next-line unused-return
@@ -85,7 +83,7 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
     }
 
     function balancerBalance() public view returns (uint256) {
-        return IERC20(lpToken).balanceOf(address(this));
+        return IERC20(pool).balanceOf(address(this));
     }
 
     function totalLpAmount() public view returns (uint256) {
@@ -137,7 +135,7 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
         uint256 balancerLpBalance = balancerBalance();
         if (totalLpBurnAmount > balancerLpBalance) {
             auraLpBurnAmount = totalLpBurnAmount - balancerLpBalance;
-            withdrawStake(address(lpToken), staking, auraLpBurnAmount);
+            withdrawStake(pool, staking, auraLpBurnAmount);
         }
 
         // 2) withdraw Balancer

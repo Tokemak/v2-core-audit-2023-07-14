@@ -8,6 +8,12 @@ interface IBalancerPool is IERC20Metadata {
     function totalSupply() external view returns (uint256);
 
     /**
+     * @notice gets index of BPT in composable pools' asset list
+     * @return uint256 index of BPT
+     */
+    function getBptIndex() external view returns (uint256);
+
+    /**
      * @notice gets Balancer poolId
      * @return bytes32 poolId
      */

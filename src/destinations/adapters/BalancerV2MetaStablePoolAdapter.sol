@@ -10,7 +10,7 @@ import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard
 import { IPoolAdapter } from "src/interfaces/destinations/IPoolAdapter.sol";
 import { IAsset } from "src/interfaces/external/balancer/IAsset.sol";
 import { IVault } from "src/interfaces/external/balancer/IVault.sol";
-import { IBasePool } from "src/interfaces/external/balancer/IBasePool.sol";
+import { IBalancerPool } from "src/interfaces/external/balancer/IBalancerPool.sol";
 import { LibAdapter } from "src/libs/LibAdapter.sol";
 import { Errors } from "src/utils/Errors.sol";
 
@@ -93,21 +93,25 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
             revert MustBeMoreThanZero();
         }
         Errors.verifyNotZero(balancerExtraParams.pool, "balancerExtraParams.pool");
-        bytes32 poolId = IBasePool(balancerExtraParams.pool).getPoolId();
+        // bytes32 poolId = IBalancerPool(balancerExtraParams.pool).getPoolId();
 
         uint256[] memory assetBalancesBefore = new uint256[](balancerExtraParams.tokens.length);
 
         // verify that we're passing correct pool tokens
-        _ensureTokenOrderAndApprovals(amounts, balancerExtraParams.tokens, poolId, assetBalancesBefore);
+        _ensureTokenOrderAndApprovals(
+            amounts, balancerExtraParams.tokens, IBalancerPool(balancerExtraParams.pool), assetBalancesBefore
+        );
 
         // record balances before deposit
         uint256 bptBalanceBefore = IERC20(balancerExtraParams.pool).balanceOf(address(this));
 
         vault.joinPool(
-            poolId,
+            IBalancerPool(balancerExtraParams.pool).getPoolId(),
             address(this), // sender
             address(this), // recipient of BPT token
-            _getJoinPoolRequest(balancerExtraParams.tokens, amounts, minLpMintAmount)
+            _getJoinPoolRequest(
+                IBalancerPool(balancerExtraParams.pool), balancerExtraParams.tokens, amounts, minLpMintAmount
+            )
         );
 
         // make sure we received bpt
@@ -129,7 +133,7 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
             _convertERC20sToAddresses(balancerExtraParams.tokens),
             [bptBalanceAfter - bptBalanceBefore, bptBalanceAfter, IERC20(balancerExtraParams.pool).totalSupply()],
             balancerExtraParams.pool,
-            poolId
+            IBalancerPool(balancerExtraParams.pool).getPoolId()
         );
     }
 
@@ -192,6 +196,7 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
         }
 
         bytes32 poolId = IBasePool(params.pool).getPoolId();
+        bytes32 poolId = IBalancerPool(params.pool).getPoolId();
         (IERC20[] memory poolTokens,,) = vault.getPoolTokens(poolId);
 
         if (poolTokens.length != nTokens) {
@@ -298,16 +303,16 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
     /// @dev Separate function to avoid stack-too-deep errors
     ///      and combine gas-costly loop operations into single loop
     /// @param amounts Amounts of corresponding tokens to approve
-    /// @param poolId Id to verify pool tokens against given ones
+    /// @param pool Balancer Pool to pull token information from
     /// @param assetBalancesBefore Array to record initial token balances
     function _ensureTokenOrderAndApprovals(
         uint256[] calldata amounts,
         IERC20[] memory tokens,
-        bytes32 poolId,
+        IBalancerPool pool,
         uint256[] memory assetBalancesBefore
     ) private {
         // (two part verification: total number checked here, and individual match check below)
-        (IERC20[] memory poolAssets,,) = vault.getPoolTokens(poolId);
+        (IERC20[] memory poolAssets,,) = vault.getPoolTokens(pool.getPoolId());
 
         uint256 nTokens = amounts.length;
 
