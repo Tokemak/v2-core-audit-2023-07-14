@@ -109,9 +109,7 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
             IBalancerPool(balancerExtraParams.pool).getPoolId(),
             address(this), // sender
             address(this), // recipient of BPT token
-            _getJoinPoolRequest(
-                IBalancerPool(balancerExtraParams.pool), balancerExtraParams.tokens, amounts, minLpMintAmount
-            )
+            _getJoinPoolRequest(balancerExtraParams.tokens, amounts, minLpMintAmount)
         );
 
         // make sure we received bpt
@@ -195,7 +193,6 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
             revert ArraysLengthMismatch();
         }
 
-        bytes32 poolId = IBasePool(params.pool).getPoolId();
         bytes32 poolId = IBalancerPool(params.pool).getPoolId();
         (IERC20[] memory poolTokens,,) = vault.getPoolTokens(poolId);
 
