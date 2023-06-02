@@ -156,15 +156,14 @@ contract CurveConvexDestinationVault is ConvexAdapter, CurveV2FactoryCryptoAdapt
         }
 
         // 3) swap what we receive
+        // slither-disable-next-line incorrect-equality
+        if (sellAmount == 0) {
+            revert NoDebtReclaimed();
+        }
         IERC20(sellToken).safeApprove(address(swapper), sellAmount);
         amount += swapper.swapForQuote(sellToken, sellAmount, address(baseAsset), 0);
 
-        // 4) check amount and loss
-        // slither-disable-next-line incorrect-equality
-        if (amount == 0) {
-            revert NoDebtReclaimed();
-        }
-        // calculating the possible loss
+        // 4) calculating the possible loss
         if (amount < totalBurnAmount) {
             loss = totalBurnAmount - amount;
         }

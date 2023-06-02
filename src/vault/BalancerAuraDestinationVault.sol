@@ -139,23 +139,19 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
         }
 
         // 2) withdraw Balancer
-        uint256 balancerLpBurnAmount = totalLpBurnAmount - auraLpBurnAmount;
-        // slither-disable-next-line incorrect-equality
-        if (balancerLpBurnAmount == 0) {
-            // If 100% of tokens were in Aura we want use this amount to withdraw from Balancer
-            balancerLpBurnAmount = auraLpBurnAmount;
-        }
         // all minAmounts are 0, we set the burn LP amount and don't specify the amounts we expect by each token
         uint256[] memory minAmounts = new uint256[](poolTokens.length);
         uint256[] memory sellAmounts =
-            removeLiquidityImbalance(address(pool), balancerLpBurnAmount, poolTokens, minAmounts);
+            removeLiquidityImbalance(address(pool), totalLpBurnAmount, poolTokens, minAmounts);
 
         // 3) swap what we receive
         for (uint256 i = 0; i < poolTokens.length; ++i) {
-            address sellToken = address(poolTokens[i]);
             uint256 sellAmount = sellAmounts[i];
-            IERC20(sellToken).safeApprove(address(swapper), sellAmount);
-            amount += swapper.swapForQuote(sellToken, sellAmount, address(baseAsset), 0);
+            if (sellAmount != 0) {
+                address sellToken = address(poolTokens[i]);
+                IERC20(sellToken).safeApprove(address(swapper), sellAmount);
+                amount += swapper.swapForQuote(sellToken, sellAmount, address(baseAsset), 0);
+            }
         }
 
         // 4) check amount and loss
