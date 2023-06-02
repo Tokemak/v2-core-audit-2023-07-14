@@ -6,6 +6,9 @@ import { Errors } from "src/utils/Errors.sol";
 import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
 import { ISyncSwapper } from "src/interfaces/swapper/ISyncSwapper.sol";
 
+/// @dev Reminder from ISyncSwapper: we're adopting an "exact in, variable out" model for all our swaps. This ensures
+/// that the entire sellAmount is used, eliminating the need for additional balance checks and refunds. This model is
+/// expected to be followed by all swapper implementations to maintain consistency and to optimize for gas efficiency.
 abstract contract BaseAdapter is ISyncSwapper {
     ISwapRouter public immutable router;
 

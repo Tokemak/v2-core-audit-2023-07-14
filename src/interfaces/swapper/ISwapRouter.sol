@@ -35,7 +35,10 @@ interface ISwapRouter {
     function setSwapRoute(address assetToken, SwapData[] calldata _swapRoute) external;
 
     /**
-     * @dev Swaps the asset token for the quote token.
+     * @notice Swaps the asset token for the quote token.
+     * @dev We're adopting an "exact in, variable out" model for all our swaps. This ensures that the entire sellAmount
+     * is used, eliminating the need for additional balance checks and refunds. This model is expected to be followed by
+     * all swapper implementations to maintain consistency and to optimize for gas efficiency.
      * @param assetToken The address of the asset token to swap.
      * @param sellAmount The exact amount of the asset token to swap.
      * @param quoteToken The address of the quote token.
