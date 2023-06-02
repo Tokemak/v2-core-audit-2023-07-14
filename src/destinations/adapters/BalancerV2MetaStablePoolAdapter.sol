@@ -150,6 +150,17 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
         // encode withdraw request
         bytes memory userData = abi.encode(ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amounts, maxLpBurnAmount);
 
+        bool hasNonZeroAmount = false;
+        for (uint256 i = 0; i < amounts.length; ++i) {
+            if (amounts[i] != 0) {
+                hasNonZeroAmount = true;
+                break;
+            }
+        }
+        if (!hasNonZeroAmount) {
+            revert NoNonZeroAmountProvided();
+        }
+
         actualAmounts = _withdraw(
             WithdrawParams({
                 pool: balancerExtraParams.pool,
@@ -206,7 +217,7 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
             revert ArraysLengthMismatch();
         }
 
-        _checkZeroBalancesWithdrawal(params.tokens, poolTokens, amountsOut);
+        _verifyPoolTokensMatch(params.tokens, poolTokens);
 
         // grant erc20 approval for vault to spend our tokens
         LibAdapter._approve(IERC20(params.pool), address(vault), params.bptAmount);
@@ -284,23 +295,14 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
         }
     }
 
-    // run through tokens and make sure it matches the pool's assets, check non zero amount
-    function _checkZeroBalancesWithdrawal(
-        IERC20[] memory tokens,
-        IERC20[] memory poolTokens,
-        uint256[] memory amountsOut
-    ) private pure {
-        bool hasNonZeroAmount = false;
+    // run through tokens and make sure it matches the pool's assets
+    function _verifyPoolTokensMatch(IERC20[] memory tokens, IERC20[] memory poolTokens) private pure {
         for (uint256 i = 0; i < tokens.length; ++i) {
             IERC20 currentToken = tokens[i];
             if (currentToken != poolTokens[i]) {
                 revert TokenPoolAssetMismatch();
             }
-            if (!hasNonZeroAmount && amountsOut[i] > 0) {
-                hasNonZeroAmount = true;
-            }
         }
-        if (!hasNonZeroAmount) revert NoNonZeroAmountProvided();
     }
 
     /// @notice Validate that given tokens are relying to the given pool and approve spend
