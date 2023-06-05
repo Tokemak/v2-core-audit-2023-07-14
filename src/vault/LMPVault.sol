@@ -647,7 +647,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
             // withdraw underlying from dv
             uint256 underlyingReceived = IDestinationVault(destinationOut).withdrawUnderlying(amountOut);
 
-            // send to receiver (?? @samhagan receiver or swapper or is it the same?)
+            // send to receiver
             IERC20(tokenOut).safeTransfer(address(receiver), underlyingReceived);
         }
 
@@ -659,14 +659,13 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
             // uint256 dvSharesBefore = IERC20(destinationIn).balanceOf(address(this));
             uint256 tokenInBalanceBefore = IERC20(tokenIn).balanceOf(address(this));
 
-            // flash loan
-            // TODO: vet out mechanics fit!! (and checks for returns!)
-            //slither-disable-next-line unused-return
-            receiver.onFlashLoan(swapper, tokenIn, amountIn, 0, data);
-
-            // verify that vault balance of underlyerIn increased
-            if (IERC20(tokenIn).balanceOf(address(this)) != tokenInBalanceBefore + amountIn) {
-                revert Errors.FlashLoanFailed(tokenIn);
+            // flash loan (and verify that vault balance of underlyerIn increased)
+            if (
+                receiver.onFlashLoan(swapper, tokenIn, amountIn, 0, data)
+                    != keccak256("ERC3156FlashBorrower.onFlashLoan")
+                    || IERC20(tokenIn).balanceOf(address(this)) < tokenInBalanceBefore + amountIn
+            ) {
+                revert Errors.FlashLoanFailed(tokenIn, amountIn);
             }
 
             // deposit to dv

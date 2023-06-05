@@ -9,7 +9,6 @@ library Errors {
     ///////////////////////////////////////////////////////////////////
 
     error AccessDenied();
-    error NotAuthorized();
     error ZeroAddress(string paramName);
     error ZeroAmount();
     error InsufficientBalance(address token);
@@ -31,7 +30,7 @@ library Errors {
     error MustBeSet();
 
     error ApprovalFailed(address token);
-    error FlashLoanFailed(address token);
+    error FlashLoanFailed(address token, uint256 amount);
 
     error SystemMismatch(address source1, address source2);
 

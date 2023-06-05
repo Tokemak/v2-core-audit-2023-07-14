@@ -15,7 +15,7 @@ import { ILMPVaultRouter, LMPVaultRouter } from "src/vault/LMPVaultRouter.sol";
 import { ILMPVault, LMPVault } from "src/vault/LMPVault.sol";
 import { IStrategy } from "src/interfaces/strategy/IStrategy.sol";
 
-import { SystemRegistry } from "src/SystemRegistry.sol";
+import { Errors, SystemRegistry } from "src/SystemRegistry.sol";
 import { Roles } from "src/libs/Roles.sol";
 import { BaseTest } from "test/BaseTest.t.sol";
 import { VaultTypes } from "src/vault/VaultTypes.sol";
@@ -30,6 +30,8 @@ contract LMPVaultBaseTest is BaseTest {
     IDestinationVault public destinationVault2;
     LMPVault public lmpVault;
     ERC20 public baseAsset;
+
+    address private unauthorizedUser = address(0x33);
 
     event DestinationVaultAdded(address destination);
     event DestinationVaultRemoved(address destination);
@@ -86,12 +88,56 @@ contract LMPVaultBaseTest is BaseTest {
         assert(lmpVault.getDestinations()[0] == address(destinationVault));
     }
 
+    function test_DestinationVault_add_permissions() public {
+        vm.prank(unauthorizedUser);
+        address[] memory destinations = new address[](1);
+        destinations[0] = address(destinationVault);
+        vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
+        lmpVault.addDestinations(destinations);
+    }
+
     function test_DestinationVault_addExtra() public {
         _addDestinationVault(destinationVault);
         assert(lmpVault.getDestinations()[0] == address(destinationVault));
         _addDestinationVault(destinationVault2);
         assert(lmpVault.getDestinations().length == 2);
         assert(lmpVault.getDestinations()[1] == address(destinationVault2));
+    }
+
+    function test_DestinationVault_remove() public {
+        _addDestinationVault(destinationVault);
+        assert(lmpVault.getDestinations()[0] == address(destinationVault));
+        _removeDestinationVault(destinationVault);
+        assert(lmpVault.getDestinations().length == 0);
+    }
+
+    function test_DestinationVault_remove_permissions() public {
+        // test authorizations
+        vm.prank(unauthorizedUser);
+        address[] memory destinations = new address[](1);
+        destinations[0] = address(destinationVault);
+        vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
+        lmpVault.removeDestinations(destinations);
+    }
+
+    function _addDestinationVault(IDestinationVault _destination) internal {
+        uint256 numDestinationsBefore = lmpVault.getDestinations().length;
+        address[] memory destinations = new address[](1);
+        destinations[0] = address(_destination);
+        vm.expectEmit(true, false, false, false);
+        emit DestinationVaultAdded(destinations[0]);
+        lmpVault.addDestinations(destinations);
+        assert(lmpVault.getDestinations().length == numDestinationsBefore + 1);
+    }
+
+    function _removeDestinationVault(IDestinationVault _destination) internal {
+        uint256 numDestinationsBefore = lmpVault.getDestinations().length;
+        address[] memory destinations = new address[](1);
+        destinations[0] = address(_destination);
+        vm.expectEmit(true, false, false, false);
+        emit DestinationVaultRemoved(destinations[0]);
+        lmpVault.removeDestinations(destinations);
+        assert(lmpVault.getDestinations().length == numDestinationsBefore - 1);
     }
 
     function test_WithdrawalQueue() public {
@@ -118,31 +164,12 @@ contract LMPVaultBaseTest is BaseTest {
         assert(withdrawalQueue[1] == destinationVault);
     }
 
-    function test_DestinationVault_remove() public {
-        _addDestinationVault(destinationVault);
-        assert(lmpVault.getDestinations()[0] == address(destinationVault));
-        _removeDestinationVault(destinationVault);
-        assert(lmpVault.getDestinations().length == 0);
-    }
-
-    function _addDestinationVault(IDestinationVault _destination) internal {
-        uint256 numDestinationsBefore = lmpVault.getDestinations().length;
+    function test_WithdrawalQueue_permissions() public {
+        vm.prank(unauthorizedUser);
         address[] memory destinations = new address[](1);
-        destinations[0] = address(_destination);
-        vm.expectEmit(true, false, false, false);
-        emit DestinationVaultAdded(destinations[0]);
-        lmpVault.addDestinations(destinations);
-        assert(lmpVault.getDestinations().length == numDestinationsBefore + 1);
-    }
-
-    function _removeDestinationVault(IDestinationVault _destination) internal {
-        uint256 numDestinationsBefore = lmpVault.getDestinations().length;
-        address[] memory destinations = new address[](1);
-        destinations[0] = address(_destination);
-        vm.expectEmit(true, false, false, false);
-        emit DestinationVaultRemoved(destinations[0]);
-        lmpVault.removeDestinations(destinations);
-        assert(lmpVault.getDestinations().length == numDestinationsBefore - 1);
+        destinations[0] = address(destinationVault);
+        vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
+        lmpVault.setWithdrawalQueue(destinations);
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -164,6 +191,12 @@ contract LMPVaultBaseTest is BaseTest {
         assertEq(destinationVault2.balanceOf(lmpAddress), 25, "final lmp d2's shares != 25");
     }
 
+    function test_Rebalancer_permissions() public {
+        vm.prank(unauthorizedUser);
+        vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
+        lmpVault.rebalance(address(1), address(baseAsset), 1, address(1), address(baseAsset), 1);
+    }
+
     function test_FlashRebalancer() public {
         (address lmpAddress, address dAddress1, address dAddress2, address baseAssetAddress) =
             _setupRebalancerInitialState();
@@ -179,6 +212,13 @@ contract LMPVaultBaseTest is BaseTest {
         assertEq(destinationVault2.balanceOf(lmpAddress), 25, "final lmp d2's shares != 25");
     }
 
+    function test_FlashRebalancer_permissions() public {
+        vm.prank(unauthorizedUser);
+        address x = address(1);
+        vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
+        lmpVault.flashRebalance(IERC3156FlashBorrower(address(this)), x, x, 1, x, x, 1, "");
+    }
+
     // @dev Callback support from lmpVault to provide underlying for the "IN"
     function onFlashLoan(
         address, /* initiator */
@@ -189,6 +229,9 @@ contract LMPVaultBaseTest is BaseTest {
     ) external returns (bytes32) {
         // transfer dv underlying lp from swapper to here
         IERC20(token).safeTransfer(msg.sender, amount);
+
+        // @dev required as per spec to signify success
+        return keccak256("ERC3156FlashBorrower.onFlashLoan");
     }
 
     function _setupRebalancerInitialState()

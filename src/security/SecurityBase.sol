@@ -22,7 +22,7 @@ contract SecurityBase {
     }
 
     modifier hasRole(bytes32 role) {
-        if (!accessController.hasRole(role, msg.sender)) revert Errors.NotAuthorized();
+        if (!accessController.hasRole(role, msg.sender)) revert Errors.AccessDenied();
         _;
     }
 
