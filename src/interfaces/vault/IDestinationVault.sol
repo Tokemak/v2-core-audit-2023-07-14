@@ -52,11 +52,11 @@ interface IDestinationVault is IBaseAssetVault, IERC20 {
     /// @notice Calculates the current value of our debt
     /// @dev Queries the current value of all tokens we have deployed, whether its a single place, multiple, staked, etc
     /// @return value The current value of our debt in terms of the baseAsset
-    function debtValue() external view returns (uint256 value);
+    function debtValue() external returns (uint256 value);
 
     /// @notice Calculates the current value of any vested-but-not-realized rewards
     /// @return value The current value of our rewards in terms of the baseAsset
-    function rewardValue() external view returns (uint256 value);
+    function rewardValue() external returns (uint256 value);
 
     /// @notice Claims any rewards that have been previously claimed and are vesting
     /// @return amount The amount claimed in terms of the baseAsset

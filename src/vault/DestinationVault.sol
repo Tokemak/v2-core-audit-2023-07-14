@@ -84,10 +84,10 @@ abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
     }
 
     /// @inheritdoc IDestinationVault
-    function debtValue() public view virtual override returns (uint256 value);
+    function debtValue() public virtual override returns (uint256 value);
 
     /// @inheritdoc IDestinationVault
-    function rewardValue() public view virtual returns (uint256 value);
+    function rewardValue() public virtual returns (uint256 value);
 
     /// @inheritdoc IDestinationVault
     function claimVested() public virtual onlyOperator returns (uint256 amount) {

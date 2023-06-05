@@ -11,9 +11,9 @@ import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSe
 
 import { DestinationVault } from "src/vault/DestinationVault.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
+import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { MainRewarder } from "src/rewarders/MainRewarder.sol";
 import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
-import { BalancerV2LPValueProvider } from "src/pricing/value-providers/BalancerV2LPValueProvider.sol";
 import { IVault } from "src/interfaces/external/balancer/IVault.sol";
 import { IBalancerPool } from "src/interfaces/external/balancer/IBalancerPool.sol";
 import { AuraAdapter } from "src/destinations/adapters/staking/AuraAdapter.sol";
@@ -32,7 +32,6 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
 
     MainRewarder public rewarder;
     ISwapRouter public swapper;
-    BalancerV2LPValueProvider public pricingProvider;
 
     IERC20[] public poolTokens;
 
@@ -47,7 +46,6 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
         IVault _vault,
         MainRewarder _rewarder,
         ISwapRouter _swapper,
-        BalancerV2LPValueProvider _pricingProvider,
         address _staking,
         address _pool
     ) public initializer {
@@ -58,12 +56,10 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
         Errors.verifyNotZero(address(_rewarder), "_rewarder");
         Errors.verifyNotZero(address(_swapper), "_swapper");
         Errors.verifyNotZero(address(_staking), "_staking");
-        Errors.verifyNotZero(address(_pricingProvider), "_pricingProvider");
         Errors.verifyNotZero(address(_pool), "_pool");
 
         rewarder = _rewarder;
         swapper = _swapper;
-        pricingProvider = _pricingProvider;
         staking = _staking;
         pool = _pool;
 
@@ -94,21 +90,34 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
         return auraBalance() + balancerBalance();
     }
 
-    function debtValue() public view override returns (uint256 value) {
-        uint256 auraLPBalance = auraBalance();
-        uint256 balancerLpAmount = balancerBalance();
-        value = (auraLPBalance + balancerLpAmount) * pricingProvider.getPrice(pool);
+    function debtValue() public override returns (uint256 value) {
+        uint256 lpTokenAmount = auraBalance() + balancerBalance();
+        value = lpTokenAmount * getTokenPriceInBaseAsset(pool);
     }
 
-    function rewardValue() public view override returns (uint256 value) {
+    function rewardValue() public override returns (uint256 value) {
         value = rewarder.earned(address(this));
 
         //slither-disable-start calls-loop
         for (uint256 i = 0; i < rewarder.extraRewardsLength(); ++i) {
-            IERC20 rewardToken = IERC20(rewarder.extraRewards(i));
-            uint256 rewardAmount = rewardToken.balanceOf(address(this));
-            uint256 rewardPrice = rewardAmount * pricingProvider.getPrice(address(rewardToken));
-            value += rewardPrice;
+            address rewardToken = rewarder.extraRewards(i);
+            uint256 rewardAmount = IERC20(rewardToken).balanceOf(address(this));
+            value += rewardAmount * getTokenPriceInBaseAsset(rewardToken);
+        }
+        //slither-disable-end calls-loop
+    }
+
+    /// @notice If base asset is not WETH (which is a case for our MVP)
+    /// we should figure out price of the given token in terms of base asset
+    function getTokenPriceInBaseAsset(address token) private returns (uint256 value) {
+        //slither-disable-start calls-loop
+        IRootPriceOracle priceOracle = systemRegistry.rootPriceOracle();
+        uint256 tokenPriceInEth = priceOracle.getPriceInEth(token);
+        if (keccak256(abi.encodePacked(baseAsset.symbol())) == keccak256(abi.encodePacked("WETH"))) {
+            value = tokenPriceInEth;
+        } else {
+            uint256 baseAssetPriceInEth = priceOracle.getPriceInEth(address(baseAsset));
+            value = tokenPriceInEth / baseAssetPriceInEth;
         }
         //slither-disable-end calls-loop
     }
