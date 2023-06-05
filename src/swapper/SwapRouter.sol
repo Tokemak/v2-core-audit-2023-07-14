@@ -36,6 +36,8 @@ contract SwapRouter is ISwapRouter, SecurityBase, ReentrancyGuard {
         Errors.verifyNotZero(assetToken, "assetToken");
 
         uint256 length = _swapRoute.length;
+        if (length == 0) revert Errors.InvalidParams();
+
         address quoteToken = _swapRoute[length - 1].token;
         delete swapRoutes[assetToken][quoteToken];
         SwapData[] storage swapRoute = swapRoutes[assetToken][quoteToken];
