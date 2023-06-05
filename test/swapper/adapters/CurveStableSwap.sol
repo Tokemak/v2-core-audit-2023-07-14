@@ -9,14 +9,14 @@ import { IERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import { IVault } from "src/interfaces/external/balancer/IVault.sol";
 import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
 import { ISyncSwapper } from "src/interfaces/swapper/ISyncSwapper.sol";
-import { CurveV2StableSwap } from "src/swapper/adapters/CurveV2StableSwap.sol";
-import { ICurveV2StableSwap } from "src/interfaces/external/curve/ICurveV2StableSwap.sol";
+import { CurveV2Swap } from "src/swapper/adapters/CurveV2Swap.sol";
+import { ICurveV2Swap } from "src/interfaces/external/curve/ICurveV2Swap.sol";
 
 import { LDO_MAINNET, WETH_MAINNET, RANDOM } from "test/utils/Addresses.sol";
 
 // solhint-disable func-name-mixedcase
-contract CurveV2StableSwapTest is Test {
-    CurveV2StableSwap private adapter;
+contract CurveV2SwapTest is Test {
+    CurveV2Swap private adapter;
 
     ISwapRouter.SwapData private route;
 
@@ -25,7 +25,7 @@ contract CurveV2StableSwapTest is Test {
         uint256 forkId = vm.createFork(endpoint, 16_728_070);
         vm.selectFork(forkId);
 
-        adapter = new CurveV2StableSwap(address(this));
+        adapter = new CurveV2Swap(address(this));
 
         // route WETH_MAINNET -> LDO_MAINNET
         route = ISwapRouter.SwapData({
@@ -38,14 +38,14 @@ contract CurveV2StableSwapTest is Test {
 
     function test_validate_Revert_IfFromAddressMismatch() public {
         // pretend that the pool doesn't have WETH_MAINNET
-        vm.mockCall(route.pool, abi.encodeWithSelector(ICurveV2StableSwap.coins.selector, 0), abi.encode(RANDOM));
+        vm.mockCall(route.pool, abi.encodeWithSelector(ICurveV2Swap.coins.selector, 0), abi.encode(RANDOM));
         vm.expectRevert(abi.encodeWithSelector(ISyncSwapper.DataMismatch.selector, "fromAddress"));
         adapter.validate(WETH_MAINNET, route);
     }
 
     function test_validate_Revert_IfToAddressMismatch() public {
         // pretend that the pool doesn't have LDO_MAINNET
-        vm.mockCall(route.pool, abi.encodeWithSelector(ICurveV2StableSwap.coins.selector, 1), abi.encode(RANDOM));
+        vm.mockCall(route.pool, abi.encodeWithSelector(ICurveV2Swap.coins.selector, 1), abi.encode(RANDOM));
         vm.expectRevert(abi.encodeWithSelector(ISyncSwapper.DataMismatch.selector, "toAddress"));
         adapter.validate(WETH_MAINNET, route);
     }

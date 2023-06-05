@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-interface ICurveV2StableSwap {
+interface ICurveV2Swap {
     function coins(uint256 i) external view returns (address);
 
     function exchange(
