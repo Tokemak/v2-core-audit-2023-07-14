@@ -3,19 +3,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { BaseTest } from "test/BaseTest.t.sol";
-import { GPToke } from "src/staking/GPToke.sol";
-import { IGPToke } from "src/interfaces/staking/IGPToke.sol";
-
-import { console2 as console } from "forge-std/console2.sol";
+import { IGPToke, GPToke, BaseTest } from "test/BaseTest.t.sol";
 
 contract StakingTest is BaseTest {
-    GPToke private gpToke;
     uint256 private stakeAmount = 1000;
-    uint256 private minDuration = 30 days;
     uint256 private maxDuration = 1461 days;
-    uint256 private oneYear = 365 days;
-    uint256 private oneMonth = 30 days;
 
     event Stake(address indexed user, uint256 lockupId, uint256 amount, uint256 end, uint256 points);
     event Unstake(address indexed user, uint256 lockupId, uint256 amount, uint256 end, uint256 points);
@@ -34,7 +26,7 @@ contract StakingTest is BaseTest {
             address(toke),
             //solhint-disable-next-line not-rely-on-time
             block.timestamp, // start epoch
-            minDuration,
+            minStakingDuration,
             address(accessController)
         );
 
@@ -77,7 +69,7 @@ contract StakingTest is BaseTest {
     function testInvalidDurationsNotAllowed() public {
         // try to stake too short
         vm.expectRevert(IGPToke.StakingDurationTooShort.selector);
-        gpToke.stake(stakeAmount, minDuration - 1);
+        gpToke.stake(stakeAmount, minStakingDuration - 1);
         // try to stake too long
         vm.expectRevert(IGPToke.StakingDurationTooLong.selector);
         gpToke.stake(stakeAmount, maxDuration + 1);

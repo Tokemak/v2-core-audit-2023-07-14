@@ -17,6 +17,10 @@ library Roles {
 
     bytes32 public constant DESTINATION_VAULT_OPERATOR_ROLE = keccak256("DESTINATION_VAULT_OPERATOR_ROLE");
 
+    bytes32 public constant DV_REWARD_MANAGER_ROLE = keccak256("DV_REWARD_MANAGER_ROLE");
+
+    bytes32 public constant LIQUIDATOR_ROLE = keccak256("LIQUIDATOR_ROLE");
+
     bytes32 public constant CREATE_STATS_CALC_ROLE = keccak256("CREATE_STATS_CALC_ROLE");
     bytes32 public constant STATS_CALC_TEMPLATE_MGMT_ROLE = keccak256("STATS_CALC_TEMPLATE_MGMT_ROLE");
     bytes32 public constant STATS_SNAPSHOT_ROLE = keccak256("STATS_SNAPSHOT_ROLE");

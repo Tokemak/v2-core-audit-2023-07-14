@@ -2,13 +2,6 @@
 pragma solidity 0.8.17;
 
 interface IBaseRewarder {
-    error Unauthorized();
-    error OperatorOnly();
-    error StakeTrackerOnly();
-    error RewardManagerOnly();
-    error ZeroAddress();
-    error ZeroAmount();
-
     event RewardAdded(
         uint256 reward,
         uint256 rewardRate,
@@ -23,6 +16,8 @@ interface IBaseRewarder {
     event QueuedRewardsUpdated(uint256 queuedRewards);
     event RewardDurationUpdated(uint256 rewardDuration);
     event NewRewardRateUpdated(uint256 newRewardRate);
+
+    event TokeLockDurationUpdated(uint256 newDuration);
 
     /**
      * @notice Claims and transfers all rewards for the specified account

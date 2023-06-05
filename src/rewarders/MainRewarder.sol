@@ -5,10 +5,15 @@ import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
-import { IStakeTracking } from "../interfaces/rewarders/IStakeTracking.sol";
-import { IMainRewarder } from "../interfaces/rewarders/IMainRewarder.sol";
-import { IExtraRewarder } from "../interfaces/rewarders/IExtraRewarder.sol";
-import { AbstractRewarder } from "./AbstractRewarder.sol";
+import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
+
+import { IStakeTracking } from "src/interfaces/rewarders/IStakeTracking.sol";
+import { IMainRewarder } from "src/interfaces/rewarders/IMainRewarder.sol";
+import { IExtraRewarder } from "src/interfaces/rewarders/IExtraRewarder.sol";
+import { AbstractRewarder } from "src/rewarders/AbstractRewarder.sol";
+
+import { Roles } from "src/libs/Roles.sol";
+import { Errors } from "src/utils/Errors.sol";
 
 /**
  * @title MainRewarder
@@ -17,38 +22,35 @@ import { AbstractRewarder } from "./AbstractRewarder.sol";
  * from ExtraRewarder contracts.
  */
 contract MainRewarder is AbstractRewarder, IMainRewarder, ReentrancyGuard {
-    address public immutable rewardManager;
+    // address public immutable rewardManager;
     address[] public extraRewards;
 
     constructor(
+        ISystemRegistry _systemRegistry,
         address _stakeTracker,
         address _operator,
         address _rewardToken,
-        address _rewardManager,
         uint256 _newRewardRatio,
-        uint256 _durationInBlock
-    ) AbstractRewarder(_stakeTracker, _operator, _rewardToken, _newRewardRatio, _durationInBlock) {
-        if (_rewardManager == address(0)) {
-            revert ZeroAddress();
-        }
-        rewardManager = _rewardManager;
-    }
-
-    modifier rewardManagerOnly() {
-        if (msg.sender != rewardManager) {
-            revert RewardManagerOnly();
-        }
-        _;
-    }
+        uint256 _durationInBlock,
+        address _gpTokeAddress
+    )
+        AbstractRewarder(
+            _systemRegistry,
+            _stakeTracker,
+            _operator,
+            _rewardToken,
+            _newRewardRatio,
+            _durationInBlock,
+            _gpTokeAddress
+        )
+    { }
 
     function extraRewardsLength() external view returns (uint256) {
         return extraRewards.length;
     }
 
-    function addExtraReward(address reward) external rewardManagerOnly {
-        if (reward == address(0)) {
-            revert ZeroAddress();
-        }
+    function addExtraReward(address reward) external hasRole(Roles.DV_REWARD_MANAGER_ROLE) {
+        Errors.verifyNotZero(reward, "reward");
 
         extraRewards.push(reward);
     }

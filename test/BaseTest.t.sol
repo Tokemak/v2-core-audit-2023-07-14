@@ -19,6 +19,8 @@ import { StrategyFactory } from "src/strategy/StrategyFactory.sol";
 import { StakeTrackingMock } from "test/mocks/StakeTrackingMock.sol";
 import { IMainRewarder, MainRewarder } from "src/rewarders/MainRewarder.sol";
 
+import { IGPToke, GPToke } from "src/staking/GPToke.sol";
+
 import { VaultTypes } from "src/vault/VaultTypes.sol";
 import { Roles } from "src/libs/Roles.sol";
 import { WETH9_ADDRESS } from "test/utils/Addresses.sol";
@@ -39,9 +41,17 @@ contract BaseTest is Test {
 
     IAccessController public accessController;
 
+    // -- Staking -- //
+    GPToke public gpToke;
+    uint256 public minStakingDuration = 30 days;
+
     // -- tokens -- //
     IERC20 public usdc;
     IERC20 public toke;
+
+    // -- generally useful values -- //
+    uint256 internal oneYear = 365 days;
+    uint256 internal oneMonth = 30 days;
 
     function setUp() public virtual {
         // BEFORE WE DO ANYTHING, FORK!!
@@ -89,13 +99,30 @@ contract BaseTest is Test {
     }
 
     function createMainRewarder() public returns (MainRewarder) {
+        if (address(gpToke) == address(0)) {
+            deployGpToke();
+        }
+
         return new MainRewarder(
-            address(new StakeTrackingMock()),
-            vm.addr(1),
-            address(mockAsset("MAIN_REWARD", "MAIN_REWARD", 0)),
-            vm.addr(1),
-            800,
-            100
+            systemRegistry, // registry
+            address(new StakeTrackingMock()), // stakeTracker
+            vm.addr(1), // operator
+            address(mockAsset("MAIN_REWARD", "MAIN_REWARD", 0)), // rewardToken
+            800, // newRewardRatio
+            100, // durationInBlock
+            address(gpToke) // gpToke
+        );
+    }
+
+    function deployGpToke() public {
+        if (address(gpToke) != address(0)) return;
+
+        gpToke = new GPToke(
+            address(toke),
+            //solhint-disable-next-line not-rely-on-time
+            block.timestamp, // start epoch
+            minStakingDuration,
+            address(accessController)
         );
     }
 }
