@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
-import { Stats } from "src/libs/Stats.sol";
+import { Stats } from "src/stats/Stats.sol";
 import { Errors } from "src/utils/Errors.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
@@ -55,11 +56,7 @@ contract CurveV1ConvexStatsCalculator is BaseStatsCalculator, Initializable {
     }
 
     /// @inheritdoc IStatsCalculator
-    function initialize(
-        ISystemRegistry _systemRegistry,
-        bytes32[] calldata dependentAprIds,
-        bytes calldata initData
-    ) external override initializer {
+    function initialize(bytes32[] calldata dependentAprIds, bytes calldata initData) external override initializer {
         InitData memory decodedInitData = abi.decode(initData, (InitData));
         Errors.verifyNotZero(decodedInitData.curvePoolAddress, "decodedInitData.curvePoolAddress");
         Errors.verifyNotZero(decodedInitData.convexPoolId, "decodedInitData.convexPoolId");
@@ -87,7 +84,7 @@ contract CurveV1ConvexStatsCalculator is BaseStatsCalculator, Initializable {
 
         // The only dependency is on the Curve pool itself whose calculators use the
         // lp token of the pool as their ids
-        IStatsCalculatorRegistry registry = _systemRegistry.statsCalculatorRegistry();
+        IStatsCalculatorRegistry registry = systemRegistry.statsCalculatorRegistry();
         IStatsCalculator calculator = registry.getCalculator(dependentAprIds[0]);
         if (calculator.getAddressId() != curveQueriedLpToken) {
             revert Stats.CalculatorAssetMismatch(dependentAprIds[0], address(calculator), curveQueriedLpToken);
@@ -95,21 +92,15 @@ contract CurveV1ConvexStatsCalculator is BaseStatsCalculator, Initializable {
         calculators.push(calculator);
     }
 
-    /// @notice Augment the dependent stats data with information specific to this setup
-    /// @dev Roll-up of dependent calculators is already done and will be passed to you
-    /// @return stats information about this, and dependent, pool or destination combination
-    function _current(Stats.CalculatedStats memory dependentStats)
-        internal
-        view
-        override
-        returns (Stats.CalculatedStats memory)
-    {
-        // Base class pulls in dependencies and adds them up
+    /// @inheritdoc IStatsCalculator
+    function current() external view override returns (Stats.CalculatedStats memory) {
+        return Stats.CalculatedStats({ statsType: Stats.StatsType.DEX, data: "", dependentStats: calculators });
+    }
 
-        // Add in the trading fee's we're tracking
-        dependentStats.incentiveApr = dependentStats.incentiveApr + lastIncentiveApr;
-
-        return dependentStats;
+    /// @inheritdoc IStatsCalculator
+    function shouldSnapshot() external view returns (bool takeSnapshot) {
+        // TODO: implement real snapshot logic
+        return true;
     }
 
     /// @notice Capture stat data about this setup

@@ -1,0 +1,92 @@
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
+pragma solidity 0.8.17;
+
+import { Test } from "forge-std/Test.sol";
+import { Stats } from "src/stats/Stats.sol";
+
+contract StatsTest is Test {
+    function testComputeAnnualizedChangeMinZero() public {
+        _checkComputeAnnualizedChangeMinZero(Stats.SECONDS_IN_YEAR / 2, 1000, Stats.SECONDS_IN_YEAR, 1500, 1e18);
+        _checkComputeAnnualizedChangeMinZero(0, 12_345, Stats.SECONDS_IN_YEAR, 20_000, 620_089_104_900_769_542);
+        _checkComputeAnnualizedChangeMinZero(0, 5_000_000, 100, 4_999_999, 0);
+    }
+
+    function testRevertOnZeroStartValueForComputeAnnualizedChangeMinZero() public {
+        vm.expectRevert(abi.encodeWithSelector(Stats.ZeroDivisor.selector));
+        Stats.calculateAnnualizedChangeMinZero(0, 0, 1, 1);
+    }
+
+    function testRevertOnIncorrectTimestampsForComputeAnnualizedChangeMinZero() public {
+        vm.expectRevert(abi.encodeWithSelector(Stats.IncorrectTimestamps.selector));
+        Stats.calculateAnnualizedChangeMinZero(0, 1, 0, 10);
+    }
+
+    function testFuzzComputeAnnualizedChangeMinZero(
+        uint256 startTimestamp,
+        uint256 startValue,
+        uint256 endTimestamp,
+        uint256 endValue
+    ) public {
+        uint256 divisor = 1e18 * Stats.SECONDS_IN_YEAR; // ensures no overflow
+        vm.assume(endTimestamp > startTimestamp);
+        vm.assume(startValue < type(uint256).max / divisor);
+        vm.assume(startValue > 0);
+        vm.assume(endValue < type(uint256).max / divisor);
+
+        // make sure that rounding doesn't drop to zero
+        vm.assume(absDiff(startValue, endValue) > 5);
+        vm.assume(absDiff(startTimestamp, endTimestamp) < 5 * 365 * 24 * 60 * 60); // 5 years
+
+        uint256 result = Stats.calculateAnnualizedChangeMinZero(startTimestamp, startValue, endTimestamp, endValue);
+
+        if (startValue >= endValue) {
+            // negatives are clipped to zero
+            assertEq(result, 0);
+        } else {
+            assertGt(result, 0);
+        }
+    }
+
+    function testComputeUnannualizedNegativeChange() public {
+        assertEq(Stats.calculateUnannualizedNegativeChange(10_000, 9000), 1e17);
+        assertEq(Stats.calculateUnannualizedNegativeChange(99_000_873, 99_000_872), 10_100_921_029);
+    }
+
+    function testRevertZeroDivisorForComputeUnannualizedNegativeChange() public {
+        vm.expectRevert(abi.encodeWithSelector(Stats.ZeroDivisor.selector));
+        Stats.calculateUnannualizedNegativeChange(0, 1);
+    }
+
+    function testRevertNonNegativeChangeForComputeUnannualizedNegativeChange() public {
+        vm.expectRevert(abi.encodeWithSelector(Stats.NonNegativeChange.selector));
+        Stats.calculateUnannualizedNegativeChange(10_000, 10_001);
+    }
+
+    function testFuzzCalculateUnannualizedNegativeChange(uint256 startValue, uint256 endValue) public {
+        vm.assume(startValue < type(uint256).max / 1e18);
+        vm.assume(endValue < type(uint256).max / 1e18);
+        vm.assume(endValue < startValue);
+        uint256 result = Stats.calculateUnannualizedNegativeChange(startValue, endValue);
+        assertGt(result, 0);
+    }
+
+    function _checkComputeAnnualizedChangeMinZero(
+        uint256 startTimestamp,
+        uint256 startValue,
+        uint256 endTimestamp,
+        uint256 endValue,
+        uint256 expected
+    ) private {
+        uint256 result = Stats.calculateAnnualizedChangeMinZero(startTimestamp, startValue, endTimestamp, endValue);
+        assertEq(result, expected);
+    }
+
+    function absDiff(uint256 val1, uint256 val2) private pure returns (uint256) {
+        if (val1 > val2) {
+            return val1 - val2;
+        } else {
+            return val2 - val1;
+        }
+    }
+}

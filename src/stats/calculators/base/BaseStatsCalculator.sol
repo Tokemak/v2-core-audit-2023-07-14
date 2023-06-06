@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
-import { Stats } from "src/libs/Stats.sol";
+import { Stats } from "src/stats/Stats.sol";
 import { Roles } from "src/libs/Roles.sol";
 import { Errors } from "src/utils/Errors.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
@@ -14,6 +15,8 @@ import { IStatsCalculatorRegistry } from "src/interfaces/stats/IStatsCalculatorR
 /// @notice Captures common behavior across all calculators
 /// @dev Performs security checks and general roll-up behavior
 abstract contract BaseStatsCalculator is IStatsCalculator, SecurityBase {
+    ISystemRegistry public immutable systemRegistry;
+
     /// @notice Dependent calculators that should be rolled into this one
     IStatsCalculator[] public calculators;
 
@@ -24,22 +27,8 @@ abstract contract BaseStatsCalculator is IStatsCalculator, SecurityBase {
         _;
     }
 
-    constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) { }
-
-    /// @inheritdoc IStatsCalculator
-    function current() external view override returns (Stats.CalculatedStats memory stats) {
-        // Loop over the tokens to get their data base apr or other data
-        uint256 nCalcs = calculators.length;
-        for (uint256 i = 0; i < nCalcs;) {
-            //slither-disable-next-line calls-loop
-            stats = Stats.combineStats(stats, calculators[i].current());
-
-            unchecked {
-                ++i;
-            }
-        }
-
-        stats = _current(stats);
+    constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
+        systemRegistry = _systemRegistry;
     }
 
     /// @inheritdoc IStatsCalculator
@@ -51,12 +40,6 @@ abstract contract BaseStatsCalculator is IStatsCalculator, SecurityBase {
     /// @dev This is protected by the STATS_SNAPSHOT_ROLE
     function _snapshot() internal virtual;
 
-    /// @notice Augment the dependent stats data with information specific to this setup
-    /// @dev Roll-up of dependent calculators is already done and will be passed to you
-    /// @return stats information about this, and dependent, pool or destination combination
-    function _current(Stats.CalculatedStats memory stats)
-        internal
-        view
-        virtual
-        returns (Stats.CalculatedStats memory);
+    /// @inheritdoc IStatsCalculator
+    function current() external view virtual returns (Stats.CalculatedStats memory stats);
 }

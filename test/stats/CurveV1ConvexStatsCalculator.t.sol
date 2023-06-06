@@ -1,8 +1,9 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity >=0.8.7;
 
 import { Test } from "forge-std/Test.sol";
-import { Stats } from "src/libs/Stats.sol";
+import { Stats } from "src/stats/Stats.sol";
 import { Roles } from "src/libs/Roles.sol";
 import { ISystemBound } from "src/interfaces/ISystemBound.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
@@ -90,36 +91,5 @@ contract CurveV1ConvexStatsCalculatorFrxEthEthTests is Test {
         curveConvexDeps[0] = frxEthEthPoolId;
         (address convexCalc) = statsFactory.create(curveV1ConvexId, curveConvexDeps, encodedCurveConvexPoolInitData);
         frxEthCurveConvexWrapCalc = IStatsCalculator(convexCalc);
-    }
-
-    function testValuesRollup() public {
-        // A Curve pool should populate a trading fee APR
-        // A Convex wrap should populate an incentive APR
-
-        // No snapshots have been made, should return 0
-        Stats.CalculatedStats memory curveInit = frxEthCurvePoolCalc.current();
-        Stats.CalculatedStats memory convexInit = frxEthCurveConvexWrapCalc.current();
-        assertAllStatsZero(curveInit);
-        assertAllStatsZero(convexInit);
-
-        // Per snapshot so we can get some values
-        frxEthCurvePoolCalc.snapshot();
-        frxEthCurveConvexWrapCalc.snapshot();
-        Stats.CalculatedStats memory curveAfterSnapshot = frxEthCurvePoolCalc.current();
-        Stats.CalculatedStats memory convexAfterSnapshot = frxEthCurveConvexWrapCalc.current();
-
-        // Note: This may start failing when these calculators are implemented for real change
-        // change test as necessary
-        assertEq(curveAfterSnapshot.tradingFeeApr, convexAfterSnapshot.tradingFeeApr);
-        assertGe(convexAfterSnapshot.incentiveApr, 0);
-    }
-
-    function assertAllStatsZero(Stats.CalculatedStats memory stats) internal {
-        assertEq(stats.baseApr, 0);
-        assertEq(stats.tradingFeeApr, 0);
-        assertEq(stats.incentiveApr, 0);
-        assertEq(stats.incentiveDuration, 0);
-        assertEq(stats.discount, 0);
-        assertEq(stats.tokemakIncentiveApr, 0);
     }
 }

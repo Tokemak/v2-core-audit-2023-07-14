@@ -1,10 +1,12 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
-import { Stats } from "src/libs/Stats.sol";
+import { Stats } from "src/stats/Stats.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { ICurveRegistry } from "src/interfaces/external/curve/ICurveRegistry.sol";
 import { CurveV1PoolCalculatorBase } from "src/stats/calculators/base/CurveV1PoolCalculatorBase.sol";
+import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
 
 /// @notice Calculate stats for a Curve V1 StableSwap pool
 contract CurveV1PoolStatsCalculator is CurveV1PoolCalculatorBase {
@@ -13,21 +15,15 @@ contract CurveV1PoolStatsCalculator is CurveV1PoolCalculatorBase {
         ICurveRegistry _curveRegistry
     ) CurveV1PoolCalculatorBase(_systemRegistry, _curveRegistry) { }
 
-    /// @notice Augment the dependent stats data with information specific to this setup
-    /// @dev Roll-up of dependent calculators is already done and will be passed to you
-    /// @return stats information about this, and dependent, pool or destination combination
-    function _current(Stats.CalculatedStats memory dependentStats)
-        internal
-        view
-        override
-        returns (Stats.CalculatedStats memory)
-    {
-        // Base class pulls in dependencies and adds them up
+    /// @inheritdoc IStatsCalculator
+    function current() external view override returns (Stats.CalculatedStats memory) {
+        return Stats.CalculatedStats({ statsType: Stats.StatsType.DEX, data: "", dependentStats: calculators });
+    }
 
-        // Add in the trading fee's we're tracking
-        dependentStats.tradingFeeApr = dependentStats.tradingFeeApr + lastTradingFeeApr;
-
-        return dependentStats;
+    /// @inheritdoc IStatsCalculator
+    function shouldSnapshot() external view returns (bool takeSnapshot) {
+        // TODO: implement real snapshot logic
+        return true;
     }
 
     /// @notice Capture stat data about this setup

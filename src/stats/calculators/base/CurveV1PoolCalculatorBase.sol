@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
-import { Stats } from "src/libs/Stats.sol";
+import { Stats } from "src/stats/Stats.sol";
 import { Errors } from "src/utils/Errors.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
@@ -43,11 +44,7 @@ abstract contract CurveV1PoolCalculatorBase is BaseStatsCalculator, Initializabl
     }
 
     /// @inheritdoc IStatsCalculator
-    function initialize(
-        ISystemRegistry _systemRegistry,
-        bytes32[] calldata dependentAprIds,
-        bytes calldata initData
-    ) external override initializer {
+    function initialize(bytes32[] calldata dependentAprIds, bytes calldata initData) external override initializer {
         InitData memory decodedInitData = abi.decode(initData, (InitData));
         Errors.verifyNotZero(decodedInitData.poolAddress, "poolAddress");
         poolAddress = decodedInitData.poolAddress;
@@ -69,7 +66,7 @@ abstract contract CurveV1PoolCalculatorBase is BaseStatsCalculator, Initializabl
             revert DependentAprIdsMismatchTokens(dependentAprIds.length, nCoins);
         }
 
-        IStatsCalculatorRegistry registry = _systemRegistry.statsCalculatorRegistry();
+        IStatsCalculatorRegistry registry = systemRegistry.statsCalculatorRegistry();
         for (uint256 i = 0; i < nCoins; i++) {
             bytes32 dependentAprId = dependentAprIds[i];
 

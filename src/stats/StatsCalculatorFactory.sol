@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
 import { Roles } from "src/libs/Roles.sol";
@@ -56,7 +57,7 @@ contract StatsCalculatorFactory is IStatsCalculatorFactory, SecurityBase {
 
         // Copy and set it up
         calculatorAddress = template.clone();
-        IStatsCalculator(calculatorAddress).initialize(systemRegistry, dependentAprIds, initData);
+        IStatsCalculator(calculatorAddress).initialize(dependentAprIds, initData);
 
         // Add the vault to the registry
         systemRegistry.statsCalculatorRegistry().register(calculatorAddress);

@@ -1,8 +1,9 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity >=0.8.7;
 
 import { Test } from "forge-std/Test.sol";
-import { Stats } from "src/libs/Stats.sol";
+import { Stats } from "src/stats/Stats.sol";
 import { Roles } from "src/libs/Roles.sol";
 import { ISystemBound } from "src/interfaces/ISystemBound.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
@@ -111,7 +112,7 @@ contract StatsCalculatorFactoryTests is Test {
     function testReplaceTemplateChecksRole() public { }
 
     function testBasicCreate() public {
-        TestCalculator template = new TestCalculator();
+        TestCalculator template = new TestCalculator(systemRegistry);
         bytes32 aprTemplateId = keccak256("CurveConvex1");
         ensureTemplateManagerRole();
         ensureCalcCreatorRole();
@@ -141,7 +142,6 @@ contract StatsCalculatorFactoryTests is Test {
         TestCalculator createdCalc = TestCalculator(calculatorAddress);
         bytes32 aprId = createdCalc.getAprId();
 
-        assertEq(createdCalc.current().baseApr, initBaseApr);
         assertEq(expectedAprId, aprId);
         assertEq(address(createdCalc.systemRegistry()), address(systemRegistry));
     }
@@ -195,12 +195,16 @@ contract TestCalculator is IStatsCalculator {
 
     bytes32 private aprId;
 
-    ISystemRegistry public systemRegistry;
+    ISystemRegistry public immutable systemRegistry;
 
     struct InitData {
         address poolAddress;
         address stakingAddress;
         uint256 initBaseApr;
+    }
+
+    constructor(ISystemRegistry _systemRegistry) {
+        systemRegistry = _systemRegistry;
     }
 
     function getAddressId() external pure returns (address) {
@@ -211,12 +215,9 @@ contract TestCalculator is IStatsCalculator {
         return aprId;
     }
 
-    function initialize(ISystemRegistry _systemRegistry, bytes32[] calldata, bytes calldata initData) external {
+    function initialize(bytes32[] calldata, bytes calldata initData) external {
         InitData memory init = abi.decode(initData, (InitData));
         aprId = keccak256(abi.encode(BASE_APR_ID_KEY, init.poolAddress, init.stakingAddress));
-
-        stats.baseApr = init.initBaseApr;
-        systemRegistry = _systemRegistry;
     }
 
     function current() external view returns (Stats.CalculatedStats memory st) {
@@ -224,4 +225,8 @@ contract TestCalculator is IStatsCalculator {
     }
 
     function snapshot() external { }
+
+    function shouldSnapshot() external view returns (bool takeSnapshot) {
+        return true;
+    }
 }
