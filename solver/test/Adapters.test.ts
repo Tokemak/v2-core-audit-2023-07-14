@@ -2,7 +2,6 @@ import { ethers } from "hardhat";
 import { Planner } from "@weiroll/weiroll.js";
 import { expect } from "chai";
 
-import { Errors } from "../../typechain-types";
 import { MaverickAdapter } from "../commands/MaverickAdapter";
 import { BalancerV2MetaStablePoolAdapter } from "../commands/BalancerV2MetaStablePoolAdapter";
 import { BeethovenAdapter } from "../commands/BeethovenAdapter";
@@ -25,14 +24,6 @@ To add a new adapter test, follow these steps:
 */
 
 describe("Adapaters Plans", function () {
-	let errorsLibrary: Errors;
-
-	before(async function () {
-		errorsLibrary = await (await ethers.getContractFactory("Errors")).deploy();
-		//await errorsLibrary.deployed();
-		console.log("Errors library deployed to:", errorsLibrary.address);
-	});
-
 	async function deployContract(
 		name: string,
 		initializable: boolean,
@@ -134,7 +125,6 @@ describe("Adapaters Plans", function () {
 				"BalancerV2MetaStablePoolAdapter",
 				true,
 				"0xBA12222222228d8Ba445958a75a0704d566BF2C8",
-				{ Errors: errorsLibrary.address },
 			);
 
 			const call = await new BalancerV2MetaStablePoolAdapter(adapter.address).addLiquidity({
@@ -157,7 +147,6 @@ describe("Adapaters Plans", function () {
 				"BalancerV2MetaStablePoolAdapter",
 				true,
 				"0xBA12222222228d8Ba445958a75a0704d566BF2C8",
-				{ Errors: errorsLibrary.address },
 			);
 
 			const call = await new BalancerV2MetaStablePoolAdapter(adapter.address).removeLiquidity({
@@ -190,9 +179,6 @@ describe("Adapaters Plans", function () {
 				"BeethovenAdapter",
 				true,
 				"0xBA12222222228d8Ba445958a75a0704d566BF2C8",
-				{
-					Errors: errorsLibrary.address,
-				},
 			);
 
 			const call = await new BeethovenAdapter(adapter.address).addLiquidity({
@@ -217,7 +203,6 @@ describe("Adapaters Plans", function () {
 				"BeethovenAdapter",
 				true,
 				"0xBA12222222228d8Ba445958a75a0704d566BF2C8",
-				{ Errors: errorsLibrary.address },
 			);
 
 			const call = await new BeethovenAdapter(adapter.address).removeLiquidity({
@@ -244,9 +229,7 @@ describe("Adapaters Plans", function () {
 		// @dev - Based on the CurveV2FactoryCryptoAdapter testAddLiquidityWethStEth test
 		it("Should add liquidity using CurveV2FactoryCryptoAdapter", async function () {
 			const planner = new Planner();
-			const adapter = await deployContract("CurveV2FactoryCryptoAdapter", false, null, {
-				Errors: errorsLibrary.address,
-			});
+			const adapter = await deployContract("CurveV2FactoryCryptoAdapter", false);
 
 			const call = await new CurveV2FactoryCryptoAdapter(adapter.address).addLiquidity({
 				amounts: [HALF_ETH, ZERO_ETH],
@@ -264,9 +247,7 @@ describe("Adapaters Plans", function () {
 		// @dev - Based on the CurveV2FactoryCryptoAdapter testRemoveLiquidityWethStEth test
 		it("Should remove liquidity using CurveV2FactoryCryptoAdapter", async function () {
 			const planner = new Planner();
-			const adapter = await deployContract("CurveV2FactoryCryptoAdapter", false, null, {
-				Errors: errorsLibrary.address,
-			});
+			const adapter = await deployContract("CurveV2FactoryCryptoAdapter", false);
 
 			const call = await new CurveV2FactoryCryptoAdapter(adapter.address).removeLiquidity({
 				amounts: [HALF_ETH, ZERO_ETH],

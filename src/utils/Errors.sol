@@ -34,25 +34,25 @@ library Errors {
 
     error SystemMismatch(address source1, address source2);
 
-    function verifyNotZero(address addr, string memory paramName) external pure {
+    function verifyNotZero(address addr, string memory paramName) internal pure {
         if (addr == address(0)) {
             revert ZeroAddress(paramName);
         }
     }
 
-    function verifyNotZero(bytes32 key, string memory paramName) external pure {
+    function verifyNotZero(bytes32 key, string memory paramName) internal pure {
         if (key == bytes32(0)) {
             revert InvalidParam(paramName);
         }
     }
 
-    function verifyNotZero(uint256 num, string memory paramName) external pure {
+    function verifyNotZero(uint256 num, string memory paramName) internal pure {
         if (num == 0) {
             revert InvalidParam(paramName);
         }
     }
 
-    function verifySystemsMatch(ISystemBound component1, ISystemBound component2) external view {
+    function verifySystemsMatch(ISystemBound component1, ISystemBound component2) internal view {
         if (component1.getSystemRegistry() != component2.getSystemRegistry()) {
             revert SystemMismatch(address(component1), address(component2));
         }
