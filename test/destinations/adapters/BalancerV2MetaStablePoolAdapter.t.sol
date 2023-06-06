@@ -24,9 +24,18 @@ import {
     WETH_ARBITRUM
 } from "../../utils/Addresses.sol";
 
+import { TestableVM } from "../../../src/solver/test/TestableVM.sol";
+import { SolverCaller } from "../../../src/solver/test/SolverCaller.sol";
+import { ReadPlan } from "../../../test/utils/ReadPlan.sol";
+
+contract BalancerV2MetaStablePoolAdapterWrapper is SolverCaller, BalancerV2MetaStablePoolAdapter {
+    constructor() BalancerV2MetaStablePoolAdapter() { }
+}
+
 contract BalancerV2MetaStablePoolAdapterTest is Test {
     uint256 public mainnetFork;
-    BalancerV2MetaStablePoolAdapter public adapter;
+    BalancerV2MetaStablePoolAdapterWrapper public adapter;
+    TestableVM public solver;
 
     struct BalancerExtraParams {
         address pool;
@@ -38,8 +47,10 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         vm.selectFork(mainnetFork);
         assertEq(vm.activeFork(), mainnetFork);
 
-        adapter = new BalancerV2MetaStablePoolAdapter();
+        adapter = new BalancerV2MetaStablePoolAdapterWrapper();
         adapter.initialize(IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8));
+
+        solver = new TestableVM();
     }
 
     function forkArbitrum() private {
@@ -48,7 +59,7 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         vm.selectFork(forkId);
         assertEq(vm.activeFork(), forkId);
 
-        adapter = new BalancerV2MetaStablePoolAdapter();
+        adapter = new BalancerV2MetaStablePoolAdapterWrapper();
         adapter.initialize(IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8));
     }
 
@@ -495,5 +506,72 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 > preBalance2);
         assert(aftrerLpBalance == 0);
+    }
+    /// @dev This is an integration test for the Solver project. More information is available in the README.
+
+    function testAddLiquidityUsingSolver() public {
+        address poolAddress = 0x9c6d47Ff73e0F5E51BE5FD53236e3F595C5793F2;
+        IERC20 lpToken = IERC20(poolAddress);
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 0.5 * 1e18;
+        amounts[1] = 0.5 * 1e18;
+
+        deal(address(WSTETH_MAINNET), address(adapter), 2 * 1e18);
+        deal(address(CBETH_MAINNET), address(adapter), 2 * 1e18);
+
+        uint256 preBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
+        uint256 preBalance2 = IERC20(CBETH_MAINNET).balanceOf(address(adapter));
+        uint256 preLpBalance = lpToken.balanceOf(address(adapter));
+
+        (bytes32[] memory commands, bytes[] memory elements) =
+            ReadPlan.getPayload(vm, "balancerv2-add-liquidity.json", address(adapter));
+        adapter.execute(address(solver), commands, elements);
+
+        uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalance2 = IERC20(CBETH_MAINNET).balanceOf(address(adapter));
+        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+
+        assertEq(afterBalance1, preBalance1 - amounts[0]);
+        assertEq(afterBalance2, preBalance2 - amounts[1]);
+        assert(aftrerLpBalance > preLpBalance);
+    }
+
+    /// @dev This is an integration test for the Solver project. More information is available in the README.
+    function testRemoveLiquidityUsingSolver() public {
+        address poolAddress = 0x9c6d47Ff73e0F5E51BE5FD53236e3F595C5793F2;
+        IERC20 lpToken = IERC20(poolAddress);
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 1.5 * 1e18;
+        amounts[1] = 1.5 * 1e18;
+
+        deal(address(WSTETH_MAINNET), address(adapter), 2 * 1e18);
+        deal(address(CBETH_MAINNET), address(adapter), 2 * 1e18);
+
+        uint256 minLpMintAmount = 1;
+
+        IERC20[] memory tokens = new IERC20[](2);
+        tokens[0] = IERC20(WSTETH_MAINNET);
+        tokens[1] = IERC20(CBETH_MAINNET);
+
+        bytes memory extraParams = abi.encode(BalancerExtraParams(poolAddress, tokens));
+        adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
+
+        uint256 preBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
+        uint256 preBalance2 = IERC20(CBETH_MAINNET).balanceOf(address(adapter));
+        uint256 preLpBalance = lpToken.balanceOf(address(adapter));
+
+        (bytes32[] memory commands, bytes[] memory elements) =
+            ReadPlan.getPayload(vm, "balancerv2-remove-liquidity.json", address(adapter));
+        adapter.execute(address(solver), commands, elements);
+
+        uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalance2 = IERC20(CBETH_MAINNET).balanceOf(address(adapter));
+        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+
+        assert(afterBalance1 > preBalance1);
+        assert(afterBalance2 > preBalance2);
+        assert(aftrerLpBalance < preLpBalance);
     }
 }

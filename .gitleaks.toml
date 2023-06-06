@@ -13,10 +13,17 @@ regex = '''(?:\'|"|\s|^)(?:0x)?[a-fA-F0-9]{64}(?:\'|"|\s|;|$)'''
 
 [allowlist]
 paths = [
-  '''lib/(.*?)''',
-  '''out/(.*?)''',
-  '''cache/(.*?)''',
-  '''node_modules/(.*?)''',
-  '''test/utils/Addresses.sol''',
-  '''test/oracles/providers/TellorOracle.t.sol''',
+    '''lib/(.*?)''',
+    '''out/(.*?)''',
+    '''cache/(.*?)''',
+    '''artifacts/(.*?)''',
+    '''node_modules/(.*?)''',
+    '''test/utils/Addresses.sol''',
+    '''test/oracles/providers/TellorOracle.t.sol''',
+    '''test/pricing/TellorValueProvider.t.sol''',
+    '''test/utils/ReadPlan.sol''',
+    '''src/solver/VM.sol''',
+    '''solver/test/Adapters.test.ts''',
+    '''solver/test/payloads/adapters/(.*?)''',
+    '''solver/README.md''',
 ]

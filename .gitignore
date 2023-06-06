@@ -8,3 +8,8 @@ node_modules/
 
 lcov.info
 bin
+
+# hardhat
+artifacts/
+cache_hardhat/
+typechain-types/

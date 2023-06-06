@@ -14,6 +14,14 @@ import { IPosition } from "../../../src/interfaces/external/maverick/IPosition.s
 import { IRouter } from "../../../src/interfaces/external/maverick/IRouter.sol";
 import { WSTETH_MAINNET, CBETH_MAINNET, STETH_MAINNET, WETH_MAINNET } from "../../utils/Addresses.sol";
 
+import { TestableVM } from "../../../src/solver/test/TestableVM.sol";
+import { SolverCaller } from "../../../src/solver/test/SolverCaller.sol";
+import { ReadPlan } from "../../../test/utils/ReadPlan.sol";
+
+contract MaverickAdapterWrapper is SolverCaller, MaverickAdapter {
+    constructor(IRouter _rooter) MaverickAdapter(_rooter) { }
+}
+
 contract MaverickAdapterTest is Test {
     struct MaverickDeploymentExtraParams {
         address poolAddress;
@@ -35,7 +43,8 @@ contract MaverickAdapterTest is Test {
     uint256 private mainnetFork;
     IRouter private router;
     IPosition private position;
-    MaverickAdapter private adapter;
+    MaverickAdapterWrapper private adapter;
+    TestableVM public solver;
 
     function setUp() public {
         mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"), 17_067_052);
@@ -44,7 +53,8 @@ contract MaverickAdapterTest is Test {
 
         router = IRouter(0xc3B7aF1d8c3ca78F375Eb125F0211164b9071Cc0);
         position = router.position();
-        adapter = new MaverickAdapter(router);
+        adapter = new MaverickAdapterWrapper(router);
+        solver = new TestableVM();
     }
 
     // wstETH/WETH
@@ -207,6 +217,79 @@ contract MaverickAdapterTest is Test {
         adapter.removeLiquidity(amounts, preLpBalance, extraWithdrawalParams);
 
         uint256 afterBalanceA = IERC20(CBETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalanceB = IERC20(WETH_MAINNET).balanceOf(address(adapter));
+        uint256 aftrerLpBalance = pool.balanceOf(withDrawTokenId, binId);
+
+        assertTrue(afterBalanceA > preBalanceA);
+        assertTrue(afterBalanceB > preBalanceB);
+        assert(aftrerLpBalance < preLpBalance);
+    }
+
+    /// @dev This is an integration test for the Solver project. More information is available in the README.
+    function testAddLiquidityUsingSolver() public {
+        IPool pool = IPool(0x2eBE19AA2e29C8ACaDb14Be3E7De153b0141e2aa);
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 1 * 1e18;
+        amounts[1] = 1 * 1e18;
+
+        deal(address(WETH_MAINNET), address(adapter), 10 * 1e18);
+        deal(address(WSTETH_MAINNET), address(adapter), 10 * 1e18);
+
+        uint128 binId = 49;
+
+        uint256 preBalanceA = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
+        uint256 preBalanceB = IERC20(WETH_MAINNET).balanceOf(address(adapter));
+        uint256 preLpBalance = pool.balanceOf(INITIAL_TOKEN_ID, binId);
+
+        (bytes32[] memory commands, bytes[] memory elements) =
+            ReadPlan.getPayload(vm, "maverick-add-liquidity.json", address(adapter));
+        adapter.execute(address(solver), commands, elements);
+
+        uint256 afterBalanceA = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalanceB = IERC20(WETH_MAINNET).balanceOf(address(adapter));
+
+        uint256 tokenId = position.tokenOfOwnerByIndex(address(adapter), 0);
+        uint256 aftrerLpBalance = pool.balanceOf(tokenId, binId);
+
+        assertTrue(afterBalanceA < preBalanceA);
+        assertTrue(afterBalanceB < preBalanceB);
+        assert(aftrerLpBalance > preLpBalance);
+    }
+
+    /// @dev This is an integration test for the Solver project. More information is available in the README.
+    function testRemoveLiquidityUsingSolver() public {
+        IPool pool = IPool(0x2eBE19AA2e29C8ACaDb14Be3E7De153b0141e2aa);
+
+        uint256[] memory amounts = new uint256[](2);
+        uint128 deltaA = 5 * 1e18;
+        uint128 deltaB = 5 * 1e18;
+        amounts[0] = 1 * 1e18;
+        amounts[1] = 1 * 1e18;
+
+        deal(address(WETH_MAINNET), address(adapter), 10 * 1e18);
+        deal(address(WSTETH_MAINNET), address(adapter), 10 * 1e18);
+
+        IPool.AddLiquidityParams[] memory maverickParams = new  IPool.AddLiquidityParams[](1);
+        maverickParams[0] = IPool.AddLiquidityParams(3, 0, true, deltaA, deltaB);
+
+        bytes memory extraParams =
+            abi.encode(MaverickDeploymentExtraParams(address(pool), INITIAL_TOKEN_ID, 1e13, maverickParams));
+
+        adapter.addLiquidity(amounts, 1, extraParams);
+
+        uint128 binId = 49;
+        uint256 withDrawTokenId = position.tokenOfOwnerByIndex(address(adapter), 0);
+
+        uint256 preBalanceA = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
+        uint256 preBalanceB = IERC20(WETH_MAINNET).balanceOf(address(adapter));
+        uint256 preLpBalance = pool.balanceOf(withDrawTokenId, binId);
+
+        (bytes32[] memory commands, bytes[] memory elements) =
+            ReadPlan.getPayload(vm, "maverick-remove-liquidity.json", address(adapter));
+        adapter.execute(address(solver), commands, elements);
+
+        uint256 afterBalanceA = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
         uint256 afterBalanceB = IERC20(WETH_MAINNET).balanceOf(address(adapter));
         uint256 aftrerLpBalance = pool.balanceOf(withDrawTokenId, binId);
 

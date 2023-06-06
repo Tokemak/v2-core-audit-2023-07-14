@@ -2,7 +2,6 @@
 pragma solidity 0.8.17;
 
 import { Test } from "forge-std/Test.sol";
-import { stdStorage, StdStorage } from "forge-std/StdStorage.sol";
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
@@ -25,11 +24,16 @@ import {
     WETH_ARBITRUM
 } from "../../utils/Addresses.sol";
 
-contract CurveV2FactoryCryptoAdapterTest is Test {
-    using stdStorage for StdStorage;
+import { TestableVM } from "../../../src/solver/test/TestableVM.sol";
+import { SolverCaller } from "../../../src/solver/test/SolverCaller.sol";
+import { ReadPlan } from "../../../test/utils/ReadPlan.sol";
 
+contract CurveV2FactoryCryptoAdapterWrapper is SolverCaller, CurveV2FactoryCryptoAdapter { }
+
+contract CurveV2FactoryCryptoAdapterTest is Test {
     uint256 public mainnetFork;
-    CurveV2FactoryCryptoAdapter public adapter;
+    CurveV2FactoryCryptoAdapterWrapper public adapter;
+    TestableVM public solver;
 
     struct CurveExtraParams {
         address poolAddress;
@@ -42,8 +46,9 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         vm.selectFork(mainnetFork);
         assertEq(vm.activeFork(), mainnetFork);
 
-        adapter = new CurveV2FactoryCryptoAdapter();
+        adapter = new CurveV2FactoryCryptoAdapterWrapper();
         adapter.initialize(WETH_MAINNET);
+        solver = new TestableVM();
     }
 
     function forkArbitrum() private {
@@ -51,7 +56,7 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         uint256 forkId = vm.createFork(endpoint);
         vm.selectFork(forkId);
         assertEq(vm.activeFork(), forkId);
-        adapter = new CurveV2FactoryCryptoAdapter();
+        adapter = new CurveV2FactoryCryptoAdapterWrapper();
         adapter.initialize(WETH_ARBITRUM);
     }
 
@@ -60,44 +65,44 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         uint256 forkId = vm.createFork(endpoint, 101_774_971);
         vm.selectFork(forkId);
         assertEq(vm.activeFork(), forkId);
-        adapter = new CurveV2FactoryCryptoAdapter();
+        adapter = new CurveV2FactoryCryptoAdapterWrapper();
         adapter.initialize(WETH9_OPTIMISM);
     }
 
     function testInitializeWithValidWethAddressOnEth() public {
-        adapter = new CurveV2FactoryCryptoAdapter();
+        adapter = new CurveV2FactoryCryptoAdapterWrapper();
         adapter.initialize(WETH_MAINNET);
         assertEq(address(adapter.weth()), WETH_MAINNET);
     }
 
     function testInitializeWithValidWethAddressOnArb() public {
         forkArbitrum();
-        adapter = new CurveV2FactoryCryptoAdapter();
+        adapter = new CurveV2FactoryCryptoAdapterWrapper();
         adapter.initialize(WETH_ARBITRUM);
         assertEq(address(adapter.weth()), WETH_ARBITRUM);
     }
 
     function testInitializeWithValidWethAddressOnOpt() public {
         forkOptimism();
-        adapter = new CurveV2FactoryCryptoAdapter();
+        adapter = new CurveV2FactoryCryptoAdapterWrapper();
         adapter.initialize(WETH9_OPTIMISM);
         assertEq(address(adapter.weth()), WETH9_OPTIMISM);
     }
 
     function testRevertOnInitializeWithNonContractAsWethAddress() public {
-        adapter = new CurveV2FactoryCryptoAdapter();
+        adapter = new CurveV2FactoryCryptoAdapterWrapper();
         vm.expectRevert(CurveV2FactoryCryptoAdapter.InvalidWethAddress.selector);
         adapter.initialize(RANDOM);
     }
 
     function testRevertOnInitializeWithWrongContractAsWethAddress() public {
-        adapter = new CurveV2FactoryCryptoAdapter();
+        adapter = new CurveV2FactoryCryptoAdapterWrapper();
         vm.expectRevert(CurveV2FactoryCryptoAdapter.InvalidWethAddress.selector);
         adapter.initialize(0xB90B9B1F91a01Ea22A182CD84C1E22222e39B415);
     }
 
     function testRevertOnInitializeWithWrongErc20AsWethAddress() public {
-        adapter = new CurveV2FactoryCryptoAdapter();
+        adapter = new CurveV2FactoryCryptoAdapterWrapper();
         vm.expectRevert(CurveV2FactoryCryptoAdapter.InvalidWethAddress.selector);
         adapter.initialize(SETH_MAINNET);
     }
@@ -119,6 +124,7 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         uint256 minLpMintAmount = 1;
 
         bytes memory extraParams = abi.encode(poolAddress, address(lpToken), false);
+
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
         uint256 afterBalance = IERC20(WETH_MAINNET).balanceOf(address(adapter));
@@ -150,6 +156,7 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         uint256[] memory withdrawAmounts = new uint256[](2);
         withdrawAmounts[0] = 0.5 * 1e18;
         withdrawAmounts[1] = 0;
+
         adapter.removeLiquidity(withdrawAmounts, preLpBalance, extraParams);
 
         uint256 afterBalance = IERC20(WETH_MAINNET).balanceOf(address(adapter));
@@ -573,6 +580,67 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
 
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 > preBalance2);
+        assert(aftrerLpBalance < preLpBalance);
+    }
+
+    /// @dev This is an integration test for the Solver project. More information is available in the README.
+    function testAddLiquidityUsingSolver() public {
+        address poolAddress = 0x5FAE7E604FC3e24fd43A72867ceBaC94c65b404A;
+        ICryptoSwapPool pool = ICryptoSwapPool(poolAddress);
+        IERC20 lpToken = IERC20(pool.token());
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 0.5 * 1e18;
+        amounts[1] = 0;
+
+        deal(address(WETH_MAINNET), address(adapter), 2 * 1e18);
+
+        uint256 preBalance = IERC20(WETH_MAINNET).balanceOf(address(adapter));
+        uint256 preLpBalance = lpToken.balanceOf(address(adapter));
+
+        (bytes32[] memory commands, bytes[] memory elements) =
+            ReadPlan.getPayload(vm, "curvev2-add-liquidity.json", address(adapter));
+        adapter.execute(address(solver), commands, elements);
+
+        uint256 afterBalance = IERC20(WETH_MAINNET).balanceOf(address(adapter));
+        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+
+        assertEq(afterBalance, preBalance - amounts[0]);
+        assert(aftrerLpBalance > preLpBalance);
+    }
+
+    /// @dev This is an integration test for the Solver project. More information is available in the README.
+    function testRemoveLiquidityUsingSolver() public {
+        address poolAddress = 0x5FAE7E604FC3e24fd43A72867ceBaC94c65b404A;
+        ICryptoSwapPool pool = ICryptoSwapPool(poolAddress);
+        IERC20 lpToken = IERC20(pool.token());
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 1.5 * 1e18;
+        amounts[1] = 0;
+
+        deal(address(WETH_MAINNET), address(adapter), 2 * 1e18);
+
+        uint256 minLpMintAmount = 1;
+
+        bytes memory extraParams = abi.encode(poolAddress, address(lpToken), false);
+        adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
+
+        uint256 preBalance = IERC20(WETH_MAINNET).balanceOf(address(adapter));
+        uint256 preLpBalance = lpToken.balanceOf(address(adapter));
+
+        uint256[] memory withdrawAmounts = new uint256[](2);
+        withdrawAmounts[0] = 0.5 * 1e18;
+        withdrawAmounts[1] = 0;
+
+        (bytes32[] memory commands, bytes[] memory elements) =
+            ReadPlan.getPayload(vm, "curvev2-remove-liquidity.json", address(adapter));
+        adapter.execute(address(solver), commands, elements);
+
+        uint256 afterBalance = IERC20(WETH_MAINNET).balanceOf(address(adapter));
+        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+
+        assert(afterBalance > preBalance);
         assert(aftrerLpBalance < preLpBalance);
     }
 }

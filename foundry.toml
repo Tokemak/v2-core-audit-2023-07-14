@@ -5,6 +5,7 @@ out = 'out'
 libs = ['lib']
 solc = "0.8.17"
 evm_version = "shanghai"
+fs_permissions = [{ access = "read-write", path = "./"}]
 
 [fmt]
 bracket_spacing = true

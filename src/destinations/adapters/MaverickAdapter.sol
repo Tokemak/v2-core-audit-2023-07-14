@@ -159,6 +159,44 @@ contract MaverickAdapter is IPoolAdapter, ReentrancyGuard {
         );
     }
 
+    /**
+     * @notice Encodes the provided parameters into a byte array
+     * @dev This function helps in building extraParams with dynamic values when using the Solver SDK
+     * @param poolAddress The address of the pool
+     * @param tokenId The ID of the token
+     * @param deadline The deadline for the operation
+     * @param maverickParams An array of AddLiquidityParams parameters
+     * @return The encoded parameters as a byte array
+     */
+    function buildExtraParams(
+        address poolAddress,
+        uint256 tokenId,
+        uint256 deadline,
+        IPool.AddLiquidityParams[] memory maverickParams
+    ) external pure returns (bytes memory) {
+        return abi.encode(MaverickDeploymentExtraParams(poolAddress, tokenId, deadline, maverickParams));
+    }
+
+    /**
+     * @notice Creates a new AddLiquidityParams structure
+     * @dev This function helps in building extraParams with dynamic values when using the Solver SDK
+     * @param kind The kind of the parameter
+     * @param pos The position of the parameter
+     * @param isDelta Boolean flag indicating if it's a delta
+     * @param deltaA The delta A value
+     * @param deltaB The delta B value
+     * @return A new AddLiquidityParams structure
+     */
+    function buildMaverickParams(
+        uint8 kind,
+        int32 pos,
+        bool isDelta,
+        uint128 deltaA,
+        uint128 deltaB
+    ) external pure returns (IPool.AddLiquidityParams memory) {
+        return IPool.AddLiquidityParams(kind, pos, isDelta, deltaA, deltaB);
+    }
+
     ///@dev Adoiding stack-too-deep-errors
     function _runWithdrawal(
         uint256[] calldata amounts,
