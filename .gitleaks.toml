@@ -18,5 +18,5 @@ paths = [
   '''cache/(.*?)''',
   '''node_modules/(.*?)''',
   '''test/utils/Addresses.sol''',
-  '''test/pricing/TellorValueProvider.t.sol''',
+  '''test/oracles/providers/TellorOracle.t.sol''',
 ]
