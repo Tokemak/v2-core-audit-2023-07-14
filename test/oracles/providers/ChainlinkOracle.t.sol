@@ -47,6 +47,17 @@ contract ChainlinkOracleTest is Test {
         );
     }
 
+    function test_enum() external {
+        vm.expectRevert();
+
+        _oracle.registerChainlinkOracle(
+            RETH_MAINNET,
+            IAggregatorV3Interface(RETH_CL_FEED_MAINNET),
+            BaseOracleDenominations.Denomination(uint8(3)),
+            0
+        );
+    }
+
     function test_RevertZeroAddress() external {
         vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "tokenToAddOracle"));
 
