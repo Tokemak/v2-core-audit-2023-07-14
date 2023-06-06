@@ -7,9 +7,10 @@ import { IPriceOracle } from "src/interfaces/oracles/IPriceOracle.sol";
 import { Errors } from "src/utils/Errors.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { Ownable } from "openzeppelin-contracts/access/Ownable.sol";
+import { SecurityBase } from "src/security/SecurityBase.sol";
 
 /// @title Base functionalities for Chainlink and Tellor Oracle contracts.
-abstract contract BaseOracleDenominations is IPriceOracle, Ownable {
+abstract contract BaseOracleDenominations is IPriceOracle, SecurityBase {
     /// @notice Used to denote what denomination a token is in.
     enum Denomination {
         ETH,
@@ -32,7 +33,7 @@ abstract contract BaseOracleDenominations is IPriceOracle, Ownable {
     // Thrown in the event that parameter returned with data is invalid.  Timestamp, pricing, etc.
     error InvalidDataReturned();
 
-    constructor(ISystemRegistry _systemRegistry) Ownable() {
+    constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
         Errors.verifyNotZero(address(_systemRegistry), "_systemRegistry");
         Errors.verifyNotZero(address(_systemRegistry.rootPriceOracle()), "rootPriceOracle");
 

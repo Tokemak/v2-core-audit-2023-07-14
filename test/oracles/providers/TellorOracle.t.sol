@@ -10,6 +10,7 @@ import { TELLOR_ORACLE, RETH_MAINNET, RETH_CL_FEED_MAINNET } from "test/utils/Ad
 
 import { TellorOracle, BaseOracleDenominations } from "src/oracles/providers/TellorOracle.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
+import { AccessController } from "src/security/AccessController.sol";
 import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { Errors } from "src/utils/Errors.sol";
 
@@ -20,9 +21,10 @@ contract TellorOracleTest is Test {
     uint256 public constant ETH_MAX_USD = 10_000_000_000_000_000_000_000;
     address public constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
-    IRootPriceOracle private _rootPriceOracle;
-    ISystemRegistry private _systemRegistry;
+    ISystemRegistry public systemRegistry;
     TellorOracle public _oracle;
+
+    error AccessDenied();
 
     event TellorRegistrationAdded(address token, BaseOracleDenominations.Denomination, bytes32 _queryId);
     event TellorRegistrationRemoved(address token, bytes32 queryId);
@@ -30,16 +32,19 @@ contract TellorOracleTest is Test {
     function setUp() external {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"));
 
-        _rootPriceOracle = IRootPriceOracle(vm.addr(324));
-        _systemRegistry = _generateSystemRegistry(address(_rootPriceOracle));
-        _oracle = new TellorOracle(TELLOR_ORACLE, _systemRegistry);
+        systemRegistry = ISystemRegistry(address(777));
+        AccessController accessControl = new AccessController(address(systemRegistry));
+        IRootPriceOracle rootPriceOracle = IRootPriceOracle(vm.addr(324));
+        generateSystemRegistry(address(systemRegistry), address(accessControl), address(rootPriceOracle));
+        _oracle = new TellorOracle(TELLOR_ORACLE, systemRegistry);
 
-        vm.makePersistent(address(_systemRegistry));
+        vm.makePersistent(address(systemRegistry));
+        vm.makePersistent(address(accessControl));
     }
 
     // Test `addTellorRegistration()`.
     function test_RevertNonOwnerQueryId() external {
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(AccessDenied.selector);
         vm.prank(address(3));
 
         _oracle.addTellorRegistration(address(1), bytes32("Test Bytes"), BaseOracleDenominations.Denomination.ETH, 0);
@@ -75,6 +80,13 @@ contract TellorOracleTest is Test {
     }
 
     // Test `removeTellorRegistration()`
+    function test_RevertNonOwner() external {
+        vm.prank(address(2));
+        vm.expectRevert(AccessDenied.selector);
+
+        _oracle.removeTellorRegistration(address(1));
+    }
+
     function test_RevertZeroAddressToken_RemoveTellorRegistration() external {
         vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "tokenToRemoveRegistration"));
 
@@ -104,7 +116,7 @@ contract TellorOracleTest is Test {
     function test_GetPriceMainnet() external {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 17_100_000);
 
-        TellorOracle mainnet = new TellorOracle(TELLOR_ORACLE, _systemRegistry);
+        TellorOracle mainnet = new TellorOracle(TELLOR_ORACLE, systemRegistry);
         mainnet.addTellorRegistration(ETH, QUERY_ID, BaseOracleDenominations.Denomination.ETH, 0);
 
         vm.prank(address(1));
@@ -117,7 +129,7 @@ contract TellorOracleTest is Test {
     function test_GetPriceOptimism() external {
         vm.createSelectFork(vm.envString("OPTIMISM_MAINNET_RPC_URL"), 90_000_000);
 
-        TellorOracle optimism = new TellorOracle(TELLOR_ORACLE, _systemRegistry);
+        TellorOracle optimism = new TellorOracle(TELLOR_ORACLE, systemRegistry);
         optimism.addTellorRegistration(ETH, QUERY_ID, BaseOracleDenominations.Denomination.ETH, 0);
 
         vm.prank(address(1));
@@ -131,7 +143,7 @@ contract TellorOracleTest is Test {
     function test_GetPriceArbitrum() external {
         vm.createSelectFork(vm.envString("ARBITRUM_MAINNET_RPC_URL"), 80_000_000);
 
-        TellorOracle arbitrum = new TellorOracle(TELLOR_ORACLE, _systemRegistry);
+        TellorOracle arbitrum = new TellorOracle(TELLOR_ORACLE, systemRegistry);
         arbitrum.addTellorRegistration(ETH, QUERY_ID, BaseOracleDenominations.Denomination.ETH, 48 hours);
 
         vm.prank(address(1));
@@ -142,9 +154,17 @@ contract TellorOracleTest is Test {
         assertLt(returnedPrice, ETH_MAX_USD);
     }
 
-    function _generateSystemRegistry(address rootOracle) internal returns (ISystemRegistry) {
-        address registry = vm.addr(327_849);
+    function generateSystemRegistry(
+        address registry,
+        address accessControl,
+        address rootOracle
+    ) internal returns (ISystemRegistry) {
         vm.mockCall(registry, abi.encodeWithSelector(ISystemRegistry.rootPriceOracle.selector), abi.encode(rootOracle));
+
+        vm.mockCall(
+            registry, abi.encodeWithSelector(ISystemRegistry.accessController.selector), abi.encode(accessControl)
+        );
+
         return ISystemRegistry(registry);
     }
 }

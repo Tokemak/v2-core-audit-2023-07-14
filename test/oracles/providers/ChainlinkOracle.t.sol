@@ -10,6 +10,7 @@ import { PRANK_ADDRESS, RETH_MAINNET, RETH_CL_FEED_MAINNET } from "test/utils/Ad
 
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
+import { AccessController } from "src/security/AccessController.sol";
 import { ChainlinkOracle } from "src/oracles/providers/ChainlinkOracle.sol";
 import { BaseOracleDenominations } from "src/oracles/providers/base/BaseOracleDenominations.sol";
 import { Errors } from "src/utils/Errors.sol";
@@ -17,9 +18,9 @@ import { Errors } from "src/utils/Errors.sol";
 import { IAggregatorV3Interface } from "src/interfaces/external/chainlink/IAggregatorV3Interface.sol";
 
 contract ChainlinkOracleTest is Test {
-    IRootPriceOracle private _rootPriceOracle;
-    ISystemRegistry private _systemRegistry;
     ChainlinkOracle private _oracle;
+
+    error AccessDenied();
 
     event ChainlinkRegistrationAdded(
         address token, address chainlinkOracle, BaseOracleDenominations.Denomination, uint8 decimals
@@ -29,15 +30,17 @@ contract ChainlinkOracleTest is Test {
     function setUp() external {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 17_000_000);
 
-        _rootPriceOracle = IRootPriceOracle(vm.addr(324));
-        _systemRegistry = _generateSystemRegistry(address(_rootPriceOracle));
-        _oracle = new ChainlinkOracle(_systemRegistry);
+        ISystemRegistry registry = ISystemRegistry(address(777));
+        AccessController accessControl = new AccessController(address(registry));
+        IRootPriceOracle rootPriceOracle = IRootPriceOracle(vm.addr(324));
+        generateSystemRegistry(address(registry), address(accessControl), address(rootPriceOracle));
+        _oracle = new ChainlinkOracle(registry);
     }
 
     // Test `registerChainlinkOracle()`
     function test_RevertNonOwner() external {
         vm.prank(PRANK_ADDRESS);
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(AccessDenied.selector);
 
         _oracle.registerChainlinkOracle(
             RETH_MAINNET, IAggregatorV3Interface(RETH_CL_FEED_MAINNET), BaseOracleDenominations.Denomination.ETH, 0
@@ -90,6 +93,13 @@ contract ChainlinkOracleTest is Test {
     }
 
     // Test `removeChainlinkRegistration()`
+    function test_RevertNonOwner_RemoveRegistration() external {
+        vm.prank(PRANK_ADDRESS);
+        vm.expectRevert(AccessDenied.selector);
+
+        _oracle.removeChainlinkRegistration(address(1));
+    }
+
     function test_RevertZeroAddressToken() external {
         vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "tokenToRemoveOracle"));
 
@@ -137,9 +147,17 @@ contract ChainlinkOracleTest is Test {
         assertLt(priceReturned, 10_000_000_000_000_000_000);
     }
 
-    function _generateSystemRegistry(address rootOracle) internal returns (ISystemRegistry) {
-        address registry = vm.addr(327_849);
+    function generateSystemRegistry(
+        address registry,
+        address accessControl,
+        address rootOracle
+    ) internal returns (ISystemRegistry) {
         vm.mockCall(registry, abi.encodeWithSelector(ISystemRegistry.rootPriceOracle.selector), abi.encode(rootOracle));
+
+        vm.mockCall(
+            registry, abi.encodeWithSelector(ISystemRegistry.accessController.selector), abi.encode(accessControl)
+        );
+
         return ISystemRegistry(registry);
     }
 }
