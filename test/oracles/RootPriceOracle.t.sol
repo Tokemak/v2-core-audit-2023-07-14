@@ -13,6 +13,7 @@ import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IE
 import { Errors } from "src/utils/Errors.sol";
 import { ISystemBound } from "src/interfaces/ISystemBound.sol";
 import { IAccessController } from "src/interfaces/security/IAccessController.sol";
+import { TOKE_MAINNET, WETH_MAINNET } from "test/utils/Addresses.sol";
 
 contract RootPriceOracleTests is Test {
     SystemRegistry private _systemRegistry;
@@ -20,7 +21,7 @@ contract RootPriceOracleTests is Test {
     RootPriceOracle private _rootPriceOracle;
 
     function setUp() public {
-        _systemRegistry = new SystemRegistry();
+        _systemRegistry = new SystemRegistry(TOKE_MAINNET, WETH_MAINNET);
         _accessController = new AccessController(address(_systemRegistry));
         _systemRegistry.setAccessController(address(_accessController));
         _rootPriceOracle = new RootPriceOracle(_systemRegistry);

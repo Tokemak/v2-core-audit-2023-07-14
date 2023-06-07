@@ -7,17 +7,19 @@ import { Test } from "forge-std/Test.sol";
 import { ERC20Mock } from "openzeppelin-contracts/mocks/ERC20Mock.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
-import { MainRewarder } from "../../src/rewarders/MainRewarder.sol";
-import { ExtraRewarder } from "../../src/rewarders/ExtraRewarder.sol";
+import { MainRewarder } from "src/rewarders/MainRewarder.sol";
+import { ExtraRewarder } from "src/rewarders/ExtraRewarder.sol";
 import { StakeTrackingMock } from "test/mocks/StakeTrackingMock.sol";
-import { IStakeTracking } from "../../src/interfaces/rewarders/IStakeTracking.sol";
+import { IStakeTracking } from "src/interfaces/rewarders/IStakeTracking.sol";
 
 import { Roles } from "src/libs/Roles.sol";
 import { BaseTest } from "test/BaseTest.t.sol";
 
 import { Errors } from "src/utils/Errors.sol";
 
-import { PRANK_ADDRESS, RANDOM } from "../utils/Addresses.sol";
+import { PRANK_ADDRESS, RANDOM } from "test/utils/Addresses.sol";
+
+import { console2 as console } from "forge-std/console2.sol";
 
 contract MainRewarderTest is BaseTest {
     address private operator;
@@ -28,11 +30,13 @@ contract MainRewarderTest is BaseTest {
     MainRewarder private mainRewardVault;
     ExtraRewarder private extraReward1Vault;
     ExtraRewarder private extraReward2Vault;
+    MainRewarder private tokeRewardVault;
 
     ERC20Mock private mainReward;
     ERC20Mock private extraReward1;
     ERC20Mock private extraReward2;
 
+    uint256 private amount = 100_000;
     uint256 private newRewardRatio = 800;
     uint256 private durationInBlock = 100;
 
@@ -50,17 +54,16 @@ contract MainRewarderTest is BaseTest {
         accessController.grantRole(Roles.LIQUIDATOR_ROLE, liquidator);
 
         deployGpToke();
+        deal(address(toke), RANDOM, 1 ether);
 
         stakeTracker = new StakeTrackingMock();
         mainRewardVault = new MainRewarder(
             systemRegistry,
             address(stakeTracker),
             operator,
-            address(mainReward), // rewardToken
-            // operator, // rewardManager
+            address(mainReward),
             newRewardRatio,
-            durationInBlock,
-            address(gpToke)
+            durationInBlock
         );
 
         extraReward1Vault = new ExtraRewarder(
@@ -70,8 +73,7 @@ contract MainRewarderTest is BaseTest {
             address(extraReward1),
             address(mainRewardVault),
             newRewardRatio,
-            durationInBlock,
-            address(gpToke)
+            durationInBlock
         );
 
         extraReward2Vault = new ExtraRewarder(
@@ -81,11 +83,17 @@ contract MainRewarderTest is BaseTest {
             address(extraReward2),
             address(mainRewardVault),
             newRewardRatio,
-            durationInBlock,
-            address(gpToke)
+            durationInBlock
         );
 
-        uint256 amount = 100_000;
+        tokeRewardVault = new MainRewarder(
+            systemRegistry,
+            address(stakeTracker),
+            operator,
+            address(toke),
+            newRewardRatio,
+            durationInBlock
+        );
 
         mainReward.mint(address(mainRewardVault), amount);
         extraReward1.mint(address(extraReward1Vault), amount);
@@ -109,8 +117,6 @@ contract MainRewarderTest is BaseTest {
     }
 
     function test_getAllRewards() public {
-        uint256 amount = 100_000;
-
         vm.prank(address(stakeTracker));
         mainRewardVault.stake(RANDOM, amount);
 
@@ -135,5 +141,44 @@ contract MainRewarderTest is BaseTest {
         assertEq(extraReward2BalanceAfter - extraReward2BalanceBefore, amount);
     }
 
-    // TODO: add test for GPToke staking of TOKE rewards
+    // TODO: add a set of failure tests! @adrienbarreau
+
+    function test_toke_autoStakeRewards() public {
+        vm.prank(address(stakeTracker));
+        tokeRewardVault.stake(RANDOM, amount);
+
+        vm.roll(block.number + 100);
+
+        uint256 earned = tokeRewardVault.earned(RANDOM);
+        assertEq(earned, amount);
+
+        uint256 rewardBalanceBefore = tokeRewardVault.balanceOf(RANDOM);
+        uint256 tokeBalanceBefore = toke.balanceOf(RANDOM);
+        uint256 gpTokeBalanceBefore = gpToke.balanceOf(RANDOM);
+
+        // set duration
+
+        vm.prank(address(operator));
+        tokeRewardVault.setTokeLockDuration(30 days);
+
+        // claim rewards
+
+        vm.prank(RANDOM);
+        mainRewardVault.getReward();
+
+        uint256 rewardBalanceAfter = mainReward.balanceOf(RANDOM);
+        uint256 tokeBalanceAfter = toke.balanceOf(RANDOM);
+        uint256 gpTokeBalanceAfter = gpToke.balanceOf(RANDOM);
+
+        console.log("rewardBalanceBefore", rewardBalanceBefore);
+        console.log("rewardBalanceAfter", rewardBalanceAfter);
+        console.log("tokeBalanceBefore", tokeBalanceBefore);
+        console.log("tokeBalanceAfter", tokeBalanceAfter);
+        console.log("gpTokeBalanceBefore", gpTokeBalanceBefore);
+        console.log("gpTokeBalanceAfter", gpTokeBalanceAfter);
+
+        assertEq(rewardBalanceAfter - rewardBalanceBefore, amount, "reward not fully claimed");
+        assertEq(tokeBalanceAfter - tokeBalanceBefore, 0, "toke balance shouldn't change"); // shouldn't change
+        assertEq(gpTokeBalanceAfter - gpTokeBalanceBefore, amount, "gpToke not staked"); // now fully staked
+    }
 }

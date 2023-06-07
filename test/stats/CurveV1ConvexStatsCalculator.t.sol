@@ -21,6 +21,7 @@ import { CurveV1PoolStatsCalculator } from "src/stats/calculators/CurveV1PoolSta
 import { CurveV1ConvexStatsCalculator } from "src/stats/calculators/CurveV1ConvexStatsCalculator.sol";
 import { CurveV1PoolCalculatorBase } from "src/stats/calculators/base/CurveV1PoolCalculatorBase.sol";
 import { IConvexBooster } from "src/interfaces/external/convex/IConvexBooster.sol";
+import { TOKE_MAINNET, WETH_MAINNET } from "test/utils/Addresses.sol";
 
 contract CurveV1ConvexStatsCalculatorFrxEthEthTests is Test {
     ICurveRegistry private constant CURVE_REGISTRY = ICurveRegistry(0x90E00ACe148ca3b23Ac1bC8C240C2a7Dd9c2d7f5);
@@ -41,7 +42,7 @@ contract CurveV1ConvexStatsCalculatorFrxEthEthTests is Test {
         uint256 mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"));
         vm.selectFork(mainnetFork);
 
-        systemRegistry = new SystemRegistry();
+        systemRegistry = new SystemRegistry(TOKE_MAINNET, WETH_MAINNET);
         accessController = new AccessController(address(systemRegistry));
         systemRegistry.setAccessController(address(accessController));
 

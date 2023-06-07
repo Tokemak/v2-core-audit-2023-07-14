@@ -4,10 +4,10 @@ pragma solidity 0.8.17;
 import { Test } from "forge-std/Test.sol";
 import { Errors } from "src/utils/Errors.sol";
 import { SystemRegistry } from "src/SystemRegistry.sol";
-import { PRANK_ADDRESS, RANDOM } from "../utils/Addresses.sol";
-import { DestinationRegistry } from "../../src/destinations/DestinationRegistry.sol";
-import { IDestinationAdapter } from "../../src/interfaces/destinations/IDestinationAdapter.sol";
-import { IDestinationRegistry } from "../../src/interfaces/destinations/IDestinationRegistry.sol";
+import { PRANK_ADDRESS, RANDOM, TOKE_MAINNET, WETH_MAINNET } from "test/utils/Addresses.sol";
+import { DestinationRegistry } from "src/destinations/DestinationRegistry.sol";
+import { IDestinationAdapter } from "src/interfaces/destinations/IDestinationAdapter.sol";
+import { IDestinationRegistry } from "src/interfaces/destinations/IDestinationRegistry.sol";
 
 contract DestinationRegistryTest is Test {
     DestinationRegistry public registry;
@@ -22,7 +22,7 @@ contract DestinationRegistryTest is Test {
     bytes32 private constant CURVE_V2_FACTORY_CRYPTO_ADAPTER = keccak256("CurveV2FactoryCryptoAdapter");
 
     function setUp() public {
-        registry = new DestinationRegistry(new SystemRegistry());
+        registry = new DestinationRegistry(new SystemRegistry(TOKE_MAINNET, WETH_MAINNET));
     }
 
     // Register

@@ -408,11 +408,6 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         assets = !_isVaultCollateralized() ? shares : shares.mulDiv(totalAssets(), supply, rounding);
     }
 
-    // function _mint(uint256 shares, address receiver) internal virtual returns (uint256 assets) {
-    //     assets = previewMint(shares);
-    //     _transferAndMint(assets, shares, receiver);
-    // }
-
     function _maxRedeem(address owner) internal view virtual returns (uint256 maxShares) {
         maxShares = paused() ? 0 : balanceOf(owner);
     }

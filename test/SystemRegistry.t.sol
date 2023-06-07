@@ -10,6 +10,7 @@ import { IAccessController } from "src/interfaces/security/IAccessController.sol
 import { IDestinationRegistry } from "src/interfaces/destinations/IDestinationRegistry.sol";
 import { IStatsCalculatorRegistry } from "src/interfaces/stats/IStatsCalculatorRegistry.sol";
 import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
+import { TOKE_MAINNET, WETH_MAINNET } from "test/utils/Addresses.sol";
 
 contract SystemRegistryTest is Test {
     SystemRegistry private _systemRegistry;
@@ -22,11 +23,11 @@ contract SystemRegistryTest is Test {
     event RootPriceOracleSet(address rootPriceOracle);
 
     function setUp() public {
-        _systemRegistry = new SystemRegistry();
+        _systemRegistry = new SystemRegistry(TOKE_MAINNET, WETH_MAINNET);
     }
 
     /* ******************************** */
-    /* LMP Vault Registry 
+    /* LMP Vault Registry
     /* ******************************** */
 
     function testSystemRegistryLMPVaultSetOnceDuplicateValue() public {

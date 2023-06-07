@@ -3,6 +3,9 @@
 
 pragma solidity 0.8.17;
 
+import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { IWETH9 } from "src/interfaces/utils/IWETH9.sol";
+import { IGPToke } from "src/interfaces/staking/IGPToke.sol";
 import { ILMPVaultRegistry } from "./vault/ILMPVaultRegistry.sol";
 import { IAccessController } from "./security/IAccessController.sol";
 import { ILMPVaultRouter } from "src/interfaces/vault/ILMPVaultRouter.sol";
@@ -18,6 +21,18 @@ import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaul
 
 /// @notice Root most registry contract for the system
 interface ISystemRegistry {
+    /// @notice Get the TOKE contract for the system
+    /// @return toke instance of TOKE used in the system
+    function toke() external view returns (IERC20Metadata toke);
+
+    /// @notice Get the referenced WETH contract for the system
+    /// @return weth contract pointer
+    function weth() external view returns (IWETH9 weth);
+
+    /// @notice Get the GPToke staking contract
+    /// @return gpToke instance of the gpToke contract for the system
+    function gpToke() external view returns (IGPToke);
+
     /// @notice Get the LMP Vault registry for this system
     /// @return registry instance of the registry for this system
     function lmpVaultRegistry() external view returns (ILMPVaultRegistry registry);

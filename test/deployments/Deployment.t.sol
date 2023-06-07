@@ -9,6 +9,7 @@ import { DestinationVaultRegistry } from "src/vault/DestinationVaultRegistry.sol
 import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
 import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
 import { IAccessController } from "src/interfaces/security/IAccessController.sol";
+import { TOKE_MAINNET, WETH_MAINNET } from "test/utils/Addresses.sol";
 
 contract DeploymentTest is Test {
     address public owner;
@@ -17,7 +18,7 @@ contract DeploymentTest is Test {
     DestinationVaultRegistry private _destinationVaultRegistry;
 
     function setUp() public {
-        _systemRegistry = new SystemRegistry();
+        _systemRegistry = new SystemRegistry(TOKE_MAINNET, WETH_MAINNET);
         _accessController = new AccessController(address(_systemRegistry));
 
         _systemRegistry.setAccessController(address(_accessController));

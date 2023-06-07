@@ -13,6 +13,7 @@ import { IAccessController, AccessController } from "src/security/AccessControll
 import { IDestinationRegistry } from "src/interfaces/destinations/IDestinationRegistry.sol";
 import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
 import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { TOKE_MAINNET, WETH_MAINNET } from "test/utils/Addresses.sol";
 
 contract DestinationVaultFactoryBaseTests is Test {
     address private testUser1;
@@ -28,7 +29,7 @@ contract DestinationVaultFactoryBaseTests is Test {
     function setUp() public {
         testUser1 = vm.addr(1);
 
-        systemRegistry = new SystemRegistry();
+        systemRegistry = new SystemRegistry(TOKE_MAINNET, WETH_MAINNET);
         templateRegistry = generateTemplateRegistry(systemRegistry);
         vaultRegistry = generateVaultRegistry(systemRegistry);
         accessController = new AccessController(address(systemRegistry));
@@ -43,13 +44,13 @@ contract DestinationVaultFactoryBaseTests is Test {
         vm.expectRevert();
         new DestinationVaultFactory(ISystemRegistry(address(0)));
 
-        SystemRegistry incompleteRegistry = new SystemRegistry();
+        SystemRegistry incompleteRegistry = new SystemRegistry(TOKE_MAINNET, WETH_MAINNET);
         vm.expectRevert();
         new DestinationVaultFactory(incompleteRegistry);
     }
 
     function testRequiresTemplateRegistryOnSetup() public {
-        SystemRegistry incompleteRegistry = new SystemRegistry();
+        SystemRegistry incompleteRegistry = new SystemRegistry(TOKE_MAINNET, WETH_MAINNET);
         AccessController access = new AccessController(address(incompleteRegistry));
         incompleteRegistry.setAccessController(address(access));
 
@@ -68,7 +69,7 @@ contract DestinationVaultFactoryBaseTests is Test {
     }
 
     function testRequiresVaultRegistryOnSetup() public {
-        SystemRegistry incompleteRegistry = new SystemRegistry();
+        SystemRegistry incompleteRegistry = new SystemRegistry(TOKE_MAINNET, WETH_MAINNET);
         AccessController access = new AccessController(address(incompleteRegistry));
         incompleteRegistry.setAccessController(address(access));
 

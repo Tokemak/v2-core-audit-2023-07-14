@@ -38,6 +38,8 @@ abstract contract AbstractRewarder is IBaseRewarder, SecurityBase {
      */
     uint256 public newRewardRatio;
 
+    ISystemRegistry internal immutable systemRegistry;
+
     address public immutable rewardToken;
     address public immutable operator;
     IStakeTracking public immutable stakeTracker;
@@ -53,9 +55,7 @@ abstract contract AbstractRewarder is IBaseRewarder, SecurityBase {
     mapping(address => uint256) public userRewardPerTokenPaid;
     mapping(address => uint256) public rewards;
 
-    IGPToke public immutable gpToke;
-    address public immutable tokeAddress;
-    uint256 public tokeLockDuration = 3 * 30 days;
+    uint256 public tokeLockDuration = 90 days;
 
     constructor(
         ISystemRegistry _systemRegistry,
@@ -63,21 +63,18 @@ abstract contract AbstractRewarder is IBaseRewarder, SecurityBase {
         address _operator,
         address _rewardToken,
         uint256 _newRewardRate,
-        uint256 _durationInBlock,
-        address _gpTokeAddress
+        uint256 _durationInBlock
     ) SecurityBase(address(_systemRegistry.accessController())) {
         Errors.verifyNotZero(_stakeTracker, "_stakeTracker");
         Errors.verifyNotZero(_operator, "_operator");
         Errors.verifyNotZero(_rewardToken, "_rewardToken");
-        Errors.verifyNotZero(_gpTokeAddress, "_gpTokeAddress");
 
+        systemRegistry = _systemRegistry;
         operator = _operator;
         rewardToken = _rewardToken;
         stakeTracker = IStakeTracking(_stakeTracker);
         newRewardRatio = _newRewardRate;
         durationInBlock = _durationInBlock;
-        gpToke = IGPToke(_gpTokeAddress);
-        tokeAddress = address(gpToke.toke());
     }
 
     modifier stakeTrackerOnly() {
@@ -187,7 +184,7 @@ abstract contract AbstractRewarder is IBaseRewarder, SecurityBase {
         Errors.verifyNotZero(_tokeLockDuration, "_tokeLockDuration");
 
         // if duration is not set to 0 (that would turn off functionality), make sure it's long enough for gpToke
-        if (_tokeLockDuration > 0 && _tokeLockDuration < gpToke.minStakeDuration()) {
+        if (_tokeLockDuration > 0 && _tokeLockDuration < systemRegistry.gpToke().minStakeDuration()) {
             revert IGPToke.StakingDurationTooShort();
         }
 
@@ -196,7 +193,10 @@ abstract contract AbstractRewarder is IBaseRewarder, SecurityBase {
     }
 
     function _getReward(address account) internal {
+        Errors.verifyNotZero(account, "account");
+
         uint256 reward = earned(account);
+        (IGPToke gpToke, address tokeAddress) = (systemRegistry.gpToke(), address(systemRegistry.toke()));
 
         // slither-disable-next-line incorrect-equality
         if (reward == 0) return;
@@ -210,7 +210,7 @@ abstract contract AbstractRewarder is IBaseRewarder, SecurityBase {
         } else {
             // authorize gpToke to get our reward Toke
             // slither-disable-next-line unused-return
-            IERC20(address(gpToke)).approve(address(this), reward);
+            IERC20(address(tokeAddress)).approve(address(gpToke), reward);
             // stake Toke
             gpToke.stake(reward, tokeLockDuration, account);
         }
@@ -224,6 +224,7 @@ abstract contract AbstractRewarder is IBaseRewarder, SecurityBase {
     }
 
     function _stake(address account, uint256 amount) internal {
+        Errors.verifyNotZero(account, "account");
         Errors.verifyNotZero(amount, "amount");
 
         emit Staked(account, amount);

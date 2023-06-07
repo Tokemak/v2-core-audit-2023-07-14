@@ -9,6 +9,7 @@ import { DestinationVault } from "src/vault/DestinationVault.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { DestinationVaultRegistry } from "src/vault/DestinationVaultRegistry.sol";
 import { IAccessController, AccessController } from "src/security/AccessController.sol";
+import { TOKE_MAINNET, WETH_MAINNET } from "test/utils/Addresses.sol";
 
 contract DestinationVaultRegistryBaseTests is Test {
     address private testUser2;
@@ -24,7 +25,7 @@ contract DestinationVaultRegistryBaseTests is Test {
 
     function setUp() public {
         testUser2 = vm.addr(2);
-        systemRegistry = new SystemRegistry();
+        systemRegistry = new SystemRegistry(TOKE_MAINNET, WETH_MAINNET);
         accessController = new AccessController(address(systemRegistry));
         systemRegistry.setAccessController(address(accessController));
         registry = new DestinationVaultRegistry(systemRegistry);
@@ -95,7 +96,7 @@ contract DestinationVaultRegistryBaseTests is Test {
 
     function testOnlyOwnerCanSetFactory() public {
         vm.startPrank(factory);
-        address newFactory = generateFactory(new SystemRegistry());
+        address newFactory = generateFactory(new SystemRegistry(TOKE_MAINNET, WETH_MAINNET));
         vm.expectRevert(abi.encodeWithSelector(IAccessController.AccessDenied.selector));
         registry.setVaultFactory(newFactory);
         vm.stopPrank();
@@ -114,7 +115,7 @@ contract DestinationVaultRegistryBaseTests is Test {
     }
 
     function testSetFactoryValidatesSystemMatch() public {
-        SystemRegistry newRegistry = new SystemRegistry();
+        SystemRegistry newRegistry = new SystemRegistry(TOKE_MAINNET, WETH_MAINNET);
         address newFactory = generateFactory(newRegistry);
         vm.expectRevert(
             abi.encodeWithSelector(DestinationVaultRegistry.SystemMismatch.selector, systemRegistry, newRegistry)

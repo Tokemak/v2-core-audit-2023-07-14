@@ -30,8 +30,6 @@
 		"postinstall": "husky install",
 		"scan:slither": "slither . --config-file slither.config.json",
 		"reset": "rm -r cache node_modules out && forge clean && npm install && forge build",
-		"test:vaults": "forge test -vvv --match-path \"./test/vault/*\"",
-		"test:staking": "forge test -vvv --match-path \"./test/staking/*\"",
 		"hardhat:build": "hardhat compile",
 		"hardhat:test": "hardhat test 'solver/test/Adapters.test.ts'"
 	},

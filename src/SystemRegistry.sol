@@ -3,6 +3,9 @@
 
 pragma solidity 0.8.17;
 
+import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { IWETH9 } from "src/interfaces/utils/IWETH9.sol";
+import { IGPToke } from "src/interfaces/staking/IGPToke.sol";
 import { Errors } from "src/utils/Errors.sol";
 import { Ownable2Step } from "./access/Ownable2Step.sol";
 import { ISystemBound } from "src/interfaces/ISystemBound.sol";
@@ -26,6 +29,9 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     /* State Variables                  */
     /* ******************************** */
 
+    IERC20Metadata public toke;
+    IWETH9 public weth;
+    IGPToke private _gpToke;
     ILMPVaultRegistry private _lmpVaultRegistry;
     IDestinationVaultRegistry private _destinationVaultRegistry;
     IAccessController private _accessController;
@@ -41,6 +47,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     /* Events                           */
     /* ******************************** */
 
+    event GPTokeSet(address newAddress);
     event LMPVaultRegistrySet(address newAddress);
     event DestinationVaultRegistrySet(address newAddress);
     event AccessControllerSet(address newAddress);
@@ -59,8 +66,25 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     error DuplicateSet(address addr);
 
     /* ******************************** */
+    /* Constructor                           */
+    /* ******************************** */
+
+    constructor(address _toke, address _weth) {
+        Errors.verifyNotZero(address(_toke), "_toke");
+        Errors.verifyNotZero(address(_weth), "_weth");
+
+        toke = IERC20Metadata(_toke);
+        weth = IWETH9(_weth);
+    }
+
+    /* ******************************** */
     /* Views                            */
     /* ******************************** */
+
+    /// @inheritdoc ISystemRegistry
+    function gpToke() external view returns (IGPToke) {
+        return _gpToke;
+    }
 
     /// @inheritdoc ISystemRegistry
     function lmpVaultRegistry() external view returns (ILMPVaultRegistry) {
@@ -109,6 +133,24 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     /* ******************************** */
     /* Function                         */
     /* ******************************** */
+
+    /// @notice Set the GPToke for this instance of the system
+    /// @dev Should only be able to set this value one time
+    /// @param newGPToke Address of the gpToke contract
+    function setGPToke(address newGPToke) external onlyOwner {
+        Errors.verifyNotZero(newGPToke, "newGPToke");
+
+        if (address(_gpToke) != address(0)) {
+            revert Errors.AlreadySet("gpToke");
+        }
+
+        _gpToke = IGPToke(newGPToke);
+
+        emit GPTokeSet(newGPToke);
+
+        // TODO: do we need to add systemRegistry to gptoke init as well to bring it in line? @codenutt
+        // verifySystemsAgree(address(_lmpVaultRegistry));
+    }
 
     /// @notice Set the LMP Vault Registry for this instance of the system
     /// @dev Should only be able to set this value one time
