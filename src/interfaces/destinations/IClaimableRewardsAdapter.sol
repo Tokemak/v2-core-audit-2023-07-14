@@ -1,4 +1,6 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
+
 pragma solidity 0.8.17;
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
@@ -12,7 +14,12 @@ interface IClaimableRewardsAdapter is IDestinationAdapter {
     error ClaimRewardsFailed();
     error TokenAddressZero();
 
-    event RewardsClaimed(IERC20[], uint256[]);
+    /**
+     * @dev Emitted when rewards are claimed.
+     * @param rewardTokens The tokens received as rewards.
+     * @param amountsClaimed The amounts of each token claimed.
+     */
+    event RewardsClaimed(IERC20[] rewardTokens, uint256[] amountsClaimed);
 
     /**
      * @notice Claim rewards for a given token and account
