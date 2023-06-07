@@ -407,8 +407,8 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
 
     function testAddLiquidityWstEthSfrxEthREth() public {
         // Composable pool
-        address poolAddress = 0x5aEe1e99fE86960377DE9f88689616916D5DcaBe;
-        IERC20 lpToken = IERC20(poolAddress);
+        IBalancerComposableStablePool pool = IBalancerComposableStablePool(0x5aEe1e99fE86960377DE9f88689616916D5DcaBe);
+        IERC20 lpToken = IERC20(address(pool));
 
         uint256[] memory amounts = new uint256[](4);
         amounts[0] = 0 * 1e18;
@@ -416,30 +416,29 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         amounts[2] = 0.5 * 1e18;
         amounts[3] = 0.5 * 1e18;
 
-        deal(address(WSTETH_MAINNET), address(adapter), 2 * 1e18);
-        deal(address(SFRXETH_MAINNET), address(adapter), 2 * 1e18);
-        deal(address(RETH_MAINNET), address(adapter), 2 * 1e18);
+        deal(address(WSTETH_MAINNET), address(this), 2 * 1e18);
+        deal(address(SFRXETH_MAINNET), address(this), 2 * 1e18);
+        deal(address(RETH_MAINNET), address(this), 2 * 1e18);
 
-        uint256 preBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
-        uint256 preBalance2 = IERC20(SFRXETH_MAINNET).balanceOf(address(adapter));
-        uint256 preBalance3 = IERC20(RETH_MAINNET).balanceOf(address(adapter));
-        uint256 preLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 preBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(this));
+        uint256 preBalance2 = IERC20(SFRXETH_MAINNET).balanceOf(address(this));
+        uint256 preBalance3 = IERC20(RETH_MAINNET).balanceOf(address(this));
+        uint256 preLpBalance = lpToken.balanceOf(address(this));
 
         uint256 minLpMintAmount = 1;
 
-        IERC20[] memory tokens = new IERC20[](4);
-        tokens[0] = lpToken;
-        tokens[1] = IERC20(WSTETH_MAINNET);
-        tokens[2] = IERC20(SFRXETH_MAINNET);
-        tokens[3] = IERC20(RETH_MAINNET);
+        address[] memory tokens = new address[](4);
+        tokens[0] = address(lpToken);
+        tokens[1] = WSTETH_MAINNET;
+        tokens[2] = SFRXETH_MAINNET;
+        tokens[3] = RETH_MAINNET;
 
-        bytes memory extraParams = abi.encode(BalancerExtraParams(poolAddress, tokens));
-        adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
+        BalancerUtilities.addLiquidityComposable(vault, address(pool), tokens, amounts, minLpMintAmount);
 
-        uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
-        uint256 afterBalance2 = IERC20(SFRXETH_MAINNET).balanceOf(address(adapter));
-        uint256 afterBalance3 = IERC20(RETH_MAINNET).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(this));
+        uint256 afterBalance2 = IERC20(SFRXETH_MAINNET).balanceOf(address(this));
+        uint256 afterBalance3 = IERC20(RETH_MAINNET).balanceOf(address(this));
+        uint256 aftrerLpBalance = lpToken.balanceOf(address(this));
 
         assertEq(afterBalance1, preBalance1 - amounts[1]);
         assertEq(afterBalance2, preBalance2 - amounts[2]);
@@ -450,8 +449,6 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
     function testRemoveLiquidityWstEthSfrxEthREth() public {
         // Composable pool
         IBalancerComposableStablePool pool = IBalancerComposableStablePool(0x5aEe1e99fE86960377DE9f88689616916D5DcaBe);
-        bytes32 poolId = pool.getPoolId();
-        uint256 bptIndex = pool.getBptIndex();
         IERC20 lpToken = IERC20(address(pool));
 
         uint256[] memory amounts = new uint256[](4);
@@ -472,11 +469,7 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         tokens[2] = SFRXETH_MAINNET;
         tokens[3] = RETH_MAINNET;
 
-        bytes memory extraParams = abi.encode(BalancerExtraParamsAddress(address(pool), tokens));
-
-        BalancerUtilities.addLiquidityComposable(
-            vault, address(pool), poolId, bptIndex, tokens, amounts, minLpMintAmount, extraParams
-        );
+        BalancerUtilities.addLiquidityComposable(vault, address(pool), tokens, amounts, minLpMintAmount);
 
         uint256 preBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(this));
         uint256 preBalance2 = IERC20(SFRXETH_MAINNET).balanceOf(address(this));
@@ -485,11 +478,11 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
 
         uint256[] memory minWithdrawAmounts = new uint256[](4);
         minWithdrawAmounts[0] = 0;
-        minWithdrawAmounts[1] = 1e18;
-        minWithdrawAmounts[2] = 1e18;
-        minWithdrawAmounts[3] = 1e18;
+        minWithdrawAmounts[1] = 1 * 1e18;
+        minWithdrawAmounts[2] = 1 * 1e18;
+        minWithdrawAmounts[3] = 1 * 1e18;
         BalancerUtilities.removeLiquidityComposableExactLP(
-            vault, address(pool), poolId, preLpBalance, tokens, minWithdrawAmounts
+            vault, address(pool), preLpBalance, tokens, minWithdrawAmounts
         );
 
         uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(this));
@@ -505,8 +498,8 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
 
     function testRemoveLiquidityImbalanceWstEthSfrxEthREth() public {
         // Composable pool
-        address poolAddress = 0x5aEe1e99fE86960377DE9f88689616916D5DcaBe;
-        IERC20 lpToken = IERC20(poolAddress);
+        IBalancerComposableStablePool pool = IBalancerComposableStablePool(0x5aEe1e99fE86960377DE9f88689616916D5DcaBe);
+        IERC20 lpToken = IERC20(address(pool));
 
         uint256[] memory amounts = new uint256[](4);
         amounts[0] = 0 * 1e18;
@@ -514,41 +507,45 @@ contract BalancerV2MetaStablePoolAdapterTest is Test {
         amounts[2] = 1.5 * 1e18;
         amounts[3] = 1.5 * 1e18;
 
-        deal(address(WSTETH_MAINNET), address(adapter), 2 * 1e18);
-        deal(address(SFRXETH_MAINNET), address(adapter), 2 * 1e18);
-        deal(address(RETH_MAINNET), address(adapter), 2 * 1e18);
+        deal(address(WSTETH_MAINNET), address(this), 2 * 1e18);
+        deal(address(SFRXETH_MAINNET), address(this), 2 * 1e18);
+        deal(address(RETH_MAINNET), address(this), 2 * 1e18);
 
         uint256 minLpMintAmount = 1;
 
-        IERC20[] memory tokens = new IERC20[](4);
-        tokens[0] = lpToken;
-        tokens[1] = IERC20(WSTETH_MAINNET);
-        tokens[2] = IERC20(SFRXETH_MAINNET);
-        tokens[3] = IERC20(RETH_MAINNET);
+        address[] memory tokens = new address[](4);
+        tokens[0] = address(lpToken);
+        tokens[1] = WSTETH_MAINNET;
+        tokens[2] = SFRXETH_MAINNET;
+        tokens[3] = RETH_MAINNET;
 
-        bytes memory extraParams = abi.encode(BalancerExtraParams(poolAddress, tokens));
-        adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
+        BalancerUtilities.addLiquidityComposable(vault, address(pool), tokens, amounts, minLpMintAmount);
 
-        uint256 preBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
-        uint256 preBalance2 = IERC20(SFRXETH_MAINNET).balanceOf(address(adapter));
-        uint256 preBalance3 = IERC20(RETH_MAINNET).balanceOf(address(adapter));
-        uint256 preLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 preBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(this));
+        uint256 preBalance2 = IERC20(SFRXETH_MAINNET).balanceOf(address(this));
+        uint256 preBalance3 = IERC20(RETH_MAINNET).balanceOf(address(this));
+        uint256 preLpBalance = lpToken.balanceOf(address(this));
 
         uint256[] memory withdrawAmounts = new uint256[](4);
         withdrawAmounts[0] = 0;
         withdrawAmounts[1] = 0 * 1e18;
         withdrawAmounts[2] = 0 * 1e18;
         withdrawAmounts[3] = 0 * 1e18;
-        adapter.removeLiquidityImbalance(poolAddress, preLpBalance, tokens, withdrawAmounts);
 
-        uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
-        uint256 afterBalance2 = IERC20(SFRXETH_MAINNET).balanceOf(address(adapter));
-        uint256 afterBalance3 = IERC20(RETH_MAINNET).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 exitTokenIndex = 0;
+
+        BalancerUtilities.removeLiquidityComposableImbalance(
+            vault, address(pool), preLpBalance, exitTokenIndex, tokens, withdrawAmounts
+        );
+
+        uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(this));
+        uint256 afterBalance2 = IERC20(SFRXETH_MAINNET).balanceOf(address(this));
+        uint256 afterBalance3 = IERC20(RETH_MAINNET).balanceOf(address(this));
+        uint256 aftrerLpBalance = lpToken.balanceOf(address(this));
 
         assert(afterBalance1 > preBalance1);
-        assert(afterBalance2 > preBalance2);
-        assert(afterBalance3 > preBalance3);
+        assert(afterBalance2 == preBalance2);
+        assert(afterBalance3 == preBalance3);
         assert(aftrerLpBalance < preLpBalance);
     }
 

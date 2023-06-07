@@ -11,6 +11,7 @@ import { IPoolAdapter } from "src/interfaces/destinations/IPoolAdapter.sol";
 import { IVault } from "src/interfaces/external/balancer/IVault.sol";
 import { IBalancerPool } from "src/interfaces/external/balancer/IBalancerPool.sol";
 import { LibAdapter } from "src/libs/LibAdapter.sol";
+import { BalancerUtilities } from "src/libs/BalancerUtilities.sol";
 import { Errors } from "src/utils/Errors.sol";
 
 contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initializable {
@@ -109,10 +110,7 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
             address(this), // sender
             address(this), // recipient of BPT token
             _getJoinPoolRequest(
-                IBalancerPool(balancerExtraParams.pool),
-                _convertERC20sToAddresses(balancerExtraParams.tokens),
-                amounts,
-                minLpMintAmount
+                BalancerUtilities._convertERC20sToAddresses(balancerExtraParams.tokens), amounts, minLpMintAmount
             )
         );
 
@@ -136,7 +134,7 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
 
         emit DeployLiquidity(
             amounts,
-            _convertERC20sToAddresses(balancerExtraParams.tokens),
+            BalancerUtilities._convertERC20sToAddresses(balancerExtraParams.tokens),
             [bptBalanceAfter - bptBalanceBefore, bptBalanceAfter, IERC20(balancerExtraParams.pool).totalSupply()],
             balancerExtraParams.pool,
             IBalancerPool(balancerExtraParams.pool).getPoolId()
@@ -234,7 +232,7 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
 
         // As we're exiting the pool we need to make an ExitPoolRequest instead
         IVault.ExitPoolRequest memory request = IVault.ExitPoolRequest({
-            assets: _convertERC20sToAddresses(poolTokens),
+            assets: BalancerUtilities._convertERC20sToAddresses(poolTokens),
             minAmountsOut: amountsOut,
             userData: params.userData,
             toInternalBalance: false
@@ -267,7 +265,7 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
 
         emit WithdrawLiquidity(
             amountsOut,
-            _convertERC20sToAddresses(params.tokens),
+            BalancerUtilities._convertERC20sToAddresses(params.tokens),
             [bptBalanceBefore - bptBalanceAfter, bptBalanceAfter, IERC20(params.pool).totalSupply()],
             params.pool,
             poolId
@@ -334,56 +332,19 @@ contract BalancerV2MetaStablePoolAdapter is IPoolAdapter, ReentrancyGuard, Initi
     /// @param amounts Amounts of corresponding tokens to deposit
     /// @param poolAmountOut Expected amount of LP tokens to be minted on deposit
     function _getJoinPoolRequest(
-        IBalancerPool pool,
         address[] memory tokens,
         uint256[] calldata amounts,
         uint256 poolAmountOut
-    ) private view returns (IVault.JoinPoolRequest memory joinRequest) {
+    ) private pure returns (IVault.JoinPoolRequest memory joinRequest) {
         joinRequest = IVault.JoinPoolRequest({
             assets: tokens,
             maxAmountsIn: amounts, // maxAmountsIn,
             userData: abi.encode(
                 JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT,
-                _getUserAmounts(pool, amounts), //maxAmountsIn,
+                amounts, //maxAmountsIn,
                 poolAmountOut
                 ),
             fromInternalBalance: false
         });
-    }
-
-    function _getUserAmounts(
-        IBalancerPool pool,
-        uint256[] calldata amounts
-    ) private view returns (uint256[] memory userAmounts) {
-        // Using the presence of a getBptIndex() fn as an indicator of pool type
-        // slither-disable-next-line low-level-calls
-        (bool success, bytes memory data) = address(pool).staticcall(abi.encodeWithSignature("getBptIndex()"));
-
-        if (success) {
-            userAmounts = new uint256[](amounts.length-1);
-            uint256 bptIndex = abi.decode(data, (uint256));
-            uint256 userAmountsIndex = 0;
-            for (uint256 i = 0; i < amounts.length; ++i) {
-                if (i == bptIndex) {
-                    continue;
-                }
-                userAmounts[userAmountsIndex] = amounts[i];
-                userAmountsIndex++;
-            }
-        } else {
-            userAmounts = amounts;
-        }
-    }
-
-    /**
-     * @dev This helper function is a fast and cheap way to convert between IERC20[] and IAsset[] types
-     */
-    function _convertERC20sToAddresses(IERC20[] memory tokens) internal pure returns (address[] memory assets) {
-        //slither-disable-start assembly
-        //solhint-disable-next-line no-inline-assembly
-        assembly {
-            assets := tokens
-        }
-        //slither-disable-end assembly
     }
 }

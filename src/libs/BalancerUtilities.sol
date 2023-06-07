@@ -7,7 +7,7 @@ import { IVault } from "src/interfaces/external/balancer/IVault.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { LibAdapter } from "src/libs/LibAdapter.sol";
 
-import { IBalancerPool } from "src/interfaces/external/balancer/IBalancerPool.sol";
+import { IBalancerComposableStablePool } from "src/interfaces/external/balancer/IBalancerComposableStablePool.sol";
 
 library BalancerUtilities {
     error BalancerVaultReentrancy();
@@ -41,10 +41,15 @@ library BalancerUtilities {
     error InvalidBalanceChange();
     error InvalidAddress(address);
 
+    enum ExitKind {
+        EXACT_BPT_IN_FOR_ONE_TOKEN_OUT,
+        BPT_IN_FOR_EXACT_TOKENS_OUT,
+        EXACT_BPT_IN_FOR_ALL_TOKENS_OUT
+    }
+
     function removeLiquidityComposableExactLP(
         IVault balancerVault,
         address pool,
-        bytes32 poolId,
         uint256 exactLpBurnAmount,
         address[] memory tokens,
         uint256[] calldata minAmounts
@@ -67,7 +72,34 @@ library BalancerUtilities {
         });
 
         balancerVault.exitPool(
-            poolId,
+            IBalancerComposableStablePool(pool).getPoolId(),
+            address(this), // sender,
+            payable(address(this)), // recipient,
+            request
+        );
+    }
+
+    function removeLiquidityComposableImbalance(
+        IVault balancerVault,
+        address pool,
+        uint256 exactLpBurnAmount,
+        uint256 exitTokenIndex,
+        address[] memory tokens,
+        uint256[] calldata minAmounts
+    ) external returns (uint256[] memory actualAmounts) {
+        bytes memory userData = abi.encode(ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, exactLpBurnAmount, exitTokenIndex);
+
+        LibAdapter._approve(IERC20(pool), address(balancerVault), exactLpBurnAmount);
+
+        IVault.ExitPoolRequest memory request = IVault.ExitPoolRequest({
+            assets: tokens,
+            minAmountsOut: minAmounts,
+            userData: userData,
+            toInternalBalance: false
+        });
+
+        balancerVault.exitPool(
+            IBalancerComposableStablePool(pool).getPoolId(),
             address(this), // sender,
             payable(address(this)), // recipient,
             request
@@ -76,9 +108,7 @@ library BalancerUtilities {
 
     function addLiquidityComposable(
         IVault vault,
-        address,
-        bytes32 poolId,
-        uint256 bptIndex,
+        address pool,
         address[] memory tokens,
         uint256[] calldata exactTokenAmounts,
         uint256 minLpMintAmount
@@ -88,6 +118,7 @@ library BalancerUtilities {
         // the amount of the bpt token
         uint256 nTokens = tokens.length;
         uint256 uix = 0;
+        uint256 bptIndex = IBalancerComposableStablePool(pool).getBptIndex();
         uint256[] memory amountsUser = new uint256[](nTokens - 1);
         for (uint256 i = 0; i < nTokens; i++) {
             if (i != bptIndex) {
@@ -105,10 +136,31 @@ library BalancerUtilities {
         });
 
         vault.joinPool(
-            poolId,
+            IBalancerComposableStablePool(pool).getPoolId(),
             address(this), // sender
             address(this), // recipient of BPT token
             joinRequest
         );
+    }
+
+    function isComposablePool(address pool) public view returns (bool) {
+        // Using the presence of a getBptIndex() fn as an indicator of pool type
+        // slither-disable-start low-level-calls
+        // solhint-disable-next-line no-unused-vars
+        (bool success, bytes memory data) = pool.staticcall(abi.encodeWithSignature("getBptIndex()"));
+        // slither-disable-end low-level-calls
+        return success;
+    }
+
+    /**
+     * @dev This helper function is a fast and cheap way to convert between IERC20[] and IAsset[] types
+     */
+    function _convertERC20sToAddresses(IERC20[] memory tokens) internal pure returns (address[] memory assets) {
+        //slither-disable-start assembly
+        //solhint-disable-next-line no-inline-assembly
+        assembly {
+            assets := tokens
+        }
+        //slither-disable-end assembly
     }
 }

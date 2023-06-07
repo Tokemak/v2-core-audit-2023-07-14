@@ -17,6 +17,7 @@ import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
 import { IVault } from "src/interfaces/external/balancer/IVault.sol";
 import { IBalancerPool } from "src/interfaces/external/balancer/IBalancerPool.sol";
 import { AuraAdapter } from "src/destinations/adapters/staking/AuraAdapter.sol";
+import { BalancerUtilities } from "src/libs/BalancerUtilities.sol";
 import { BalancerV2MetaStablePoolAdapter } from "src/destinations/adapters/BalancerV2MetaStablePoolAdapter.sol";
 
 contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAdapter, DestinationVault {
@@ -150,8 +151,11 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
         // 2) withdraw Balancer
         // all minAmounts are 0, we set the burn LP amount and don't specify the amounts we expect by each token
         uint256[] memory minAmounts = new uint256[](poolTokens.length);
-        uint256[] memory sellAmounts =
-            removeLiquidityImbalance(address(pool), totalLpBurnAmount, poolTokens, minAmounts);
+        uint256[] memory sellAmounts = BalancerUtilities.isComposablePool(address(pool))
+            ? BalancerUtilities.removeLiquidityComposableExactLP(
+                vault, address(pool), totalLpBurnAmount, BalancerUtilities._convertERC20sToAddresses(poolTokens), minAmounts
+            )
+            : removeLiquidityImbalance(address(pool), totalLpBurnAmount, poolTokens, minAmounts);
 
         // 3) swap what we receive
         for (uint256 i = 0; i < poolTokens.length; ++i) {
