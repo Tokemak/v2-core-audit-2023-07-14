@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-pragma solidity 0.8.17;
+pragma solidity ^0.8.17;
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
@@ -97,4 +97,8 @@ interface IReward {
     /// @param rewardTokenIndex is the index of the reward token in the
     //tokenIndex mapping
     function removeStaleToken(uint8 rewardTokenIndex) external;
+
+    /// @notice Get address of the token used for staking for receiving rewards.
+    /// @return address of the LP staking token
+    function stakingToken() external returns (address);
 }
