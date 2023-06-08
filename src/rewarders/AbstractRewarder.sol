@@ -7,8 +7,8 @@ import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.so
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
 
-import { IStakeTracking } from "../interfaces/rewarders/IStakeTracking.sol";
-import { IBaseRewarder } from "../interfaces/rewarders/IBaseRewarder.sol";
+import { IStakeTracking } from "src/interfaces/rewarders/IStakeTracking.sol";
+import { IBaseRewarder } from "src/interfaces/rewarders/IBaseRewarder.sol";
 
 import { IGPToke } from "src/interfaces/staking/IGPToke.sol";
 
@@ -83,13 +83,6 @@ abstract contract AbstractRewarder is IBaseRewarder, SecurityBase {
         }
         _;
     }
-
-    // modifier operatorOnly() {
-    //     if (msg.sender != operator) {
-    //         revert OperatorOnly();
-    //     }
-    //     _;
-    // }
 
     function _updateReward(address account) internal {
         uint256 earnedRewards = 0;
@@ -181,11 +174,12 @@ abstract contract AbstractRewarder is IBaseRewarder, SecurityBase {
     }
 
     function setTokeLockDuration(uint256 _tokeLockDuration) external hasRole(Roles.DV_REWARD_MANAGER_ROLE) {
-        Errors.verifyNotZero(_tokeLockDuration, "_tokeLockDuration");
-
         // if duration is not set to 0 (that would turn off functionality), make sure it's long enough for gpToke
-        if (_tokeLockDuration > 0 && _tokeLockDuration < systemRegistry.gpToke().minStakeDuration()) {
-            revert IGPToke.StakingDurationTooShort();
+        if (_tokeLockDuration > 0) {
+            Errors.verifyNotZero(address(systemRegistry.gpToke()), "gpToke");
+            if (_tokeLockDuration < systemRegistry.gpToke().minStakeDuration()) {
+                revert IGPToke.StakingDurationTooShort();
+            }
         }
 
         tokeLockDuration = _tokeLockDuration;
@@ -211,8 +205,11 @@ abstract contract AbstractRewarder is IBaseRewarder, SecurityBase {
             // authorize gpToke to get our reward Toke
             // slither-disable-next-line unused-return
             IERC20(address(tokeAddress)).approve(address(gpToke), reward);
+
             // stake Toke
+            uint256 tokeBalanceBefore = IERC20(tokeAddress).balanceOf(address(gpToke));
             gpToke.stake(reward, tokeLockDuration, account);
+            assert(IERC20(tokeAddress).balanceOf(address(gpToke)) == tokeBalanceBefore + reward);
         }
     }
 

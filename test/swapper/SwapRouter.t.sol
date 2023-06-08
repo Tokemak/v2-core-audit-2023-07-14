@@ -17,7 +17,13 @@ import { IDestinationVaultRegistry, DestinationVaultRegistry } from "src/vault/D
 import { IAccessController, AccessController } from "src/security/AccessController.sol";
 
 import {
-    WSTETH_MAINNET, RETH_MAINNET, STETH_MAINNET, WETH_MAINNET, FRXETH_MAINNET, RANDOM
+    TOKE_MAINNET,
+    WSTETH_MAINNET,
+    RETH_MAINNET,
+    STETH_MAINNET,
+    WETH_MAINNET,
+    FRXETH_MAINNET,
+    RANDOM
 } from "../utils/Addresses.sol";
 
 // solhint-disable func-name-mixedcase
@@ -38,7 +44,7 @@ contract SwapRouterTest is Test {
         vm.selectFork(forkId);
 
         // setup system
-        systemRegistry = new SystemRegistry();
+        systemRegistry = new SystemRegistry(TOKE_MAINNET, WETH_MAINNET);
         accessController = new AccessController(address(systemRegistry));
         systemRegistry.setAccessController(address(accessController));
         destinationVaultRegistry = new DestinationVaultRegistry(systemRegistry);

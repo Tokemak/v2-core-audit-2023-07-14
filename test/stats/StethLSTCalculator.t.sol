@@ -7,7 +7,7 @@ import { StethLSTCalculator } from "src/stats/calculators/StethLSTCalculator.sol
 import { SystemRegistry } from "src/SystemRegistry.sol";
 import { AccessController } from "src/security/AccessController.sol";
 import { LSTCalculatorBase } from "src/stats/calculators/base/LSTCalculatorBase.sol";
-import { STETH_MAINNET } from "test/utils/Addresses.sol";
+import { TOKE_MAINNET, WETH_MAINNET, STETH_MAINNET } from "test/utils/Addresses.sol";
 import { Roles } from "src/libs/Roles.sol";
 
 contract StethLSTCalculatorTest is Test {
@@ -23,7 +23,7 @@ contract StethLSTCalculatorTest is Test {
         uint256 mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"), targetBlock);
         vm.selectFork(mainnetFork);
 
-        SystemRegistry systemRegistry = new SystemRegistry();
+        SystemRegistry systemRegistry = new SystemRegistry(TOKE_MAINNET, WETH_MAINNET);
         AccessController accessController = new AccessController(address(systemRegistry));
         systemRegistry.setAccessController(address(accessController));
         accessController.grantRole(Roles.STATS_SNAPSHOT_ROLE, address(this));

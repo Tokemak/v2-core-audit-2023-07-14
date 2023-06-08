@@ -7,8 +7,8 @@ import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard
 
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 
-import { IStakeTracking } from "../interfaces/rewarders/IStakeTracking.sol";
-import { IExtraRewarder } from "../interfaces/rewarders/IExtraRewarder.sol";
+import { IStakeTracking } from "src/interfaces/rewarders/IStakeTracking.sol";
+import { IExtraRewarder } from "src/interfaces/rewarders/IExtraRewarder.sol";
 import { AbstractRewarder } from "./AbstractRewarder.sol";
 
 import { Errors } from "src/utils/Errors.sol";

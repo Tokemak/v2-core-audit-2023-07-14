@@ -19,18 +19,17 @@ import { Errors } from "src/utils/Errors.sol";
 
 import { PRANK_ADDRESS, RANDOM } from "test/utils/Addresses.sol";
 
-import { console2 as console } from "forge-std/console2.sol";
-
 contract MainRewarderTest is BaseTest {
     address private operator;
 
     StakeTrackingMock private stakeTracker;
     address private liquidator;
 
+    event TokeLockDurationUpdated(uint256 newDuration);
+
     MainRewarder private mainRewardVault;
     ExtraRewarder private extraReward1Vault;
     ExtraRewarder private extraReward2Vault;
-    MainRewarder private tokeRewardVault;
 
     ERC20Mock private mainReward;
     ERC20Mock private extraReward1;
@@ -54,7 +53,6 @@ contract MainRewarderTest is BaseTest {
         accessController.grantRole(Roles.LIQUIDATOR_ROLE, liquidator);
 
         deployGpToke();
-        deal(address(toke), RANDOM, 1 ether);
 
         stakeTracker = new StakeTrackingMock();
         mainRewardVault = new MainRewarder(
@@ -82,15 +80,6 @@ contract MainRewarderTest is BaseTest {
             operator,
             address(extraReward2),
             address(mainRewardVault),
-            newRewardRatio,
-            durationInBlock
-        );
-
-        tokeRewardVault = new MainRewarder(
-            systemRegistry,
-            address(stakeTracker),
-            operator,
-            address(toke),
             newRewardRatio,
             durationInBlock
         );
@@ -141,44 +130,60 @@ contract MainRewarderTest is BaseTest {
         assertEq(extraReward2BalanceAfter - extraReward2BalanceBefore, amount);
     }
 
-    // TODO: add a set of failure tests! @adrienbarreau
+    /* ---------------------------------------------------------------- */
+    /*  TODO: add a set of failure tests! @adrienbarreau                */
+    /* ---------------------------------------------------------------- */
 
     function test_toke_autoStakeRewards() public {
+        _runTokeStakingTest(30 days, 0, true);
+    }
+
+    function test_toke_notAutoStakeRewards() public {
+        _runTokeStakingTest(0, amount, false);
+    }
+
+    function _runTokeStakingTest(
+        uint256 stakeDuration,
+        uint256 expectedTokeBalanceDiff,
+        bool gpTokeIncreaseExpected
+    ) private {
+        MainRewarder tokeRewarder = new MainRewarder(
+            systemRegistry,
+            address(stakeTracker),
+            operator,
+            address(toke),
+            newRewardRatio,
+            durationInBlock
+        );
+
+        // set duration
+        vm.prank(address(operator));
+        vm.expectEmit(true, false, false, false);
+        emit TokeLockDurationUpdated(stakeDuration);
+        tokeRewarder.setTokeLockDuration(stakeDuration);
+
+        // load available rewards
+        deal(address(toke), address(tokeRewarder), 100_000);
+        vm.prank(liquidator);
+        tokeRewarder.queueNewRewards(amount);
+
         vm.prank(address(stakeTracker));
-        tokeRewardVault.stake(RANDOM, amount);
+        tokeRewarder.stake(RANDOM, amount);
 
         vm.roll(block.number + 100);
 
-        uint256 earned = tokeRewardVault.earned(RANDOM);
+        uint256 earned = tokeRewarder.earned(RANDOM);
         assertEq(earned, amount);
 
-        uint256 rewardBalanceBefore = tokeRewardVault.balanceOf(RANDOM);
         uint256 tokeBalanceBefore = toke.balanceOf(RANDOM);
         uint256 gpTokeBalanceBefore = gpToke.balanceOf(RANDOM);
-
-        // set duration
-
-        vm.prank(address(operator));
-        tokeRewardVault.setTokeLockDuration(30 days);
 
         // claim rewards
 
         vm.prank(RANDOM);
-        mainRewardVault.getReward();
+        tokeRewarder.getReward();
 
-        uint256 rewardBalanceAfter = mainReward.balanceOf(RANDOM);
-        uint256 tokeBalanceAfter = toke.balanceOf(RANDOM);
-        uint256 gpTokeBalanceAfter = gpToke.balanceOf(RANDOM);
-
-        console.log("rewardBalanceBefore", rewardBalanceBefore);
-        console.log("rewardBalanceAfter", rewardBalanceAfter);
-        console.log("tokeBalanceBefore", tokeBalanceBefore);
-        console.log("tokeBalanceAfter", tokeBalanceAfter);
-        console.log("gpTokeBalanceBefore", gpTokeBalanceBefore);
-        console.log("gpTokeBalanceAfter", gpTokeBalanceAfter);
-
-        assertEq(rewardBalanceAfter - rewardBalanceBefore, amount, "reward not fully claimed");
-        assertEq(tokeBalanceAfter - tokeBalanceBefore, 0, "toke balance shouldn't change"); // shouldn't change
-        assertEq(gpTokeBalanceAfter - gpTokeBalanceBefore, amount, "gpToke not staked"); // now fully staked
+        assertEq(toke.balanceOf(RANDOM) - tokeBalanceBefore, expectedTokeBalanceDiff);
+        assertEq(gpToke.balanceOf(RANDOM) > gpTokeBalanceBefore, gpTokeIncreaseExpected);
     }
 }

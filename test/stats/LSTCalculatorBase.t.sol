@@ -10,6 +10,7 @@ import { AccessController } from "src/security/AccessController.sol";
 import { Stats } from "src/stats/Stats.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
+import { TOKE_MAINNET, WETH_MAINNET } from "test/utils/Addresses.sol";
 
 contract LSTCalculatorBaseTest is Test {
     SystemRegistry private systemRegistry;
@@ -42,7 +43,7 @@ contract LSTCalculatorBaseTest is Test {
         uint256 mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"), START_BLOCK);
         vm.selectFork(mainnetFork);
 
-        systemRegistry = new SystemRegistry();
+        systemRegistry = new SystemRegistry(TOKE_MAINNET, WETH_MAINNET);
         accessController = new AccessController(address(systemRegistry));
         systemRegistry.setAccessController(address(accessController));
         accessController.grantRole(Roles.STATS_SNAPSHOT_ROLE, address(this));

@@ -74,9 +74,10 @@ contract GPToke is IGPToke, ERC20Votes, ReentrancyGuard, Pausable, SecurityBase 
 
         lockups[to].push(Lockup({ amount: uint128(amount), end: uint128(end), points: points }));
 
-        _mint(to, points);
         // checking return value to keep slither happy
         if (!toke.transferFrom(msg.sender, address(this), amount)) revert TransferFailed();
+
+        _mint(to, points);
 
         emit Stake(to, lockups[to].length - 1, amount, end, points);
     }

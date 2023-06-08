@@ -22,7 +22,6 @@ import { Errors } from "src/utils/Errors.sol";
  * from ExtraRewarder contracts.
  */
 contract MainRewarder is AbstractRewarder, IMainRewarder, ReentrancyGuard {
-    // address public immutable rewardManager;
     address[] public extraRewards;
 
     constructor(

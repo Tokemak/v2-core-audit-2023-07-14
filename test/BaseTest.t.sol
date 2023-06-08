@@ -121,5 +121,7 @@ contract BaseTest is Test {
             MIN_STAKING_DURATION,
             address(accessController)
         );
+
+        systemRegistry.setGPToke(address(gpToke));
     }
 }
