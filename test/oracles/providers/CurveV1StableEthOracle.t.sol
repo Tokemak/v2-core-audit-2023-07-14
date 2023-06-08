@@ -12,7 +12,7 @@ import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { CurveResolverMainnet } from "src/utils/CurveResolverMainnet.sol";
 import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { IAccessController } from "src/interfaces/security/IAccessController.sol";
-import { ICurveStableSwap } from "src/interfaces/external/curve/ICurveStableSwap.sol";
+import { ICurveV1StableSwap } from "src/interfaces/external/curve/ICurveV1StableSwap.sol";
 import { IVault as IBalancerVault } from "src/interfaces/external/balancer/IVault.sol";
 import { ICurveMetaRegistry } from "src/interfaces/external/curve/ICurveMetaRegistry.sol";
 import { CurveV1StableEthOracle } from "src/oracles/providers/CurveV1StableEthOracle.sol";
@@ -270,7 +270,7 @@ contract CurveEthStETHReentrancyTest {
         IERC20 stETH = IERC20(STETH_MAINNET);
         stETH.approve(STETH_ETH_CURVE_POOL, 1 ether);
 
-        ICurveStableSwap pool = ICurveStableSwap(STETH_ETH_CURVE_POOL);
+        ICurveV1StableSwap pool = ICurveV1StableSwap(STETH_ETH_CURVE_POOL);
         pool.add_liquidity{ value: 1 ether }(amounts, 0);
 
         uint256 bal = lpToken.balanceOf(address(this));

@@ -9,7 +9,7 @@ import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IPriceOracle } from "src/interfaces/oracles/IPriceOracle.sol";
 import { ICurveResolver } from "src/interfaces/utils/ICurveResolver.sol";
 import { ICurveOwner } from "src/interfaces/external/curve/ICurveOwner.sol";
-import { ICurveStableSwap } from "src/interfaces/external/curve/ICurveStableSwap.sol";
+import { ICurveV1StableSwap } from "src/interfaces/external/curve/ICurveV1StableSwap.sol";
 
 /// @title Price oracle for Curve StableSwap pools
 /// @dev getPriceEth is not a view fn to support reentrancy checks. Dont actually change state.
@@ -126,7 +126,7 @@ contract CurveV1StableEthOracle is SecurityBase, IPriceOracle {
         }
 
         PoolData memory poolInfo = lpTokenToPool[token];
-        ICurveStableSwap pool = ICurveStableSwap(poolInfo.pool);
+        ICurveV1StableSwap pool = ICurveV1StableSwap(poolInfo.pool);
 
         for (uint256 i = 0; i < nTokens;) {
             address iToken = tokens[i];
