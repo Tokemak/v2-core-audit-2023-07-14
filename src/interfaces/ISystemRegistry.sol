@@ -23,11 +23,11 @@ import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaul
 interface ISystemRegistry {
     /// @notice Get the TOKE contract for the system
     /// @return toke instance of TOKE used in the system
-    function toke() external view returns (IERC20Metadata toke);
+    function toke() external view returns (IERC20Metadata);
 
     /// @notice Get the referenced WETH contract for the system
     /// @return weth contract pointer
-    function weth() external view returns (IWETH9 weth);
+    function weth() external view returns (IWETH9);
 
     /// @notice Get the GPToke staking contract
     /// @return gpToke instance of the gpToke contract for the system

@@ -29,8 +29,8 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     /* State Variables                  */
     /* ******************************** */
 
-    IERC20Metadata public toke;
-    IWETH9 public weth;
+    IERC20Metadata public immutable toke;
+    IWETH9 public immutable weth;
     IGPToke private _gpToke;
     ILMPVaultRegistry private _lmpVaultRegistry;
     IDestinationVaultRegistry private _destinationVaultRegistry;
@@ -148,7 +148,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
 
         emit GPTokeSet(newGPToke);
 
-        // TODO: do we need to add systemRegistry to gptoke init as well to bring it in line? @codenutt
+        // TODO: add SystemRegistry to GPToke (future pr). Uncomment when done
         // verifySystemsAgree(address(_lmpVaultRegistry));
     }
 

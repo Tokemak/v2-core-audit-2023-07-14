@@ -207,9 +207,7 @@ abstract contract AbstractRewarder is IBaseRewarder, SecurityBase {
             IERC20(address(tokeAddress)).approve(address(gpToke), reward);
 
             // stake Toke
-            uint256 tokeBalanceBefore = IERC20(tokeAddress).balanceOf(address(gpToke));
             gpToke.stake(reward, tokeLockDuration, account);
-            assert(IERC20(tokeAddress).balanceOf(address(gpToke)) == tokeBalanceBefore + reward);
         }
     }
 
