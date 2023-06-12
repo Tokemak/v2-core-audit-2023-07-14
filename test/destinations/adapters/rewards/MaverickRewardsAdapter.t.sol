@@ -4,6 +4,7 @@
 pragma solidity 0.8.17;
 
 import { Test } from "forge-std/Test.sol";
+import { console } from "forge-std/console.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import { Errors } from "src/utils/Errors.sol";
@@ -35,7 +36,7 @@ contract MaverickRewardsAdapterTest is Test {
     }
 
     function setUp() public {
-        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"));
+        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 17_360_127);
 
         _adapter = new MaverickRewardsAdapter();
 
@@ -49,7 +50,14 @@ contract MaverickRewardsAdapterTest is Test {
 
     function test_claimRewards_Successful() public {
         (uint256[] memory amountsClaimed, IERC20[] memory rewardsToken) = _adapter.claimRewards(_REWARDER);
-
+        // display all amounts claimed
+        for (uint256 i = 0; i < amountsClaimed.length; i++) {
+            console.log("amountsClaimed[%d]: %d", i, amountsClaimed[i]);
+        }
+        // display all rewards token
+        for (uint256 i = 0; i < rewardsToken.length; i++) {
+            console.log("rewardsToken[%d]: %s", i, address(rewardsToken[i]));
+        }
         // check based on previous execution
         assertEq(rewardsToken.length, 2);
         assertEq(address(rewardsToken[1]), LDO_MAINNET);
