@@ -10,6 +10,8 @@ import { ILMPVault, LMPVault } from "src/vault/LMPVault.sol";
 import { StrategyFactory } from "src/strategy/StrategyFactory.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
 
+import { MainRewarder } from "src/rewarders/MainRewarder.sol";
+
 import { Roles } from "src/libs/Roles.sol";
 import { Errors } from "src/utils/Errors.sol";
 
@@ -39,14 +41,33 @@ contract LMPVaultFactory is ILMPVaultFactory, SecurityBase {
         // verify params
         Errors.verifyNotZero(_vaultAsset, "vaultAsset");
 
-        // create new and initialize
+        // create new vault and init with rewarder
         newVaultAddress = address(
             new LMPVault(
                 systemRegistry,
-                _vaultAsset,
-                _rewarder
+                _vaultAsset
             )
         );
+
+        // TODO: Do something different with rewarder
+        // the rewarder can't be created without the LMP Vault
+        // Can turn this into a create2 call with salt and then
+        // predict the address so we can create the rewarder beforehand
+        // or just create the rewarder in here
+
+        if (_rewarder == address(0)) {
+            _rewarder = address(
+                new MainRewarder(
+                systemRegistry, // registry
+                newVaultAddress, // stakeTracker
+                _vaultAsset, // rewardToken
+                800, // newRewardRatio
+                100 // durationInBlock
+                )
+            );
+        }
+
+        LMPVault(newVaultAddress).setRewarder(_rewarder);
 
         // add to VaultRegistry
         vaultRegistry.addVault(newVaultAddress);

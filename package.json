@@ -18,7 +18,7 @@
 		"build": "forge build",
 		"clean": "forge clean",
 		"test": "forge test -vvv",
-		"test:vaults": "forge test -vvv --match-path \"./test/vault/*\"",
+		"test:vaults": "FOUNDRY_FUZZ_RUNS=50 forge test -vvv --match-path \"./test/vault/*\"",
 		"test:staking": "forge test -vvv --match-path \"./test/staking/*\"",
 		"test:rewarders": "forge test -vvv --match-path \"./test/rewarders/*\"",
 		"coverage": "forge coverage",

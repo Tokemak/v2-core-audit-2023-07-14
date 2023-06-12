@@ -21,12 +21,11 @@ contract ExtraRewarder is AbstractRewarder, IExtraRewarder, ReentrancyGuard {
     constructor(
         ISystemRegistry _systemRegistry,
         address _stakeTracker,
-        address _operator,
         address _rewardToken,
         address _mainReward,
         uint256 _newRewardRatio,
         uint256 _durationInBlock
-    ) AbstractRewarder(_systemRegistry, _stakeTracker, _operator, _rewardToken, _newRewardRatio, _durationInBlock) {
+    ) AbstractRewarder(_systemRegistry, _stakeTracker, _rewardToken, _newRewardRatio, _durationInBlock) {
         Errors.verifyNotZero(_mainReward, "_mainReward");
 
         // slither-disable-next-line missing-zero-check

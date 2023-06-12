@@ -27,11 +27,10 @@ contract MainRewarder is AbstractRewarder, IMainRewarder, ReentrancyGuard {
     constructor(
         ISystemRegistry _systemRegistry,
         address _stakeTracker,
-        address _operator,
         address _rewardToken,
         uint256 _newRewardRatio,
         uint256 _durationInBlock
-    ) AbstractRewarder(_systemRegistry, _stakeTracker, _operator, _rewardToken, _newRewardRatio, _durationInBlock) { }
+    ) AbstractRewarder(_systemRegistry, _stakeTracker, _rewardToken, _newRewardRatio, _durationInBlock) { }
 
     function extraRewardsLength() external view returns (uint256) {
         return extraRewards.length;

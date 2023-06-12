@@ -41,7 +41,6 @@ abstract contract AbstractRewarder is IBaseRewarder, SecurityBase {
     ISystemRegistry internal immutable systemRegistry;
 
     address public immutable rewardToken;
-    address public immutable operator;
     IStakeTracking public immutable stakeTracker;
 
     uint256 public periodInBlockFinish;
@@ -60,17 +59,14 @@ abstract contract AbstractRewarder is IBaseRewarder, SecurityBase {
     constructor(
         ISystemRegistry _systemRegistry,
         address _stakeTracker,
-        address _operator,
         address _rewardToken,
         uint256 _newRewardRate,
         uint256 _durationInBlock
     ) SecurityBase(address(_systemRegistry.accessController())) {
         Errors.verifyNotZero(_stakeTracker, "_stakeTracker");
-        Errors.verifyNotZero(_operator, "_operator");
         Errors.verifyNotZero(_rewardToken, "_rewardToken");
 
         systemRegistry = _systemRegistry;
-        operator = _operator;
         rewardToken = _rewardToken;
         stakeTracker = IStakeTracking(_stakeTracker);
         newRewardRatio = _newRewardRate;

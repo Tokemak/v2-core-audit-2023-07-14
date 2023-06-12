@@ -52,12 +52,11 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
 
     EnumerableSet.AddressSet internal _trackedAssets;
 
-    IMainRewarder public immutable rewarder;
+    IMainRewarder public rewarder;
 
     constructor(
         ISystemRegistry _systemRegistry,
-        address _vaultAsset,
-        address _rewarder
+        address _vaultAsset
     )
         ERC20(
             string(abi.encodePacked(ERC20(_vaultAsset).name(), " Pool Token")),
@@ -71,12 +70,17 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         Errors.verifyNotZero(_vaultAsset, "token");
         _asset = IERC20(_vaultAsset);
 
-        Errors.verifyNotZero(_rewarder, "rewarder");
+        // init withdrawalqueue to empty (slither issue)
+        withdrawalQueue = new IDestinationVault[](0);
+    }
+
+    // TODO: change owner to Factory in consequent PR (currently pending in #73)
+    function setRewarder(address _rewarder) external hasRole(Roles.CREATE_POOL_ROLE) {
+        Errors.verifyNotZero(_rewarder, "_rewarder");
 
         rewarder = IMainRewarder(_rewarder);
 
-        // init withdrawalqueue to empty (slither issue)
-        withdrawalQueue = new IDestinationVault[](0);
+        emit RewarderSet(_rewarder);
     }
 
     /// @dev See {IERC4626-asset}.
@@ -176,9 +180,6 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         assets = previewMint(shares);
         _transferAndMint(assets, shares, receiver);
 
-        // increment totalIdle
-        totalIdle += assets;
-
         // set a stake in rewarder
         rewarder.stake(receiver, shares);
     }
@@ -194,9 +195,12 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         address owner
     ) public virtual override whenNotPaused nonReentrant returns (uint256 shares) {
         // query number of shares these assets match
+
         shares = previewWithdraw(assets);
 
-        _withdraw(assets, shares, receiver, owner);
+        (uint256 returnedAssets, uint256 burnedShares, uint256 totalLoss) = _withdraw(assets, shares, receiver, owner);
+
+        return burnedShares;
     }
 
     /// @dev See {IERC4626-redeem}.
@@ -207,7 +211,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
     ) public virtual override whenNotPaused nonReentrant returns (uint256 assets) {
         assets = previewRedeem(shares);
 
-        _withdraw(assets, shares, receiver, owner);
+        (uint256 returnedAssets, uint256 burnedShares, uint256 totalLoss) = _withdraw(assets, shares, receiver, owner);
     }
 
     function _withdraw(
@@ -277,7 +281,9 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         if (msg.sender != owner && allowed != type(uint256).max) {
             if (shares > allowed) revert AmountExceedsAllowance(shares, allowed);
 
-            _approve(owner, msg.sender, returnedAssets);
+            unchecked {
+                _approve(owner, msg.sender, allowed - shares);
+            }
         }
 
         // TODO: how to account for partial withdrawal (shares-wise?)
@@ -405,7 +411,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
     /// @dev Internal conversion function (from shares to assets) with support for rounding direction.
     function _convertToAssets(uint256 shares, Math.Rounding rounding) internal view virtual returns (uint256 assets) {
         uint256 supply = totalSupply();
-        assets = !_isVaultCollateralized() ? shares : shares.mulDiv(totalAssets(), supply, rounding);
+        assets = (supply == 0) ? shares : shares.mulDiv(totalAssets(), supply, rounding);
     }
 
     function _maxRedeem(address owner) internal view virtual returns (uint256 maxShares) {

@@ -54,11 +54,12 @@ contract BaseTest is Test {
     uint256 internal constant ONE_YEAR = 365 days;
     uint256 internal constant ONE_MONTH = 30 days;
 
+    bool internal toFork = true;
+
     function setUp() public virtual {
-        // BEFORE WE DO ANYTHING, FORK!!
-        uint256 mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"));
-        vm.selectFork(mainnetFork);
-        assertEq(vm.activeFork(), mainnetFork, "forks don't match");
+        if (toFork) {
+            fork();
+        }
 
         //////////////////////////////////////
         // Set up misc values
@@ -76,14 +77,26 @@ contract BaseTest is Test {
 
         accessController = new AccessController(address(systemRegistry));
         systemRegistry.setAccessController(address(accessController));
-        lmpVaultRegistry = new LMPVaultRegistry(systemRegistry);
-        systemRegistry.setLMPVaultRegistry(address(lmpVaultRegistry));
-        lmpVaultRouter = new LMPVaultRouter(WETH_MAINNET);
-        systemRegistry.setLMPVaultRouter(address(lmpVaultRouter));
-        lmpVaultFactory = new LMPVaultFactory(systemRegistry);
-        systemRegistry.setLMPVaultFactory(VaultTypes.LST, address(lmpVaultFactory));
-        // NOTE: deployer grants factory permission to update the registry
-        accessController.grantRole(Roles.REGISTRY_UPDATER, address(lmpVaultFactory));
+
+        // NOTE: these pieces were taken out so that each set of tests can init only the components it needs!
+        //       Saves a ton of unnecessary setup time and makes fuzzing tests run much much faster
+        //       (since these unnecessary (in those cases) setup times add up)
+        //       (Left the code for future reference)
+        // lmpVaultRegistry = new LMPVaultRegistry(systemRegistry);
+        // systemRegistry.setLMPVaultRegistry(address(lmpVaultRegistry));
+        // lmpVaultRouter = new LMPVaultRouter(WETH_MAINNET);
+        // systemRegistry.setLMPVaultRouter(address(lmpVaultRouter));
+        // lmpVaultFactory = new LMPVaultFactory(systemRegistry);
+        // systemRegistry.setLMPVaultFactory(VaultTypes.LST, address(lmpVaultFactory));
+        // // NOTE: deployer grants factory permission to update the registry
+        // accessController.grantRole(Roles.REGISTRY_UPDATER, address(lmpVaultFactory));
+    }
+
+    function fork() internal {
+        // BEFORE WE DO ANYTHING, FORK!!
+        uint256 mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"));
+        vm.selectFork(mainnetFork);
+        assertEq(vm.activeFork(), mainnetFork, "forks don't match");
     }
 
     function mockAsset(string memory name, string memory symbol, uint256 initialBalance) public returns (ERC20Mock) {
@@ -96,16 +109,15 @@ contract BaseTest is Test {
         return newMock;
     }
 
-    function createMainRewarder() public returns (MainRewarder) {
-        if (address(gpToke) == address(0)) {
-            deployGpToke();
-        }
+    function createMainRewarder(address asset) public returns (MainRewarder) {
+        return createMainRewarder(asset, address(new StakeTrackingMock()));
+    }
 
+    function createMainRewarder(address asset, address lmpVault) public returns (MainRewarder) {
         return new MainRewarder(
             systemRegistry, // registry
-            address(new StakeTrackingMock()), // stakeTracker
-            vm.addr(1), // operator
-            address(mockAsset("MAIN_REWARD", "MAIN_REWARD", 0)), // rewardToken
+            lmpVault, // stakeTracker
+            asset, // address(mockAsset("MAIN_REWARD", "MAIN_REWARD", 0)), // rewardToken
             800, // newRewardRatio
             100 // durationInBlock
         );
@@ -123,5 +135,28 @@ contract BaseTest is Test {
         );
 
         systemRegistry.setGPToke(address(gpToke));
+    }
+
+    function deployLMPVaultRegistry() public {
+        if (address(lmpVaultRegistry) != address(0)) return;
+
+        lmpVaultRegistry = new LMPVaultRegistry(systemRegistry);
+        systemRegistry.setLMPVaultRegistry(address(lmpVaultRegistry));
+    }
+
+    function deployLMPVaultRouter() public {
+        if (address(lmpVaultRouter) != address(0)) return;
+
+        lmpVaultRouter = new LMPVaultRouter(WETH_MAINNET);
+        systemRegistry.setLMPVaultRouter(address(lmpVaultRouter));
+    }
+
+    function deployLMPVaultFactory() public {
+        if (address(lmpVaultFactory) != address(0)) return;
+
+        lmpVaultFactory = new LMPVaultFactory(systemRegistry);
+        systemRegistry.setLMPVaultFactory(VaultTypes.LST, address(lmpVaultFactory));
+        // NOTE: deployer grants factory permission to update the registry
+        accessController.grantRole(Roles.REGISTRY_UPDATER, address(lmpVaultFactory));
     }
 }

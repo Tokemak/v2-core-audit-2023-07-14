@@ -13,6 +13,7 @@ import { ILMPVaultRegistry, LMPVaultRegistry } from "src/vault/LMPVaultRegistry.
 import { ILMPVaultFactory, LMPVaultFactory } from "src/vault/LMPVaultFactory.sol";
 import { ILMPVaultRouter, LMPVaultRouter } from "src/vault/LMPVaultRouter.sol";
 import { ILMPVault, LMPVault } from "src/vault/LMPVault.sol";
+import { IMainRewarder, MainRewarder } from "src/rewarders/MainRewarder.sol";
 import { IStrategy } from "src/interfaces/strategy/IStrategy.sol";
 
 import { Errors, SystemRegistry } from "src/SystemRegistry.sol";
@@ -40,12 +41,15 @@ contract LMPVaultBaseTest is BaseTest {
     function setUp() public virtual override(BaseTest) {
         BaseTest.setUp();
 
+        deployLMPVaultRegistry();
+        deployLMPVaultFactory();
+
         //
         // create and initialize factory
         //
 
         // create mock asset
-        baseAsset = mockAsset("", "", uint256(1_000_000_000_000_000_000_000_000));
+        baseAsset = mockAsset("TestERC20", "TestERC20", uint256(1_000_000_000_000_000_000_000_000));
 
         // create destination vault mocks
         destinationVault = _createDestinationVault(address(baseAsset));
@@ -55,11 +59,9 @@ contract LMPVaultBaseTest is BaseTest {
         accessController.grantRole(Roles.SET_WITHDRAWAL_QUEUE_ROLE, address(this));
 
         // create test lmpVault
-        lmpVault = LMPVault(
-            systemRegistry.getLMPVaultFactoryByType(VaultTypes.LST).createVault(
-                address(baseAsset), address(createMainRewarder()), ""
-            )
-        );
+        ILMPVaultFactory vaultFactory = systemRegistry.getLMPVaultFactoryByType(VaultTypes.LST);
+        accessController.grantRole(Roles.CREATE_POOL_ROLE, address(vaultFactory));
+        lmpVault = LMPVault(vaultFactory.createVault(address(baseAsset), address(0), ""));
 
         assert(systemRegistry.lmpVaultRegistry().isVault(address(lmpVault)));
     }
