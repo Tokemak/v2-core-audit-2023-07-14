@@ -6,13 +6,17 @@ import { Test } from "forge-std/Test.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 
-import { LiquidationRow } from "../../src/liquidation/LiquidationRow.sol";
-import { IAsyncSwapper, SwapParams } from "../../src/interfaces/liquidation/IAsyncSwapper.sol";
-import { ILiquidationRow } from "../../src/interfaces/liquidation/ILiquidationRow.sol";
-import { BaseAsyncSwapper } from "../../src/liquidation/BaseAsyncSwapper.sol";
-import { IVaultClaimableRewards } from "../../src/interfaces/rewards/IVaultClaimableRewards.sol";
-import { ZERO_EX_MAINNET, PRANK_ADDRESS, CVX_MAINNET, WETH_MAINNET } from "../utils/Addresses.sol";
-import { MockERC20 } from "../mocks/MockERC20.sol";
+import { IAccessController } from "src/interfaces/security/IAccessController.sol";
+import { ISystemRegistry, SystemRegistry } from "src/SystemRegistry.sol";
+import { IAccessController, AccessController } from "src/security/AccessController.sol";
+import { LiquidationRow } from "src/liquidation/LiquidationRow.sol";
+import { IAsyncSwapper, SwapParams } from "src/interfaces/liquidation/IAsyncSwapper.sol";
+import { ILiquidationRow } from "src/interfaces/liquidation/ILiquidationRow.sol";
+import { BaseAsyncSwapper } from "src/liquidation/BaseAsyncSwapper.sol";
+import { IVaultClaimableRewards } from "src/interfaces/rewards/IVaultClaimableRewards.sol";
+import { Roles } from "src/libs/Roles.sol";
+import { ZERO_EX_MAINNET, PRANK_ADDRESS, CVX_MAINNET, WETH_MAINNET, TOKE_MAINNET } from "test/utils/Addresses.sol";
+import { MockERC20 } from "test/mocks/MockERC20.sol";
 
 contract AsyncSwapperMock is BaseAsyncSwapper {
     MockERC20 private immutable targetToken;
@@ -41,6 +45,8 @@ contract MockVault is IVaultClaimableRewards {
  * function
  */
 contract LiquidationRowWrapper is LiquidationRow {
+    constructor(ISystemRegistry _systemRegistry) LiquidationRow(ISystemRegistry(_systemRegistry)) { }
+
     /**
      * @notice Update the balances of the vaults
      * @param vaultAddresses An array of vault addresses
@@ -79,6 +85,8 @@ contract LiquidationRowWrapper is LiquidationRow {
 
 // solhint-disable func-name-mixedcase
 contract LiquidationRowTest is Test {
+    SystemRegistry private systemRegistry;
+    IAccessController private accessController;
     LiquidationRowWrapper private liquidationRow;
     AsyncSwapperMock private asyncSwapper;
     MockERC20 private targetToken;
@@ -90,7 +98,12 @@ contract LiquidationRowTest is Test {
     address private vault2 = vm.addr(2);
 
     function setUp() public {
-        liquidationRow = new LiquidationRowWrapper();
+        systemRegistry = new SystemRegistry(TOKE_MAINNET, WETH_MAINNET);
+        accessController = new AccessController(address(systemRegistry));
+        systemRegistry.setAccessController(address(accessController));
+        accessController.grantRole(Roles.LIQUIDATOR_ROLE, address(this));
+
+        liquidationRow = new LiquidationRowWrapper(systemRegistry);
         targetToken = new MockERC20();
         rewardToken = new MockERC20();
         rewardToken2 = new MockERC20();
@@ -98,6 +111,47 @@ contract LiquidationRowTest is Test {
         asyncSwapper = new AsyncSwapperMock(vm.addr(100), targetToken, address(liquidationRow));
 
         liquidationRow.addAllowedSwapper(address(asyncSwapper));
+    }
+
+    /*  
+        ----------------------------------------------------------------------
+        Following tests only focus on access control and revert reasons
+        ----------------------------------------------------------------------
+    */
+
+    function test_Revert_addAllowedSwapper_IfNotAuthorizedRole() public {
+        vm.prank(address(1));
+        vm.expectRevert(IAccessController.AccessDenied.selector);
+        liquidationRow.addAllowedSwapper(address(asyncSwapper));
+    }
+
+    function test_Revert_removeAllowedSwapper_IfNotAuthorizedRole() public {
+        vm.prank(address(1));
+        vm.expectRevert(IAccessController.AccessDenied.selector);
+        liquidationRow.removeAllowedSwapper(address(asyncSwapper));
+    }
+
+    function test_Revert_liquidateVaultsForToken_IfNotAuthorizedRole() public {
+        address[] memory vaults = new address[](1);
+        vaults[0] = address(0);
+
+        vm.prank(address(1));
+        vm.expectRevert(IAccessController.AccessDenied.selector);
+        liquidationRow.liquidateVaultsForToken(
+            address(rewardToken),
+            address(asyncSwapper),
+            vaults,
+            SwapParams(address(rewardToken), 200, address(targetToken), 200, new bytes(0), new bytes(0))
+        );
+    }
+
+    function test_Revert_claimRewards_IfNotAuthorizedRole() public {
+        IVaultClaimableRewards[] memory vaults = new IVaultClaimableRewards[](1);
+        vaults[0] = IVaultClaimableRewards(address(0));
+
+        vm.prank(address(1));
+        vm.expectRevert(IAccessController.AccessDenied.selector);
+        liquidationRow.claimsVaultRewards(vaults);
     }
 
     /*  
@@ -134,7 +188,7 @@ contract LiquidationRowTest is Test {
 
     /*  
         ----------------------------------------------------------------------
-        Following tests only focuses on the _increaseBalance function.
+        Following tests only focus on the _increaseBalance function.
         ----------------------------------------------------------------------
     */
 

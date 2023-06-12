@@ -13,11 +13,15 @@ import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.so
 import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 import { Address } from "openzeppelin-contracts/utils/Address.sol";
-import { IAsyncSwapper, SwapParams } from "../interfaces/liquidation/IAsyncSwapper.sol";
-import { ILiquidationRow } from "../interfaces/liquidation/ILiquidationRow.sol";
-import { IVaultClaimableRewards } from "../interfaces/rewards/IVaultClaimableRewards.sol";
 
-contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
+import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
+import { IAsyncSwapper, SwapParams } from "src/interfaces/liquidation/IAsyncSwapper.sol";
+import { ILiquidationRow } from "src/interfaces/liquidation/ILiquidationRow.sol";
+import { IVaultClaimableRewards } from "src/interfaces/rewards/IVaultClaimableRewards.sol";
+import { SecurityBase } from "src/security/SecurityBase.sol";
+import { Roles } from "src/libs/Roles.sol";
+
+contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
     using Address for address;
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -41,13 +45,15 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
      */
     mapping(address => EnumerableSet.AddressSet) private tokenVaults;
 
+    constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) { }
+
     /// @inheritdoc ILiquidationRow
     function getAllowedSwappers() external view returns (address[] memory) {
         return allowedSwappers.values();
     }
 
     /// @inheritdoc ILiquidationRow
-    function addAllowedSwapper(address swapper) external {
+    function addAllowedSwapper(address swapper) external hasRole(Roles.LIQUIDATOR_ROLE) {
         bool success = allowedSwappers.add(swapper);
         if (!success) {
             revert SwapperAlreadyAdded();
@@ -56,7 +62,7 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
     }
 
     /// @inheritdoc ILiquidationRow
-    function removeAllowedSwapper(address swapper) external {
+    function removeAllowedSwapper(address swapper) external hasRole(Roles.LIQUIDATOR_ROLE) {
         bool success = allowedSwappers.remove(swapper);
         if (!success) {
             revert SwapperNotFound();
@@ -70,7 +76,11 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
     }
 
     /// @inheritdoc ILiquidationRow
-    function claimsVaultRewards(IVaultClaimableRewards[] memory vaults) external nonReentrant {
+    function claimsVaultRewards(IVaultClaimableRewards[] memory vaults)
+        external
+        nonReentrant
+        hasRole(Roles.LIQUIDATOR_ROLE)
+    {
         if (vaults.length == 0) {
             revert NoVaults();
         }
@@ -120,7 +130,7 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard {
         address asyncSwapper,
         address[] memory vaultsToLiquidate,
         SwapParams memory params
-    ) external nonReentrant {
+    ) external nonReentrant hasRole(Roles.LIQUIDATOR_ROLE) {
         if (vaultsToLiquidate.length == 0) {
             revert NoVaults();
         }
