@@ -148,8 +148,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
 
         emit GPTokeSet(newGPToke);
 
-        // TODO: add SystemRegistry to GPToke (future pr). Uncomment when done
-        // verifySystemsAgree(address(_lmpVaultRegistry));
+        verifySystemsAgree(address(newGPToke));
     }
 
     /// @notice Set the LMP Vault Registry for this instance of the system

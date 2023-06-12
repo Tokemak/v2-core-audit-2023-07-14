@@ -115,11 +115,11 @@ contract BaseTest is Test {
         if (address(gpToke) != address(0)) return;
 
         gpToke = new GPToke(
+            systemRegistry,
             address(toke),
             //solhint-disable-next-line not-rely-on-time
             block.timestamp, // start epoch
-            MIN_STAKING_DURATION,
-            address(accessController)
+            MIN_STAKING_DURATION
         );
 
         systemRegistry.setGPToke(address(gpToke));

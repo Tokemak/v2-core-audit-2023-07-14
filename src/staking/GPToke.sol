@@ -12,9 +12,13 @@ import { Pausable } from "openzeppelin-contracts/security/Pausable.sol";
 import { PRBMathUD60x18 } from "prb-math/contracts/PRBMathUD60x18.sol";
 
 import { IGPToke } from "src/interfaces/staking/IGPToke.sol";
+import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
+import { Errors } from "src/utils/Errors.sol";
 
 contract GPToke is IGPToke, ERC20Votes, ReentrancyGuard, Pausable, SecurityBase {
+    ISystemRegistry internal immutable systemRegistry;
+
     // variables
     uint256 public immutable startEpoch;
     uint256 public immutable minStakeDuration;
@@ -28,13 +32,14 @@ contract GPToke is IGPToke, ERC20Votes, ReentrancyGuard, Pausable, SecurityBase 
     ERC20 public immutable toke;
 
     constructor(
+        ISystemRegistry _systemRegistry,
         address _toke,
         uint256 _startEpoch,
-        uint256 _minStakeDuration,
-        address _accessController
-    ) ERC20("Staked Toke", "gpToke") ERC20Permit("gpToke") SecurityBase(_accessController) {
-        if (_toke == address(0)) revert ZeroAddress();
+        uint256 _minStakeDuration
+    ) ERC20("Staked Toke", "gpToke") ERC20Permit("gpToke") SecurityBase(address(_systemRegistry.accessController())) {
+        Errors.verifyNotZero(_toke, "_toke");
 
+        systemRegistry = _systemRegistry;
         toke = ERC20(_toke);
         startEpoch = _startEpoch;
         minStakeDuration = _minStakeDuration;
@@ -159,5 +164,9 @@ contract GPToke is IGPToke, ERC20Votes, ReentrancyGuard, Pausable, SecurityBase 
 
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    function getSystemRegistry() external view returns (address) {
+        return address(systemRegistry);
     }
 }
