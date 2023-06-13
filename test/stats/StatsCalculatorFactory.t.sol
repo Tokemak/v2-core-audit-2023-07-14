@@ -226,7 +226,7 @@ contract TestCalculator is IStatsCalculator {
 
     function snapshot() external { }
 
-    function shouldSnapshot() external view returns (bool takeSnapshot) {
+    function shouldSnapshot() external pure returns (bool takeSnapshot) {
         return true;
     }
 }

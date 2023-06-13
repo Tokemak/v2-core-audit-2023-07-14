@@ -12,6 +12,7 @@ import { AccessController } from "src/security/AccessController.sol";
 import { Stats } from "src/stats/Stats.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
+import { TOKE_MAINNET, WETH_MAINNET } from "test/utils/Addresses.sol";
 
 // solhint-disable func-name-mixedcase
 contract ProxyLSTCalculatorTest is Test {
@@ -25,7 +26,7 @@ contract ProxyLSTCalculatorTest is Test {
         uint256 mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"));
         vm.selectFork(mainnetFork);
 
-        _systemRegistry = new SystemRegistry();
+        _systemRegistry = new SystemRegistry(TOKE_MAINNET, WETH_MAINNET);
         _accessController = new AccessController(address(_systemRegistry));
         _systemRegistry.setAccessController(address(_accessController));
         _accessController.grantRole(Roles.STATS_SNAPSHOT_ROLE, address(this));
