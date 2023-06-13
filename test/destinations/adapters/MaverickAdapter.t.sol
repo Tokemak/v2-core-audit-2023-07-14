@@ -1,10 +1,12 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
 import { Test } from "forge-std/Test.sol";
 import { stdStorage, StdStorage } from "forge-std/StdStorage.sol";
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import { IERC721Receiver } from "openzeppelin-contracts/token/ERC721/ERC721.sol";
 
 import { MaverickAdapter } from "../../../src/destinations/adapters/MaverickAdapter.sol";
 import { IDestinationRegistry } from "../../../src/interfaces/destinations/IDestinationRegistry.sol";
@@ -46,6 +48,11 @@ contract MaverickAdapterTest is Test {
     MaverickAdapterWrapper private adapter;
     TestableVM public solver;
 
+    ///@dev Implementing this function to receive Maverick Position NFT on deposit
+    function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
+        return IERC721Receiver.onERC721Received.selector;
+    }
+
     function setUp() public {
         mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"), 17_067_052);
         vm.selectFork(mainnetFork);
@@ -67,13 +74,13 @@ contract MaverickAdapterTest is Test {
         amounts[0] = 1 * 1e18;
         amounts[1] = 1 * 1e18;
 
-        deal(address(WETH_MAINNET), address(adapter), 10 * 1e18);
-        deal(address(WSTETH_MAINNET), address(adapter), 10 * 1e18);
+        deal(address(WETH_MAINNET), address(this), 10 * 1e18);
+        deal(address(WSTETH_MAINNET), address(this), 10 * 1e18);
 
         uint128 binId = 49;
 
-        uint256 preBalanceA = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
-        uint256 preBalanceB = IERC20(WETH_MAINNET).balanceOf(address(adapter));
+        uint256 preBalanceA = IERC20(WSTETH_MAINNET).balanceOf(address(this));
+        uint256 preBalanceB = IERC20(WETH_MAINNET).balanceOf(address(this));
         uint256 preLpBalance = pool.balanceOf(INITIAL_TOKEN_ID, binId);
 
         IPool.AddLiquidityParams[] memory maverickParams = new  IPool.AddLiquidityParams[](1);
@@ -83,12 +90,12 @@ contract MaverickAdapterTest is Test {
             abi.encode(MaverickDeploymentExtraParams(address(pool), INITIAL_TOKEN_ID, 1e13, maverickParams));
 
         uint256 minLpMintAmount = 1;
-        adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
+        MaverickAdapter.addLiquidity(router, amounts, minLpMintAmount, extraParams);
 
-        uint256 afterBalanceA = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
-        uint256 afterBalanceB = IERC20(WETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalanceA = IERC20(WSTETH_MAINNET).balanceOf(address(this));
+        uint256 afterBalanceB = IERC20(WETH_MAINNET).balanceOf(address(this));
 
-        uint256 tokenId = position.tokenOfOwnerByIndex(address(adapter), 0);
+        uint256 tokenId = position.tokenOfOwnerByIndex(address(this), 0);
         uint256 aftrerLpBalance = pool.balanceOf(tokenId, binId);
 
         assertTrue(afterBalanceA < preBalanceA);
@@ -106,8 +113,8 @@ contract MaverickAdapterTest is Test {
         amounts[0] = 1 * 1e18;
         amounts[1] = 1 * 1e18;
 
-        deal(address(WETH_MAINNET), address(adapter), 10 * 1e18);
-        deal(address(WSTETH_MAINNET), address(adapter), 10 * 1e18);
+        deal(address(WETH_MAINNET), address(this), 10 * 1e18);
+        deal(address(WSTETH_MAINNET), address(this), 10 * 1e18);
 
         IPool.AddLiquidityParams[] memory maverickParams = new  IPool.AddLiquidityParams[](1);
         maverickParams[0] = IPool.AddLiquidityParams(3, 0, true, deltaA, deltaB);
@@ -115,13 +122,13 @@ contract MaverickAdapterTest is Test {
         bytes memory extraParams =
             abi.encode(MaverickDeploymentExtraParams(address(pool), INITIAL_TOKEN_ID, 1e13, maverickParams));
 
-        adapter.addLiquidity(amounts, 1, extraParams);
+        MaverickAdapter.addLiquidity(router, amounts, 1, extraParams);
 
         uint128 binId = 49;
-        uint256 withDrawTokenId = position.tokenOfOwnerByIndex(address(adapter), 0);
+        uint256 withDrawTokenId = position.tokenOfOwnerByIndex(address(this), 0);
 
-        uint256 preBalanceA = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
-        uint256 preBalanceB = IERC20(WETH_MAINNET).balanceOf(address(adapter));
+        uint256 preBalanceA = IERC20(WSTETH_MAINNET).balanceOf(address(this));
+        uint256 preBalanceB = IERC20(WETH_MAINNET).balanceOf(address(this));
         uint256 preLpBalance = pool.balanceOf(withDrawTokenId, binId);
 
         IPool.RemoveLiquidityParams[] memory maverickWithdrawalParams = new  IPool.RemoveLiquidityParams[](1);
@@ -130,10 +137,10 @@ contract MaverickAdapterTest is Test {
         bytes memory extraWithdrawalParams =
             abi.encode(MaverickWithdrawalExtraParams(address(pool), withDrawTokenId, 1e13, maverickWithdrawalParams));
 
-        adapter.removeLiquidity(amounts, preLpBalance, extraWithdrawalParams);
+        MaverickAdapter.removeLiquidity(router, amounts, preLpBalance, extraWithdrawalParams);
 
-        uint256 afterBalanceA = IERC20(WSTETH_MAINNET).balanceOf(address(adapter));
-        uint256 afterBalanceB = IERC20(WETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalanceA = IERC20(WSTETH_MAINNET).balanceOf(address(this));
+        uint256 afterBalanceB = IERC20(WETH_MAINNET).balanceOf(address(this));
         uint256 aftrerLpBalance = pool.balanceOf(withDrawTokenId, binId);
 
         assertTrue(afterBalanceA > preBalanceA);
@@ -151,13 +158,13 @@ contract MaverickAdapterTest is Test {
         amounts[0] = 1 * 1e18;
         amounts[1] = 1 * 1e18;
 
-        deal(address(WETH_MAINNET), address(adapter), 10 * 1e18);
-        deal(address(CBETH_MAINNET), address(adapter), 10 * 1e18);
+        deal(address(WETH_MAINNET), address(this), 10 * 1e18);
+        deal(address(CBETH_MAINNET), address(this), 10 * 1e18);
 
         uint128 binId = 34;
 
-        uint256 preBalanceA = IERC20(CBETH_MAINNET).balanceOf(address(adapter));
-        uint256 preBalanceB = IERC20(WETH_MAINNET).balanceOf(address(adapter));
+        uint256 preBalanceA = IERC20(CBETH_MAINNET).balanceOf(address(this));
+        uint256 preBalanceB = IERC20(WETH_MAINNET).balanceOf(address(this));
         uint256 preLpBalance = pool.balanceOf(INITIAL_TOKEN_ID, binId);
 
         IPool.AddLiquidityParams[] memory maverickParams = new  IPool.AddLiquidityParams[](1);
@@ -167,12 +174,12 @@ contract MaverickAdapterTest is Test {
             abi.encode(MaverickDeploymentExtraParams(address(pool), INITIAL_TOKEN_ID, 1e13, maverickParams));
 
         uint256 minLpMintAmount = 1;
-        adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
+        MaverickAdapter.addLiquidity(router, amounts, minLpMintAmount, extraParams);
 
-        uint256 afterBalanceA = IERC20(CBETH_MAINNET).balanceOf(address(adapter));
-        uint256 afterBalanceB = IERC20(WETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalanceA = IERC20(CBETH_MAINNET).balanceOf(address(this));
+        uint256 afterBalanceB = IERC20(WETH_MAINNET).balanceOf(address(this));
 
-        uint256 tokenId = position.tokenOfOwnerByIndex(address(adapter), 0);
+        uint256 tokenId = position.tokenOfOwnerByIndex(address(this), 0);
         uint256 aftrerLpBalance = pool.balanceOf(tokenId, binId);
 
         assertTrue(afterBalanceA < preBalanceA);
@@ -190,8 +197,8 @@ contract MaverickAdapterTest is Test {
         amounts[0] = 1 * 1e18;
         amounts[1] = 1 * 1e18;
 
-        deal(address(WETH_MAINNET), address(adapter), 10 * 1e18);
-        deal(address(CBETH_MAINNET), address(adapter), 10 * 1e18);
+        deal(address(WETH_MAINNET), address(this), 10 * 1e18);
+        deal(address(CBETH_MAINNET), address(this), 10 * 1e18);
 
         IPool.AddLiquidityParams[] memory maverickParams = new  IPool.AddLiquidityParams[](1);
         maverickParams[0] = IPool.AddLiquidityParams(3, 0, true, deltaA, deltaB);
@@ -199,13 +206,13 @@ contract MaverickAdapterTest is Test {
         bytes memory extraParams =
             abi.encode(MaverickDeploymentExtraParams(address(pool), INITIAL_TOKEN_ID, 1e13, maverickParams));
 
-        adapter.addLiquidity(amounts, 1, extraParams);
+        MaverickAdapter.addLiquidity(router, amounts, 1, extraParams);
 
         uint128 binId = 34;
-        uint256 withDrawTokenId = position.tokenOfOwnerByIndex(address(adapter), 0);
+        uint256 withDrawTokenId = position.tokenOfOwnerByIndex(address(this), 0);
 
-        uint256 preBalanceA = IERC20(CBETH_MAINNET).balanceOf(address(adapter));
-        uint256 preBalanceB = IERC20(WETH_MAINNET).balanceOf(address(adapter));
+        uint256 preBalanceA = IERC20(CBETH_MAINNET).balanceOf(address(this));
+        uint256 preBalanceB = IERC20(WETH_MAINNET).balanceOf(address(this));
         uint256 preLpBalance = pool.balanceOf(withDrawTokenId, binId);
 
         IPool.RemoveLiquidityParams[] memory maverickWithdrawalParams = new  IPool.RemoveLiquidityParams[](1);
@@ -214,10 +221,10 @@ contract MaverickAdapterTest is Test {
         bytes memory extraWithdrawalParams =
             abi.encode(MaverickWithdrawalExtraParams(address(pool), withDrawTokenId, 1e13, maverickWithdrawalParams));
 
-        adapter.removeLiquidity(amounts, preLpBalance, extraWithdrawalParams);
+        MaverickAdapter.removeLiquidity(router, amounts, preLpBalance, extraWithdrawalParams);
 
-        uint256 afterBalanceA = IERC20(CBETH_MAINNET).balanceOf(address(adapter));
-        uint256 afterBalanceB = IERC20(WETH_MAINNET).balanceOf(address(adapter));
+        uint256 afterBalanceA = IERC20(CBETH_MAINNET).balanceOf(address(this));
+        uint256 afterBalanceB = IERC20(WETH_MAINNET).balanceOf(address(this));
         uint256 aftrerLpBalance = pool.balanceOf(withDrawTokenId, binId);
 
         assertTrue(afterBalanceA > preBalanceA);

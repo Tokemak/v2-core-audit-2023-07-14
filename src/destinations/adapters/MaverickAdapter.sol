@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
@@ -12,7 +13,7 @@ import { IRouter } from "../../interfaces/external/maverick/IRouter.sol";
 import { LibAdapter } from "../../libs/LibAdapter.sol";
 
 //slither-disable-start similar-names
-contract MaverickAdapter is IPoolAdapter, ReentrancyGuard {
+library MaverickAdapter {
     event DeployLiquidity(
         uint256[2] amountsDeposited,
         address[2] tokens,
@@ -37,6 +38,13 @@ contract MaverickAdapter is IPoolAdapter, ReentrancyGuard {
         uint256[] deployedBinIds
     );
 
+    error MustBeMoreThanZero();
+    error ArraysLengthMismatch();
+    error MinLpAmountNotReached();
+    error LpTokenAmountMismatch();
+    error NoNonZeroAmountProvided();
+    error InvalidBalanceChange();
+
     struct MaverickDeploymentExtraParams {
         address poolAddress;
         uint256 tokenId;
@@ -51,24 +59,22 @@ contract MaverickAdapter is IPoolAdapter, ReentrancyGuard {
         IPool.RemoveLiquidityParams[] maverickParams;
     }
 
-    IRouter public immutable router;
-
-    constructor(IRouter _router) {
-        if (address(_router) == address(0)) revert InvalidAddress(address(_router));
-        router = _router;
-    }
-
-    receive() external payable { }
-
-    function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
-        return IERC721Receiver.onERC721Received.selector;
-    }
-
+    /**
+     * @notice Deploys liquidity to Maverick and receives a Position NFT from Maverick
+     * @dev Calls to external contract. Should be guarded with
+     * non-reentrant flags in a used contract. Caller should implement onERC721Received
+     * function to receive Maverick Position NFT on deposit
+     * @param router Maverick Router contract
+     * @param amounts quantity of tokens to deposit
+     * @param minLpMintAmount min amount of LP tokens to mint on deposit
+     * @param extraParams encoded `MaverickDeploymentExtraParams`
+     */
     function addLiquidity(
+        IRouter router,
         uint256[] calldata amounts,
         uint256 minLpMintAmount,
         bytes calldata extraParams
-    ) external nonReentrant {
+    ) external {
         if (minLpMintAmount == 0) revert MustBeMoreThanZero();
         if (amounts.length != 2) revert ArraysLengthMismatch();
         if (amounts[0] == 0 && amounts[1] == 0) revert NoNonZeroAmountProvided();
@@ -76,7 +82,7 @@ contract MaverickAdapter is IPoolAdapter, ReentrancyGuard {
         (MaverickDeploymentExtraParams memory maverickExtraParams) =
             abi.decode(extraParams, (MaverickDeploymentExtraParams));
 
-        _approveTokens(maverickExtraParams);
+        _approveTokens(router, maverickExtraParams);
 
         (uint256 receivingTokenId, uint256 tokenAAmount, uint256 tokenBAmount, IPool.BinDelta[] memory binDeltas) =
         router.addLiquidityToPool(
@@ -113,11 +119,22 @@ contract MaverickAdapter is IPoolAdapter, ReentrancyGuard {
         );
     }
 
+    /**
+     * @notice Withdraws liquidity from Maverick
+     * @dev Calls to external contract. Should be guarded with
+     * non-reentrant flags in a used contract
+     * @param router Maverick Router contract
+     * @param amounts quantity of tokens to withdraw
+     * @param maxLpBurnAmount max amount of LP tokens to burn for withdrawal
+     * @param extraParams encoded `MaverickWithdrawalExtraParams`
+     */
     function removeLiquidity(
+        IRouter router,
         uint256[] calldata amounts,
         uint256 maxLpBurnAmount,
         bytes calldata extraParams
-    ) external nonReentrant returns (uint256[] memory actualAmounts) {
+    ) external returns (uint256[] memory actualAmounts) {
+        //slither-disable-start reentrancy-events
         if (maxLpBurnAmount == 0) revert MustBeMoreThanZero();
         if (amounts.length != 2) revert ArraysLengthMismatch();
         if (amounts[0] == 0 && amounts[1] == 0) revert NoNonZeroAmountProvided();
@@ -128,7 +145,7 @@ contract MaverickAdapter is IPoolAdapter, ReentrancyGuard {
         router.position().approve(address(router), maverickExtraParams.tokenId);
 
         (uint256 tokenAAmount, uint256 tokenBAmount, IPool.BinDelta[] memory binDeltas) =
-            _runWithdrawal(amounts, maverickExtraParams);
+            _runWithdrawal(router, amounts, maverickExtraParams);
 
         // Collect deployed bins data
         (
@@ -157,6 +174,7 @@ contract MaverickAdapter is IPoolAdapter, ReentrancyGuard {
             maverickExtraParams.tokenId,
             deployedBinIds
         );
+        //slither-disable-end reentrancy-events
     }
 
     /**
@@ -199,6 +217,7 @@ contract MaverickAdapter is IPoolAdapter, ReentrancyGuard {
 
     ///@dev Adoiding stack-too-deep-errors
     function _runWithdrawal(
+        IRouter router,
         uint256[] calldata amounts,
         MaverickWithdrawalExtraParams memory maverickExtraParams
     ) private returns (uint256 tokenAAmount, uint256 tokenBAmount, IPool.BinDelta[] memory binDeltas) {
@@ -213,7 +232,7 @@ contract MaverickAdapter is IPoolAdapter, ReentrancyGuard {
         );
     }
 
-    function _approveTokens(MaverickDeploymentExtraParams memory maverickExtraParams) private {
+    function _approveTokens(IRouter router, MaverickDeploymentExtraParams memory maverickExtraParams) private {
         IPool.AddLiquidityParams[] memory maverickParams = maverickExtraParams.maverickParams;
 
         uint256[] memory approvalSummary = new uint256[](2);

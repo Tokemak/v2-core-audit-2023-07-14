@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity >=0.8.7;
 
 /* solhint-disable func-name-mixedcase */
@@ -10,6 +11,8 @@ import { ISystemComponent } from "src/interfaces/ISystemComponent.sol";
 import { Test, StdCheats, StdUtils } from "forge-std/Test.sol";
 import { Clones } from "openzeppelin-contracts/proxy/Clones.sol";
 import { DestinationVault } from "src/vault/DestinationVault.sol";
+import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
+import { SwapRouter } from "src/swapper/SwapRouter.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IMainRewarder } from "src/interfaces/rewarders/IMainRewarder.sol";
 import { IStakeTracking } from "src/interfaces/rewarders/IStakeTracking.sol";
@@ -33,7 +36,7 @@ contract DestinationVaultFactoryBaseTests is Test {
     address private _fakeUnderlyer;
     address[] private _fakeTracked;
 
-    event Initialized(ISystemRegistry registry, bytes params);
+    event Initialized(ISystemRegistry registry, MainRewarder rewarder, ISwapRouter swapper, bytes params);
 
     function setUp() public {
         _testUser1 = vm.addr(1);

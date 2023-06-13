@@ -1,7 +1,11 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
+import { MainRewarder } from "src/rewarders/MainRewarder.sol";
+import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
+import { MainRewarder } from "src/rewarders/MainRewarder.sol";
 import { DestinationVault } from "src/vault/DestinationVault.sol";
 import { IERC20, ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
