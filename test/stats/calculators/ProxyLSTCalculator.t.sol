@@ -12,7 +12,7 @@ import { AccessController } from "src/security/AccessController.sol";
 import { Stats } from "src/stats/Stats.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
-import { TOKE_MAINNET, WETH_MAINNET } from "test/utils/Addresses.sol";
+import { TOKE_MAINNET, WETH_MAINNET, CBETH_MAINNET } from "test/utils/Addresses.sol";
 
 // solhint-disable func-name-mixedcase
 contract ProxyLSTCalculatorTest is Test {
@@ -32,7 +32,7 @@ contract ProxyLSTCalculatorTest is Test {
         _accessController.grantRole(Roles.STATS_SNAPSHOT_ROLE, address(this));
 
         _calculator = new LSTCalculatorHarness(_systemRegistry);
-        _proxyCalculator = new ProxyLSTCalculator(_systemRegistry, _calculator);
+        _proxyCalculator = new ProxyLSTCalculator(_systemRegistry);
     }
 
     function test_Revert_WhenSnapshot() public {
@@ -51,6 +51,11 @@ contract ProxyLSTCalculatorTest is Test {
             Stats.CalculatedStats({ statsType: Stats.StatsType.DEX, data: "", dependentStats: calculators });
 
         vm.mockCall(address(_calculator), abi.encodeWithSelector(IStatsCalculator.current.selector), abi.encode(stats));
+
+        bytes32[] memory dependantAprs = new bytes32[](0);
+        ProxyLSTCalculator.InitData memory initData =
+            ProxyLSTCalculator.InitData({ lstTokenAddress: CBETH_MAINNET, statsCalculator: address(_calculator) });
+        _proxyCalculator.initialize(dependantAprs, abi.encode(initData));
 
         Stats.CalculatedStats memory res = _proxyCalculator.current();
         assertTrue(res.statsType == stats.statsType);

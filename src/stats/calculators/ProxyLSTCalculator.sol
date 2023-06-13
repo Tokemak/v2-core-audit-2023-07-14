@@ -10,26 +10,22 @@ import { BaseStatsCalculator } from "src/stats/calculators/base/BaseStatsCalcula
 import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
 
 contract ProxyLSTCalculator is BaseStatsCalculator, Initializable {
-    IStatsCalculator public immutable statsCalculator;
-
+    IStatsCalculator public statsCalculator;
     address public lstTokenAddress;
     bytes32 private _aprId;
 
     struct InitData {
         address lstTokenAddress;
+        address statsCalculator;
     }
 
-    constructor(
-        ISystemRegistry _systemRegistry,
-        IStatsCalculator _statsCalculator
-    ) BaseStatsCalculator(_systemRegistry) {
-        statsCalculator = _statsCalculator;
-    }
+    constructor(ISystemRegistry _systemRegistry) BaseStatsCalculator(_systemRegistry) { }
 
     /// @inheritdoc IStatsCalculator
     function initialize(bytes32[] calldata, bytes calldata initData) external override initializer {
         InitData memory decodedInitData = abi.decode(initData, (InitData));
         lstTokenAddress = decodedInitData.lstTokenAddress;
+        statsCalculator = IStatsCalculator(decodedInitData.statsCalculator);
         _aprId = keccak256(abi.encode("lst", lstTokenAddress));
     }
 
