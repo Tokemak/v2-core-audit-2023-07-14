@@ -28,7 +28,6 @@ Each Vault must implement the IVaultClaimableRewards interface and have a claimR
 -   Call rewardAdapter.claimRewards(...) to claim the rewards from the connected AMM protocol, such as Convex, Curve, or Balancer.
 -   For each claimed asset:
     a. Use IERC20(claimedAsset).transfer(liquidatorRow, amount) to transfer the claimed asset to the Liquidator Row contract.
-    b. Call liquidationRow.updateBalances(...) to update the balances of the claimed assets in the Liquidator Row contract.
 
 #### Rewards Adapter
 

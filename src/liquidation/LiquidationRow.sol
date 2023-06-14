@@ -86,6 +86,8 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
         }
 
         for (uint256 i = 0; i < vaults.length; ++i) {
+            uint256 gasBefore = gasleft();
+
             if (address(vaults[i]) == address(0)) revert ZeroAddress();
             // @todo: Check if the vault is in our registry
             IVaultClaimableRewards vault = vaults[i];
@@ -101,6 +103,8 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
                     _increaseBalance(address(token), address(vault), amount);
                 }
             }
+            uint256 gasUsed = gasBefore - gasleft();
+            emit GasUsedForVault(address(vault), gasUsed, "claim");
         }
     }
 
@@ -131,6 +135,8 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
         address[] memory vaultsToLiquidate,
         SwapParams memory params
     ) external nonReentrant hasRole(Roles.LIQUIDATOR_ROLE) {
+        uint256 gasBefore = gasleft();
+
         if (vaultsToLiquidate.length == 0) {
             revert NoVaults();
         }
@@ -149,10 +155,7 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
             // Update the balance for the vault and token
             balances[fromToken][vaultAddress] = 0;
             // Remove the vault from the token vaults list
-            bool success = tokenVaults[fromToken].remove(vaultAddress);
-            if (!success) {
-                revert VaultNotFound();
-            }
+            _removeVaultFromToken(fromToken, vaultAddress);
         }
 
         if (totalBalanceToLiquidate == 0) {
@@ -165,10 +168,7 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
 
         // Check if the token still has any other vaults
         if (tokenVaults[fromToken].length() == 0) {
-            bool success = rewardTokens.remove(fromToken);
-            if (!success) {
-                revert TokenNotFound();
-            }
+            _removeRewardToken(fromToken);
         }
 
         uint256 balanceBefore = IERC20(params.buyTokenAddress).balanceOf(address(this));
@@ -182,15 +182,15 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
             revert InsufficientSellAmount();
         }
 
+        uint256 gasUsedPerVault = (gasBefore - gasleft()) / vaultsToLiquidateLength;
         for (uint256 i = 0; i < vaultsToLiquidateLength; ++i) {
             address vaultAddress = vaultsToLiquidate[i];
-            uint256 vaultBalance = vaultsBalances[i];
-
-            uint256 amount = balanceDiff * vaultBalance / totalBalanceToLiquidate;
+            uint256 amount = balanceDiff * vaultsBalances[i] / totalBalanceToLiquidate;
 
             IERC20(params.buyTokenAddress).safeTransfer(vaultAddress, amount);
 
             emit VaultLiquidated(vaultAddress, fromToken, params.buyTokenAddress, amount);
+            emit GasUsedForVault(vaultAddress, gasUsedPerVault, "liquidation");
         }
     }
 
@@ -253,5 +253,30 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
         balances[tokenAddress][vaultAddress] = currentBalance + balance;
 
         emit BalanceUpdated(tokenAddress, vaultAddress, currentBalance + balance);
+    }
+
+    /**
+     * @dev Internal function to remove a reward token from the list of tracked reward tokens.
+     * @notice This function is designed to avoid the "stack too deep" error.
+     * @param tokenAddress The address of the reward token to be removed.
+     */
+    function _removeRewardToken(address tokenAddress) internal {
+        bool success = rewardTokens.remove(tokenAddress);
+        if (!success) {
+            revert TokenNotFound();
+        }
+    }
+
+    /**
+     * @notice Internal function to remove a vault from the list of token vaults for a specific token.
+     * @dev This function is designed to avoid the "stack too deep" error.
+     * @param vaultAddress The address of the vault to be removed.
+     * @param tokenAddress The address of the token associated with the vaults list.
+     */
+    function _removeVaultFromToken(address tokenAddress, address vaultAddress) internal {
+        bool success = tokenVaults[tokenAddress].remove(vaultAddress);
+        if (!success) {
+            revert VaultNotFound();
+        }
     }
 }
