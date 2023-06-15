@@ -18,7 +18,7 @@ contract DestinationRegistryTest is Test {
     event Whitelist(bytes32[] indexed destinationTypes);
     event RemoveFromWhitelist(bytes32[] indexed destinationTypes);
 
-    bytes32 private constant BALANCER_V2_META_STABLE_POOL_ADAPTER = keccak256("BalancerV2MetaStablePoolAdapter");
+    bytes32 private constant BALANCER_BEETHOVEN_ADAPTER = keccak256("BalancerBeethovenAdapter");
     bytes32 private constant CURVE_V2_FACTORY_CRYPTO_ADAPTER = keccak256("CurveV2FactoryCryptoAdapter");
 
     function setUp() public {
@@ -28,7 +28,7 @@ contract DestinationRegistryTest is Test {
     // Register
     function testRevertOnRegisteringMismatchedArrays() public {
         bytes32[] memory destinationTypes = new bytes32[](1);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
 
         address[] memory targets = new address[](2);
         targets[0] = PRANK_ADDRESS;
@@ -42,7 +42,7 @@ contract DestinationRegistryTest is Test {
 
     function testRevertOnRegisteringZeroAddress() public {
         bytes32[] memory destinationTypes = new bytes32[](1);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
 
         address[] memory targets = new address[](1);
         targets[0] = address(0);
@@ -55,7 +55,7 @@ contract DestinationRegistryTest is Test {
 
     function testRevertOnRegisteringExistingDestination() public {
         bytes32[] memory destinationTypes = new bytes32[](1);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
 
         address[] memory targets = new address[](1);
         targets[0] = PRANK_ADDRESS;
@@ -69,7 +69,7 @@ contract DestinationRegistryTest is Test {
 
     function testRevertOnRegisteringNonWhitelistedDestination() public {
         bytes32[] memory destinationTypes = new bytes32[](1);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
 
         address[] memory targets = new address[](1);
         targets[0] = PRANK_ADDRESS;
@@ -80,7 +80,7 @@ contract DestinationRegistryTest is Test {
 
     function testRegisterNewDestination() public {
         bytes32[] memory destinationTypes = new bytes32[](1);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
 
         address[] memory targets = new address[](1);
         targets[0] = PRANK_ADDRESS;
@@ -94,7 +94,7 @@ contract DestinationRegistryTest is Test {
 
     function testRegisterMultipleDestinations() public {
         bytes32[] memory destinationTypes = new bytes32[](2);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
         destinationTypes[1] = CURVE_V2_FACTORY_CRYPTO_ADAPTER;
 
         address[] memory targets = new address[](2);
@@ -111,7 +111,7 @@ contract DestinationRegistryTest is Test {
     // Replace
     function testRevertOnReplacingMismatchedArrays() public {
         bytes32[] memory destinationTypes = new bytes32[](1);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
 
         address[] memory targets = new address[](1);
         targets[0] = PRANK_ADDRESS;
@@ -130,7 +130,7 @@ contract DestinationRegistryTest is Test {
 
     function testRevertOnReplacingToZeroAddress() public {
         bytes32[] memory destinationTypes = new bytes32[](1);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
 
         address[] memory targets = new address[](1);
         targets[0] = PRANK_ADDRESS;
@@ -146,7 +146,7 @@ contract DestinationRegistryTest is Test {
 
     function testRevertOnReplacingNonExistingDestination() public {
         bytes32[] memory destinationTypes = new bytes32[](1);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
 
         address[] memory targets = new address[](1);
         targets[0] = PRANK_ADDRESS;
@@ -159,7 +159,7 @@ contract DestinationRegistryTest is Test {
 
     function testRevertOnReplacingToSameTarget() public {
         bytes32[] memory destinationTypes = new bytes32[](1);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
 
         address[] memory targets = new address[](1);
         targets[0] = PRANK_ADDRESS;
@@ -174,7 +174,7 @@ contract DestinationRegistryTest is Test {
 
     function testReplaceExistingDestination() public {
         bytes32[] memory destinationTypes = new bytes32[](1);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
 
         address[] memory targets = new address[](1);
         targets[0] = PRANK_ADDRESS;
@@ -193,7 +193,7 @@ contract DestinationRegistryTest is Test {
     // Unregister
     function testRevertOnUnregisteringNonExistingDestination() public {
         bytes32[] memory destinationTypes = new bytes32[](1);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
 
         registry.addToWhitelist(destinationTypes);
 
@@ -203,7 +203,7 @@ contract DestinationRegistryTest is Test {
 
     function testUnregisterExistingDestination() public {
         bytes32[] memory destinationTypes = new bytes32[](1);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
 
         address[] memory targets = new address[](1);
         targets[0] = PRANK_ADDRESS;
@@ -221,16 +221,16 @@ contract DestinationRegistryTest is Test {
     // Get adapter
     function testRevertOnGettingTargetForNonExistingDestination() public {
         bytes32[] memory destinationTypes = new bytes32[](1);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
         registry.addToWhitelist(destinationTypes);
 
         vm.expectRevert(abi.encodeWithSelector(IDestinationRegistry.DestinationNotPresent.selector));
-        registry.getAdapter(BALANCER_V2_META_STABLE_POOL_ADAPTER);
+        registry.getAdapter(BALANCER_BEETHOVEN_ADAPTER);
     }
 
     function testGetAdapterTargetForExistingDestination() public {
         bytes32[] memory destinationTypes = new bytes32[](1);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
 
         address[] memory targets = new address[](1);
         targets[0] = PRANK_ADDRESS;
@@ -239,7 +239,7 @@ contract DestinationRegistryTest is Test {
 
         registry.register(destinationTypes, targets);
 
-        IDestinationAdapter result = registry.getAdapter(BALANCER_V2_META_STABLE_POOL_ADAPTER);
+        IDestinationAdapter result = registry.getAdapter(BALANCER_BEETHOVEN_ADAPTER);
 
         assertEq(address(result), PRANK_ADDRESS);
     }
@@ -247,7 +247,7 @@ contract DestinationRegistryTest is Test {
     // Add Destination Type to Whitelist
     function testRevertOnAddingExistingDestinationTypeToWhitelist() public {
         bytes32[] memory destinationTypes = new bytes32[](1);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
 
         vm.expectEmit(true, true, false, true);
         emit Whitelist(destinationTypes);
@@ -259,7 +259,7 @@ contract DestinationRegistryTest is Test {
 
     function testAddToDestinationTypeWhitelist() public {
         bytes32[] memory destinationTypes = new bytes32[](1);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
 
         vm.expectEmit(true, true, false, true);
         emit Whitelist(destinationTypes);
@@ -268,7 +268,7 @@ contract DestinationRegistryTest is Test {
 
     function testAddMultipleToDestinationTypeWhitelist() public {
         bytes32[] memory destinationTypes = new bytes32[](2);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
         destinationTypes[1] = CURVE_V2_FACTORY_CRYPTO_ADAPTER;
 
         vm.expectEmit(true, true, false, true);
@@ -279,7 +279,7 @@ contract DestinationRegistryTest is Test {
     // Remove destination type from Whitelist
     function testRevertOnRemovingNonExistingDestinationTypeFromWhitelist() public {
         bytes32[] memory destinationTypes = new bytes32[](1);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
 
         vm.expectEmit(true, true, false, true);
         emit Whitelist(destinationTypes);
@@ -293,7 +293,7 @@ contract DestinationRegistryTest is Test {
 
     function testRevertOnRemovingRegisteredDestinationTypeFromWhitelist() public {
         bytes32[] memory destinationTypes = new bytes32[](1);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
 
         address[] memory targets = new address[](1);
         targets[0] = PRANK_ADDRESS;
@@ -310,7 +310,7 @@ contract DestinationRegistryTest is Test {
 
     function testRemoveFromDestinationTypeWhitelist() public {
         bytes32[] memory destinationTypes = new bytes32[](1);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
 
         vm.expectEmit(true, true, false, true);
         emit Whitelist(destinationTypes);
@@ -323,7 +323,7 @@ contract DestinationRegistryTest is Test {
 
     function testRemoveMultipleFromDestinationTypeWhitelist() public {
         bytes32[] memory destinationTypes = new bytes32[](2);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
         destinationTypes[1] = CURVE_V2_FACTORY_CRYPTO_ADAPTER;
 
         vm.expectEmit(true, true, false, true);
@@ -338,7 +338,7 @@ contract DestinationRegistryTest is Test {
     // Check if destination type is in Whitelist
     function testIsWhitelistedDestination() public {
         bytes32[] memory destinationTypes = new bytes32[](1);
-        destinationTypes[0] = BALANCER_V2_META_STABLE_POOL_ADAPTER;
+        destinationTypes[0] = BALANCER_BEETHOVEN_ADAPTER;
 
         vm.expectEmit(true, true, false, true);
         emit Whitelist(destinationTypes);

@@ -18,9 +18,9 @@ import { IVault } from "src/interfaces/external/balancer/IVault.sol";
 import { IBalancerPool } from "src/interfaces/external/balancer/IBalancerPool.sol";
 import { AuraAdapter } from "src/destinations/adapters/staking/AuraAdapter.sol";
 import { BalancerUtilities } from "src/libs/BalancerUtilities.sol";
-import { BalancerV2MetaStablePoolAdapter } from "src/destinations/adapters/BalancerV2MetaStablePoolAdapter.sol";
+import { BalancerBeethovenAdapter } from "src/destinations/adapters/BalancerBeethovenAdapter.sol";
 
-contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAdapter, DestinationVault {
+contract BalancerAuraDestinationVault is AuraAdapter, DestinationVault {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -36,6 +36,7 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
 
     IERC20[] public poolTokens;
 
+    IVault public balancerVault;
     address public staking;
     address public pool;
 
@@ -44,7 +45,7 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
         IERC20Metadata _baseAsset,
         string memory baseName,
         bytes memory data,
-        IVault _vault,
+        IVault _balancerVault,
         MainRewarder _rewarder,
         ISwapRouter _swapper,
         address _staking,
@@ -52,20 +53,21 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
     ) public initializer {
         //slither-disable-start missing-zero-check
         DestinationVault.initialize(_systemRegistry, _baseAsset, baseName, data);
-        BalancerV2MetaStablePoolAdapter.initialize(_vault);
 
         Errors.verifyNotZero(address(_rewarder), "_rewarder");
         Errors.verifyNotZero(address(_swapper), "_swapper");
+        Errors.verifyNotZero(address(_balancerVault), "_balancerVault");
         Errors.verifyNotZero(address(_staking), "_staking");
         Errors.verifyNotZero(address(_pool), "_pool");
 
         rewarder = _rewarder;
         swapper = _swapper;
+        balancerVault = _balancerVault;
         staking = _staking;
         pool = _pool;
 
         bytes32 poolId = IBalancerPool(pool).getPoolId();
-        (IERC20[] memory balancerPoolTokens,,) = vault.getPoolTokens(poolId);
+        (IERC20[] memory balancerPoolTokens,,) = balancerVault.getPoolTokens(poolId);
         if (balancerPoolTokens.length == 0) revert ArrayLengthMismatch();
         poolTokens = balancerPoolTokens;
 
@@ -152,10 +154,21 @@ contract BalancerAuraDestinationVault is AuraAdapter, BalancerV2MetaStablePoolAd
         // all minAmounts are 0, we set the burn LP amount and don't specify the amounts we expect by each token
         uint256[] memory minAmounts = new uint256[](poolTokens.length);
         uint256[] memory sellAmounts = BalancerUtilities.isComposablePool(address(pool))
-            ? BalancerUtilities.removeLiquidityComposableExactLP(
-                vault, address(pool), totalLpBurnAmount, BalancerUtilities._convertERC20sToAddresses(poolTokens), minAmounts
+            ? BalancerBeethovenAdapter.removeLiquidityComposableImbalance(
+                balancerVault,
+                address(pool),
+                totalLpBurnAmount,
+                BalancerUtilities._convertERC20sToAddresses(poolTokens),
+                minAmounts,
+                0
             )
-            : removeLiquidityImbalance(address(pool), totalLpBurnAmount, poolTokens, minAmounts);
+            : BalancerBeethovenAdapter.removeLiquidityImbalance(
+                balancerVault,
+                address(pool),
+                totalLpBurnAmount,
+                BalancerUtilities._convertERC20sToAddresses(poolTokens),
+                minAmounts
+            );
 
         // 3) swap what we receive
         for (uint256 i = 0; i < poolTokens.length; ++i) {
