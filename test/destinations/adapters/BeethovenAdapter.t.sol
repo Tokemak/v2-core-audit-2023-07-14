@@ -16,27 +16,17 @@ import { TestableVM } from "../../../src/solver/test/TestableVM.sol";
 import { SolverCaller } from "../../../src/solver/test/SolverCaller.sol";
 import { ReadPlan } from "../../../test/utils/ReadPlan.sol";
 
-contract BeethovenAdapterWrapper is SolverCaller, BeethovenAdapter {
-    constructor() BeethovenAdapter() { }
-}
-
 contract BeethovenAdapterTest is Test {
-    BeethovenAdapterWrapper private adapter;
+    IVault private vault;
     TestableVM public solver;
-
-    struct BalancerExtraParams {
-        address pool;
-        IERC20[] tokens;
-    }
 
     function setUp() public {
         string memory endpoint = vm.envString("OPTIMISM_MAINNET_RPC_URL");
         uint256 forkId = vm.createFork(endpoint);
         vm.selectFork(forkId);
         assertEq(vm.activeFork(), forkId);
-        adapter = new BeethovenAdapterWrapper();
-        adapter.initialize(IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8));
 
+        vault = IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
         solver = new TestableVM();
     }
 
@@ -188,24 +178,24 @@ contract BeethovenAdapterTest is Test {
         amounts[0] = 0.5 * 1e18;
         amounts[1] = 0.5 * 1e18;
 
-        deal(address(WSTETH_OPTIMISM), address(adapter), 2 * 1e18);
-        deal(address(WETH9_OPTIMISM), address(adapter), 2 * 1e18);
+        deal(address(WSTETH_OPTIMISM), address(this), 2 * 1e18);
+        deal(address(WETH9_OPTIMISM), address(this), 2 * 1e18);
 
-        uint256 preBalance1 = IERC20(WSTETH_OPTIMISM).balanceOf(address(adapter));
-        uint256 preBalance2 = IERC20(WETH9_OPTIMISM).balanceOf(address(adapter));
-        uint256 preLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 preBalance1 = IERC20(WSTETH_OPTIMISM).balanceOf(address(this));
+        uint256 preBalance2 = IERC20(WETH9_OPTIMISM).balanceOf(address(this));
+        uint256 preLpBalance = lpToken.balanceOf(address(this));
 
         IERC20[] memory tokens = new IERC20[](2);
         tokens[0] = IERC20(WSTETH_OPTIMISM);
         tokens[1] = IERC20(WETH9_OPTIMISM);
 
         (bytes32[] memory commands, bytes[] memory elements) =
-            ReadPlan.getPayload(vm, "beethoven-add-liquidity.json", address(adapter));
-        adapter.execute(address(solver), commands, elements);
+            ReadPlan.getPayload(vm, "beethoven-add-liquidity.json", address(this));
+        solver.execute(commands, elements);
 
-        uint256 afterBalance1 = IERC20(WSTETH_OPTIMISM).balanceOf(address(adapter));
-        uint256 afterBalance2 = IERC20(WETH9_OPTIMISM).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterBalance1 = IERC20(WSTETH_OPTIMISM).balanceOf(address(this));
+        uint256 afterBalance2 = IERC20(WETH9_OPTIMISM).balanceOf(address(this));
+        uint256 aftrerLpBalance = lpToken.balanceOf(address(this));
 
         assertEq(afterBalance1, preBalance1 - amounts[0]);
         assertEq(afterBalance2, preBalance2 - amounts[1]);
@@ -221,29 +211,28 @@ contract BeethovenAdapterTest is Test {
         amounts[0] = 1.5 * 1e18;
         amounts[1] = 1.5 * 1e18;
 
-        deal(address(WSTETH_OPTIMISM), address(adapter), 2 * 1e18);
-        deal(address(WETH9_OPTIMISM), address(adapter), 2 * 1e18);
+        deal(address(WSTETH_OPTIMISM), address(this), 2 * 1e18);
+        deal(address(WETH9_OPTIMISM), address(this), 2 * 1e18);
 
         uint256 minLpMintAmount = 1;
 
-        IERC20[] memory tokens = new IERC20[](2);
-        tokens[0] = IERC20(WSTETH_OPTIMISM);
-        tokens[1] = IERC20(WETH9_OPTIMISM);
+        address[] memory tokens = new address[](2);
+        tokens[0] = WSTETH_OPTIMISM;
+        tokens[1] = WETH9_OPTIMISM;
 
-        bytes memory extraParams = abi.encode(BalancerExtraParams(poolAddress, tokens));
-        adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
+        BalancerBeethovenAdapter.addLiquidity(vault, poolAddress, tokens, amounts, minLpMintAmount);
 
-        uint256 preBalance1 = IERC20(WSTETH_OPTIMISM).balanceOf(address(adapter));
-        uint256 preBalance2 = IERC20(WETH9_OPTIMISM).balanceOf(address(adapter));
-        uint256 preLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 preBalance1 = IERC20(WSTETH_OPTIMISM).balanceOf(address(this));
+        uint256 preBalance2 = IERC20(WETH9_OPTIMISM).balanceOf(address(this));
+        uint256 preLpBalance = lpToken.balanceOf(address(this));
 
         (bytes32[] memory commands, bytes[] memory elements) =
-            ReadPlan.getPayload(vm, "beethoven-remove-liquidity.json", address(adapter));
-        adapter.execute(address(solver), commands, elements);
+            ReadPlan.getPayload(vm, "beethoven-remove-liquidity.json", address(this));
+        solver.execute(commands, elements);
 
-        uint256 afterBalance1 = IERC20(WSTETH_OPTIMISM).balanceOf(address(adapter));
-        uint256 afterBalance2 = IERC20(WETH9_OPTIMISM).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterBalance1 = IERC20(WSTETH_OPTIMISM).balanceOf(address(this));
+        uint256 afterBalance2 = IERC20(WETH9_OPTIMISM).balanceOf(address(this));
+        uint256 aftrerLpBalance = lpToken.balanceOf(address(this));
 
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 > preBalance2);
