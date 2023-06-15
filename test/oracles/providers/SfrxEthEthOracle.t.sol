@@ -10,6 +10,7 @@ import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { SfrxEthEthOracle } from "src/oracles/providers/SfrxEthEthOracle.sol";
 import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { Errors } from "src/utils/Errors.sol";
 
 contract SfrxEthEthOracleTests is Test {
     uint256 private _addrIx;
@@ -38,7 +39,7 @@ contract SfrxEthEthOracleTests is Test {
 
     function testOnlySftxEth() public {
         address fakeAddr = vm.addr(34_343);
-        vm.expectRevert(abi.encodeWithSelector(SfrxEthEthOracle.InvalidToken.selector, fakeAddr));
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidToken.selector, fakeAddr));
         _oracle.getPriceInEth(address(fakeAddr));
     }
 

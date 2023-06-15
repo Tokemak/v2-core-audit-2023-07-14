@@ -9,6 +9,7 @@ import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { WstETHEthOracle } from "src/oracles/providers/WstETHEthOracle.sol";
 import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { Errors } from "src/utils/Errors.sol";
 
 contract WstETHEthOracleTests is Test {
     uint256 private _addrIx;
@@ -37,7 +38,7 @@ contract WstETHEthOracleTests is Test {
 
     function testOnlyWeth() public {
         address fakeAddr = vm.addr(34_343);
-        vm.expectRevert(abi.encodeWithSelector(WstETHEthOracle.InvalidToken.selector, fakeAddr));
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidToken.selector, fakeAddr));
         _oracle.getPriceInEth(address(fakeAddr));
     }
 

@@ -19,7 +19,6 @@ contract WstETHEthOracle is IPriceOracle {
     IstEth public immutable stETH;
     uint256 public immutable stETHPrecision;
 
-    error InvalidToken(address token);
     error InvalidDecimals(address token, uint8 decimals);
 
     constructor(ISystemRegistry _systemRegistry, address _wstETH) {
@@ -50,7 +49,7 @@ contract WstETHEthOracle is IPriceOracle {
         // This oracle is only setup to handle a single token but could possibly be
         // configured incorrectly at the root level and receive others to price.
         if (token != address(wstETH)) {
-            revert InvalidToken(token);
+            revert Errors.InvalidToken(token);
         }
 
         uint256 stETHPrice = systemRegistry.rootPriceOracle().getPriceInEth(address(stETH));

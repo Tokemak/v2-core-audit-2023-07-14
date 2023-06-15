@@ -50,7 +50,7 @@ contract SfrxEthEthOracle is IPriceOracle {
         // This oracle is only setup to handle a single token but could possibly be
         // configured incorrectly at the root level and receive others to price.
         if (token != address(sfrxETH)) {
-            revert InvalidToken(token);
+            revert Errors.InvalidToken(token);
         }
 
         uint256 frxETHPrice = systemRegistry.rootPriceOracle().getPriceInEth(address(frxETH));

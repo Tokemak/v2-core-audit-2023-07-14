@@ -34,6 +34,8 @@ library Errors {
 
     error SystemMismatch(address source1, address source2);
 
+    error InvalidToken(address token);
+
     function verifyNotZero(address addr, string memory paramName) internal pure {
         if (addr == address(0)) {
             revert ZeroAddress(paramName);
