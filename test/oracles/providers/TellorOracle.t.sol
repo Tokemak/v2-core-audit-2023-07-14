@@ -36,7 +36,7 @@ contract TellorOracleTest is Test {
         AccessController accessControl = new AccessController(address(systemRegistry));
         IRootPriceOracle rootPriceOracle = IRootPriceOracle(vm.addr(324));
         generateSystemRegistry(address(systemRegistry), address(accessControl), address(rootPriceOracle));
-        _oracle = new TellorOracle(TELLOR_ORACLE, systemRegistry);
+        _oracle = new TellorOracle(systemRegistry, TELLOR_ORACLE);
 
         vm.makePersistent(address(systemRegistry));
         vm.makePersistent(address(accessControl));
@@ -116,7 +116,7 @@ contract TellorOracleTest is Test {
     function test_GetPriceMainnet() external {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 17_100_000);
 
-        TellorOracle mainnet = new TellorOracle(TELLOR_ORACLE, systemRegistry);
+        TellorOracle mainnet = new TellorOracle(systemRegistry, TELLOR_ORACLE);
         mainnet.addTellorRegistration(ETH, QUERY_ID, BaseOracleDenominations.Denomination.ETH, 0);
 
         vm.prank(address(1));
@@ -129,7 +129,7 @@ contract TellorOracleTest is Test {
     function test_GetPriceOptimism() external {
         vm.createSelectFork(vm.envString("OPTIMISM_MAINNET_RPC_URL"), 90_000_000);
 
-        TellorOracle optimism = new TellorOracle(TELLOR_ORACLE, systemRegistry);
+        TellorOracle optimism = new TellorOracle(systemRegistry, TELLOR_ORACLE);
         optimism.addTellorRegistration(ETH, QUERY_ID, BaseOracleDenominations.Denomination.ETH, 0);
 
         vm.prank(address(1));
@@ -143,7 +143,7 @@ contract TellorOracleTest is Test {
     function test_GetPriceArbitrum() external {
         vm.createSelectFork(vm.envString("ARBITRUM_MAINNET_RPC_URL"), 80_000_000);
 
-        TellorOracle arbitrum = new TellorOracle(TELLOR_ORACLE, systemRegistry);
+        TellorOracle arbitrum = new TellorOracle(systemRegistry, TELLOR_ORACLE);
         arbitrum.addTellorRegistration(ETH, QUERY_ID, BaseOracleDenominations.Denomination.ETH, 48 hours);
 
         vm.prank(address(1));

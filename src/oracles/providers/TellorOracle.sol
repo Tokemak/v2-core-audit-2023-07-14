@@ -39,8 +39,8 @@ contract TellorOracle is BaseOracleDenominations, UsingTellor {
     event TellorRegistrationRemoved(address token, bytes32 queryId);
 
     constructor(
-        address _tellorOracleAddress,
-        ISystemRegistry _systemRegistry
+        ISystemRegistry _systemRegistry,
+        address _tellorOracleAddress
     )
         // Tellor requires payable address
         UsingTellor(payable(_tellorOracleAddress))

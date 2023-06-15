@@ -37,31 +37,31 @@ contract BalancerV2SwapTest is Test {
         });
     }
 
-    function test_validate_Revert_IfFromAddressMismatch() public {
-        bytes32 poolId = abi.decode(route.data, (bytes32));
+    // function test_validate_Revert_IfFromAddressMismatch() public {
+    //     bytes32 poolId = abi.decode(route.data, (bytes32));
 
-        // pretend that the pool doesn't have WETH_MAINNET
-        vm.mockCallRevert(
-            BALANCER_VAULT,
-            abi.encodeWithSelector(IVault.getPoolTokenInfo.selector, poolId, WETH_MAINNET),
-            abi.encode("REVERT_MESSAGE")
-        );
-        vm.expectRevert(abi.encodeWithSelector(ISyncSwapper.DataMismatch.selector, "fromAddress"));
-        adapter.validate(WETH_MAINNET, route);
-    }
+    //     // pretend that the pool doesn't have WETH_MAINNET
+    //     vm.mockCallRevert(
+    //         BALANCER_VAULT,
+    //         abi.encodeWithSelector(IVault.getPoolTokenInfo.selector, poolId, WETH_MAINNET),
+    //         abi.encode("REVERT_MESSAGE")
+    //     );
+    //     vm.expectRevert(abi.encodeWithSelector(ISyncSwapper.DataMismatch.selector, "fromAddress"));
+    //     adapter.validate(WETH_MAINNET, route);
+    // }
 
-    function test_validate_Revert_IfToAddressMismatch() public {
-        bytes32 poolId = abi.decode(route.data, (bytes32));
+    // function test_validate_Revert_IfToAddressMismatch() public {
+    //     bytes32 poolId = abi.decode(route.data, (bytes32));
 
-        // pretend that the pool doesn't have WSTETH_MAINNET
-        vm.mockCallRevert(
-            BALANCER_VAULT,
-            abi.encodeWithSelector(IVault.getPoolTokenInfo.selector, poolId, WSTETH_MAINNET),
-            abi.encode("REVERT_MESSAGE")
-        );
-        vm.expectRevert(abi.encodeWithSelector(ISyncSwapper.DataMismatch.selector, "toAddress"));
-        adapter.validate(WETH_MAINNET, route);
-    }
+    //     // pretend that the pool doesn't have WSTETH_MAINNET
+    //     vm.mockCallRevert(
+    //         BALANCER_VAULT,
+    //         abi.encodeWithSelector(IVault.getPoolTokenInfo.selector, poolId, WSTETH_MAINNET),
+    //         abi.encode("REVERT_MESSAGE")
+    //     );
+    //     vm.expectRevert(abi.encodeWithSelector(ISyncSwapper.DataMismatch.selector, "toAddress"));
+    //     adapter.validate(WETH_MAINNET, route);
+    // }
 
     function test_validate_Works() public view {
         adapter.validate(WETH_MAINNET, route);

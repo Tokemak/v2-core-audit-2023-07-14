@@ -9,6 +9,8 @@ import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { Ownable } from "openzeppelin-contracts/access/Ownable.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
 
+import { console } from "forge-std/console.sol";
+
 /// @title Base functionalities for Chainlink and Tellor Oracle contracts.
 abstract contract BaseOracleDenominations is IPriceOracle, SecurityBase {
     /// @notice Used to denote what denomination a token is in.

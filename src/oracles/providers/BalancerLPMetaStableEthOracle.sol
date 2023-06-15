@@ -11,6 +11,7 @@ import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IVault as IBalancerVault } from "src/interfaces/external/balancer/IVault.sol";
 import { IProtocolFeesCollector } from "src/interfaces/external/balancer/IProtocolFeesCollector.sol";
 import { IBalancerMetaStablePool } from "src/interfaces/external/balancer/IBalancerMetaStablePool.sol";
+import { IRateProvider } from "src/interfaces/external/balancer/IRateProvider.sol";
 
 /// @title Price oracle for Balancer Meta Stable pools
 /// @dev getPriceEth is not a view fn to support reentrancy checks. Dont actually change state.
@@ -56,6 +57,12 @@ contract BalancerLPMetaStableEthOracle is IPriceOracle {
         // Use the min price of the tokens
         uint256 px0 = systemRegistry.rootPriceOracle().getPriceInEth(address(tokens[0]));
         uint256 px1 = systemRegistry.rootPriceOracle().getPriceInEth(address(tokens[1]));
+
+        // slither-disable-start divide-before-multiply
+        IRateProvider[] memory rateProviders = pool.getRateProviders();
+        px0 = px0 * 1e18 / (address(rateProviders[0]) != address(0) ? rateProviders[0].getRate() : 1e18);
+        px1 = px1 * 1e18 / (address(rateProviders[1]) != address(0) ? rateProviders[1].getRate() : 1e18);
+        // slither-disable-end divide-before-multiply
 
         // Calculate the virtual price of the pool removing accrued admin fees
         // that haven't been taken yet by Balancer

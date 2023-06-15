@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+import { IRateProvider } from "src/interfaces/external/balancer/IRateProvider.sol";
+
 interface IBalancerMetaStablePool {
     function getPoolId() external view returns (bytes32);
 
@@ -13,4 +15,6 @@ interface IBalancerMetaStablePool {
     function totalSupply() external view returns (uint256);
 
     function getSwapFeePercentage() external view returns (uint256);
+
+    function getRateProviders() external view returns (IRateProvider[] memory);
 }
