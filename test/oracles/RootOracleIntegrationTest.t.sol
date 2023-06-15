@@ -50,7 +50,8 @@ import {
     RETH_WSTETH_CURVE_POOL,
     RETH_WETH_CURVE_POOL,
     RETH_ETH_CURVE_LP,
-    FRXETH_MAINNET
+    FRXETH_MAINNET,
+    TOKE_MAINNET
 } from "../utils/Addresses.sol";
 
 import { SystemRegistry } from "src/SystemRegistry.sol";
@@ -104,7 +105,7 @@ contract RootOracleIntegrationTest is Test {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 17_474_729);
 
         // Set up system level contracts.
-        systemRegistry = new SystemRegistry();
+        systemRegistry = new SystemRegistry(TOKE_MAINNET, WETH9_ADDRESS);
         accessControl = new AccessController(address(systemRegistry));
 
         systemRegistry.setAccessController(address(accessControl));
