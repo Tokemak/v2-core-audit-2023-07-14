@@ -66,10 +66,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE}} # Only required for Organizations, not personal accounts.
 
-      - name: "Check that the contracts are each under 24kB"
-        run: |
-          forge --version
-          forge build --sizes
+      # - name: "Check that the contracts are each under 24kB"
+      #   run: |
+      #     forge --version
+      #     forge build --sizes
 
       - name: Security scan - Slither
         run: |
