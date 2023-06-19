@@ -56,6 +56,126 @@ contract BalancerAdapterTest is Test {
         vault = IVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
     }
 
+    function testAddLiquidityRevertOnZeroVault() public {
+        address poolAddress = 0x9c6d47Ff73e0F5E51BE5FD53236e3F595C5793F2;
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 0.5 * 1e18;
+        amounts[1] = 0.5 * 1e18;
+
+        deal(address(WSTETH_MAINNET), address(this), 2 * 1e18);
+        deal(address(CBETH_MAINNET), address(this), 2 * 1e18);
+
+        uint256 minLpMintAmount = 1;
+
+        address[] memory tokens = new address[](2);
+        tokens[0] = WSTETH_MAINNET;
+        tokens[1] = CBETH_MAINNET;
+
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "vault"));
+        BalancerBeethovenAdapter.addLiquidity(IVault(address(0)), poolAddress, tokens, amounts, minLpMintAmount);
+    }
+
+    function testAddLiquidityRevertOnZeroPool() public {
+        address poolAddress = address(0);
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 0.5 * 1e18;
+        amounts[1] = 0.5 * 1e18;
+
+        deal(address(WSTETH_MAINNET), address(this), 2 * 1e18);
+        deal(address(CBETH_MAINNET), address(this), 2 * 1e18);
+
+        uint256 minLpMintAmount = 1;
+
+        address[] memory tokens = new address[](2);
+        tokens[0] = WSTETH_MAINNET;
+        tokens[1] = CBETH_MAINNET;
+
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "pool"));
+        BalancerBeethovenAdapter.addLiquidity(vault, poolAddress, tokens, amounts, minLpMintAmount);
+    }
+
+    function testAddLiquidityRevertOnZeroAmounts() public {
+        address poolAddress = 0x9c6d47Ff73e0F5E51BE5FD53236e3F595C5793F2;
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 0;
+        amounts[1] = 0;
+
+        deal(address(WSTETH_MAINNET), address(this), 2 * 1e18);
+        deal(address(CBETH_MAINNET), address(this), 2 * 1e18);
+
+        uint256 minLpMintAmount = 1;
+
+        address[] memory tokens = new address[](2);
+        tokens[0] = WSTETH_MAINNET;
+        tokens[1] = CBETH_MAINNET;
+
+        vm.expectRevert(abi.encodeWithSelector(BalancerBeethovenAdapter.NoNonZeroAmountProvided.selector));
+        BalancerBeethovenAdapter.addLiquidity(vault, poolAddress, tokens, amounts, minLpMintAmount);
+    }
+
+    function testAddLiquidityRevertOnTokenOrderMismatch() public {
+        address poolAddress = 0x9c6d47Ff73e0F5E51BE5FD53236e3F595C5793F2;
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 0;
+        amounts[1] = 0;
+
+        deal(address(CBETH_MAINNET), address(this), 2 * 1e18);
+        deal(address(WSTETH_MAINNET), address(this), 2 * 1e18);
+
+        uint256 minLpMintAmount = 1;
+
+        address[] memory tokens = new address[](2);
+        tokens[0] = CBETH_MAINNET;
+        tokens[1] = WSTETH_MAINNET;
+
+        vm.expectRevert(abi.encodeWithSelector(BalancerBeethovenAdapter.TokenPoolAssetMismatch.selector));
+        BalancerBeethovenAdapter.addLiquidity(vault, poolAddress, tokens, amounts, minLpMintAmount);
+    }
+
+    function testAddLiquidityRevertOnWrongTokenInput() public {
+        address poolAddress = 0x9c6d47Ff73e0F5E51BE5FD53236e3F595C5793F2;
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 0;
+        amounts[1] = 0;
+
+        deal(address(WSTETH_MAINNET), address(this), 2 * 1e18);
+        deal(address(RETH_MAINNET), address(this), 2 * 1e18);
+
+        uint256 minLpMintAmount = 1;
+
+        address[] memory tokens = new address[](2);
+        tokens[0] = WSTETH_MAINNET;
+        tokens[1] = RETH_MAINNET;
+
+        vm.expectRevert(abi.encodeWithSelector(BalancerBeethovenAdapter.TokenPoolAssetMismatch.selector));
+        BalancerBeethovenAdapter.addLiquidity(vault, poolAddress, tokens, amounts, minLpMintAmount);
+    }
+
+    function testAddLiquidityRevertOnZeroLpMintAmount() public {
+        address poolAddress = 0x9c6d47Ff73e0F5E51BE5FD53236e3F595C5793F2;
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 0;
+        amounts[1] = 0;
+
+        deal(address(WSTETH_MAINNET), address(this), 2 * 1e18);
+        deal(address(CBETH_MAINNET), address(this), 2 * 1e18);
+
+        uint256 minLpMintAmount = 0;
+
+        address[] memory tokens = new address[](2);
+        tokens[0] = WSTETH_MAINNET;
+        tokens[1] = CBETH_MAINNET;
+
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidParam.selector, "minLpMintAmount"));
+        BalancerBeethovenAdapter.addLiquidity(vault, poolAddress, tokens, amounts, minLpMintAmount);
+    }
+
     function testAddLiquidityWstEthCbEth() public {
         address poolAddress = 0x9c6d47Ff73e0F5E51BE5FD53236e3F595C5793F2;
         IERC20 lpToken = IERC20(poolAddress);
