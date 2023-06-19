@@ -32,7 +32,7 @@ A fairly strict and opinionated Foundry-based template for developing Solidity s
 Install the same version of foundry that the CI will use. Ensures formatting stays consistent
 
 ```
- foundryup --version nightly-cae66aa8dd246b6707f682a1481ea494b8240526
+ foundryup --version nightly-cc5637a979050c39b3d06bc4cc6134f0591ee8d0
 ```
 
 You can use the `Use this template` button in GitHub to create a new repository. We will not go over setting up Foundry here.
