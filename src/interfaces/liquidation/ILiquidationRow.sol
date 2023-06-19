@@ -9,7 +9,7 @@ interface ILiquidationRow {
     event SwapperRemoved(address indexed swapper);
     event BalanceUpdated(address indexed token, address indexed vault, uint256 balance);
     event VaultLiquidated(address indexed vault, address indexed fromToken, address indexed toToken, uint256 amount);
-    event GasUsedForVault(address indexed vault, uint256 gasAmount, string action);
+    event GasUsedForVault(address indexed vault, uint256 gasAmount, bytes32 action);
 
     error ZeroAddress();
     error ZeroBalance();

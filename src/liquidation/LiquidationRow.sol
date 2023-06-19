@@ -104,7 +104,7 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
                 }
             }
             uint256 gasUsed = gasBefore - gasleft();
-            emit GasUsedForVault(address(vault), gasUsed, "claim");
+            emit GasUsedForVault(address(vault), gasUsed, bytes32("claim"));
         }
     }
 
@@ -190,7 +190,7 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
             IERC20(params.buyTokenAddress).safeTransfer(vaultAddress, amount);
 
             emit VaultLiquidated(vaultAddress, fromToken, params.buyTokenAddress, amount);
-            emit GasUsedForVault(vaultAddress, gasUsedPerVault, "liquidation");
+            emit GasUsedForVault(vaultAddress, gasUsedPerVault, bytes32("liquidation"));
         }
     }
 
