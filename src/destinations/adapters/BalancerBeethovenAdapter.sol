@@ -102,10 +102,9 @@ library BalancerBeethovenAdapter {
         if (tokens.length == 0 || tokens.length != exactTokenAmounts.length) {
             revert ArraysLengthMismatch();
         }
-        if (minLpMintAmount == 0) {
-            revert MustBeMoreThanZero();
-        }
+        Errors.verifyNotZero(address(vault), "vault");
         Errors.verifyNotZero(pool, "pool");
+        Errors.verifyNotZero(minLpMintAmount, "minLpMintAmount");
 
         uint256[] memory assetBalancesBefore = new uint256[](tokens.length);
 
@@ -151,7 +150,7 @@ library BalancerBeethovenAdapter {
     /**
      * @notice Withdraw liquidity from Balancer or Beethoven pool
      * @dev Calls into external contract. Should be guarded with
-     *  non-reentrant flags in a used contract
+     * non-reentrant flags in a used contract
      * @param vault Balancer Vault contract
      * @param pool Balancer or Beethoven Pool to withdrawn liquidity from
      * @param tokens Addresses of tokens to withdraw. Should match pool tokens
@@ -197,8 +196,8 @@ library BalancerBeethovenAdapter {
 
     /**
      * @notice Withdraw liquidity from Balancer V2 pool (specifying exact LP tokens to burn)
-     *  @dev Calls into external contract. Should be guarded with
-     *  non-reentrant flags in a used contract
+     * @dev Calls into external contract. Should be guarded with
+     * non-reentrant flags in a used contract
      * @param vault Balancer Vault contract
      * @param pool Balancer or Beethoven Pool to liquidity withdrawn from
      * @param exactLpBurnAmount Amount of LP tokens to burn in the withdrawal
@@ -227,8 +226,8 @@ library BalancerBeethovenAdapter {
 
     /**
      * @notice Withdraw liquidity from Balancer V2 pool (specifying exact LP tokens to burn)
-     *  @dev Calls into external contract. Should be guarded with
-     *  non-reentrant flags in a used contract
+     * @dev Calls into external contract. Should be guarded with
+     * non-reentrant flags in a used contract
      * @param vault Balancer Vault contract
      * @param pool Balancer or Beethoven Pool to liquidity withdrawn from
      * @param exactLpBurnAmount Amount of LP tokens to burn in the withdrawal
@@ -261,9 +260,9 @@ library BalancerBeethovenAdapter {
     /// @dev Helper method to avoid stack-too-deep-errors
     function _withdraw(IVault vault, WithdrawParams memory params) private returns (uint256[] memory amountsOut) {
         //slither-disable-start reentrancy-events
+        Errors.verifyNotZero(address(vault), "vault");
         Errors.verifyNotZero(params.pool, "params.pool");
-        // slither-disable-next-line incorrect-equality
-        if (params.bptAmount == 0) revert MustBeMoreThanZero();
+        Errors.verifyNotZero(params.bptAmount, "params.bptAmount");
 
         amountsOut = params.amountsOut;
 
@@ -371,16 +370,13 @@ library BalancerBeethovenAdapter {
             revert ArraysLengthMismatch();
         }
 
-        // run through tokens and make sure we have approvals (and correct token order)
+        // run through tokens and make sure we have approvals
+        // for at least one non-zero amount (and correct token order)
+        bool hasNonZeroAmount = false;
         for (uint256 i = 0; i < nTokens; ++i) {
             uint256 currentAmount = amounts[i];
             IERC20 currentToken = IERC20(tokens[i]);
 
-            // as per new requirements, 0 amounts are not allowed even though balancer supports it
-            // LP token is an exception for composable pools
-            if (currentAmount == 0 && address(currentToken) != address(pool)) {
-                revert MustBeMoreThanZero();
-            }
             // make sure asset is supported (and matches the pool's assets)
             if (currentToken != poolAssets[i]) {
                 revert TokenPoolAssetMismatch();
@@ -389,7 +385,13 @@ library BalancerBeethovenAdapter {
             assetBalancesBefore[i] = currentToken.balanceOf(address(this));
 
             // grant spending approval to balancer's Vault
-            LibAdapter._approve(currentToken, address(vault), currentAmount);
+            if (currentAmount != 0) {
+                hasNonZeroAmount = true;
+                LibAdapter._approve(currentToken, address(vault), currentAmount);
+            }
+        }
+        if (!hasNonZeroAmount) {
+            revert NoNonZeroAmountProvided();
         }
     }
 

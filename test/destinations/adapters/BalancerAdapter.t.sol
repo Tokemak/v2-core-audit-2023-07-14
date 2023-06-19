@@ -8,14 +8,13 @@ import { stdStorage, StdStorage } from "forge-std/StdStorage.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 // solhint-disable max-line-length
-import { BalancerBeethovenAdapter } from "../../../src/destinations/adapters/BalancerBeethovenAdapter.sol";
-import { IVault } from "../../../src/interfaces/external/balancer/IVault.sol";
-import { IDestinationRegistry } from "../../../src/interfaces/destinations/IDestinationRegistry.sol";
-import { IDestinationAdapter } from "../../../src/interfaces/destinations/IDestinationAdapter.sol";
-
-import { IBalancerPool } from "src/interfaces/external/balancer/IBalancerPool.sol";
+import { BalancerBeethovenAdapter } from "src/destinations/adapters/BalancerBeethovenAdapter.sol";
+import { IVault } from "src/interfaces/external/balancer/IVault.sol";
 import { IBalancerComposableStablePool } from "src/interfaces/external/balancer/IBalancerComposableStablePool.sol";
-
+import { TestableVM } from "src/solver/test/TestableVM.sol";
+import { SolverCaller } from "src/solver/test/SolverCaller.sol";
+import { Errors } from "src/utils/Errors.sol";
+import { ReadPlan } from "test/utils/ReadPlan.sol";
 import {
     PRANK_ADDRESS,
     RANDOM,
@@ -26,11 +25,7 @@ import {
     CBETH_MAINNET,
     WSTETH_ARBITRUM,
     WETH_ARBITRUM
-} from "../../utils/Addresses.sol";
-
-import { TestableVM } from "../../../src/solver/test/TestableVM.sol";
-import { SolverCaller } from "../../../src/solver/test/SolverCaller.sol";
-import { ReadPlan } from "../../../test/utils/ReadPlan.sol";
+} from "test/utils/Addresses.sol";
 
 contract BalancerAdapterTest is Test {
     uint256 public mainnetFork;
@@ -201,11 +196,11 @@ contract BalancerAdapterTest is Test {
 
         uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(this));
         uint256 afterBalance2 = IERC20(CBETH_MAINNET).balanceOf(address(this));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(this));
+        uint256 afterLpBalance = lpToken.balanceOf(address(this));
 
         assertEq(afterBalance1, preBalance1 - amounts[0]);
         assertEq(afterBalance2, preBalance2 - amounts[1]);
-        assert(aftrerLpBalance > preLpBalance);
+        assert(afterLpBalance > preLpBalance);
     }
 
     function testRemoveLiquidityWstEthCbEth() public {
@@ -238,11 +233,11 @@ contract BalancerAdapterTest is Test {
 
         uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(this));
         uint256 afterBalance2 = IERC20(CBETH_MAINNET).balanceOf(address(this));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(this));
+        uint256 afterLpBalance = lpToken.balanceOf(address(this));
 
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 > preBalance2);
-        assert(aftrerLpBalance < preLpBalance);
+        assert(afterLpBalance < preLpBalance);
     }
 
     function testRemoveLiquidityImbalanceWstEthCbEth() public {
@@ -276,11 +271,11 @@ contract BalancerAdapterTest is Test {
 
         uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(this));
         uint256 afterBalance2 = IERC20(CBETH_MAINNET).balanceOf(address(this));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(this));
+        uint256 afterLpBalance = lpToken.balanceOf(address(this));
 
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 > preBalance2);
-        assert(aftrerLpBalance == 0);
+        assert(afterLpBalance == 0);
     }
 
     function testAddLiquidityWstEthWeth() public {
@@ -309,11 +304,11 @@ contract BalancerAdapterTest is Test {
 
         uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(this));
         uint256 afterBalance2 = IERC20(WETH_MAINNET).balanceOf(address(this));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(this));
+        uint256 afterLpBalance = lpToken.balanceOf(address(this));
 
         assertEq(afterBalance1, preBalance1 - amounts[0]);
         assertEq(afterBalance2, preBalance2 - amounts[1]);
-        assert(aftrerLpBalance > preLpBalance);
+        assert(afterLpBalance > preLpBalance);
     }
 
     function testRemoveLiquidityWstEthWeth() public {
@@ -347,11 +342,11 @@ contract BalancerAdapterTest is Test {
 
         uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(this));
         uint256 afterBalance2 = IERC20(WETH_MAINNET).balanceOf(address(this));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(this));
+        uint256 afterLpBalance = lpToken.balanceOf(address(this));
 
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 > preBalance2);
-        assert(aftrerLpBalance < preLpBalance);
+        assert(afterLpBalance < preLpBalance);
     }
 
     function testRemoveLiquidityImbalanceWstEthWeth() public {
@@ -385,11 +380,11 @@ contract BalancerAdapterTest is Test {
 
         uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(this));
         uint256 afterBalance2 = IERC20(WETH_MAINNET).balanceOf(address(this));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(this));
+        uint256 afterLpBalance = lpToken.balanceOf(address(this));
 
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 > preBalance2);
-        assert(aftrerLpBalance == 0);
+        assert(afterLpBalance == 0);
     }
 
     function testAddLiquidityRethWeth() public {
@@ -417,11 +412,11 @@ contract BalancerAdapterTest is Test {
 
         uint256 afterBalance1 = IERC20(RETH_MAINNET).balanceOf(address(this));
         uint256 afterBalance2 = IERC20(WETH_MAINNET).balanceOf(address(this));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(this));
+        uint256 afterLpBalance = lpToken.balanceOf(address(this));
 
         assertEq(afterBalance1, preBalance1 - amounts[0]);
         assertEq(afterBalance2, preBalance2 - amounts[1]);
-        assert(aftrerLpBalance > preLpBalance);
+        assert(afterLpBalance > preLpBalance);
     }
 
     function testRemoveLiquidityRethWeth() public {
@@ -454,11 +449,11 @@ contract BalancerAdapterTest is Test {
 
         uint256 afterBalance1 = IERC20(RETH_MAINNET).balanceOf(address(this));
         uint256 afterBalance2 = IERC20(WETH_MAINNET).balanceOf(address(this));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(this));
+        uint256 afterLpBalance = lpToken.balanceOf(address(this));
 
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 > preBalance2);
-        assert(aftrerLpBalance < preLpBalance);
+        assert(afterLpBalance < preLpBalance);
     }
 
     function testRemoveLiquidityImbalanceRethWeth() public {
@@ -492,11 +487,11 @@ contract BalancerAdapterTest is Test {
 
         uint256 afterBalance1 = IERC20(RETH_MAINNET).balanceOf(address(this));
         uint256 afterBalance2 = IERC20(WETH_MAINNET).balanceOf(address(this));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(this));
+        uint256 afterLpBalance = lpToken.balanceOf(address(this));
 
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 > preBalance2);
-        assert(aftrerLpBalance == 0);
+        assert(afterLpBalance == 0);
     }
 
     function testAddLiquidityWstEthSfrxEthREth() public {
@@ -532,12 +527,12 @@ contract BalancerAdapterTest is Test {
         uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(this));
         uint256 afterBalance2 = IERC20(SFRXETH_MAINNET).balanceOf(address(this));
         uint256 afterBalance3 = IERC20(RETH_MAINNET).balanceOf(address(this));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(this));
+        uint256 afterLpBalance = lpToken.balanceOf(address(this));
 
         assertEq(afterBalance1, preBalance1 - amounts[1]);
         assertEq(afterBalance2, preBalance2 - amounts[2]);
         assertEq(afterBalance3, preBalance3 - amounts[3]);
-        assert(aftrerLpBalance > preLpBalance);
+        assert(afterLpBalance > preLpBalance);
     }
 
     function testRemoveLiquidityWstEthSfrxEthREth() public {
@@ -581,12 +576,12 @@ contract BalancerAdapterTest is Test {
         uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(this));
         uint256 afterBalance2 = IERC20(SFRXETH_MAINNET).balanceOf(address(this));
         uint256 afterBalance3 = IERC20(RETH_MAINNET).balanceOf(address(this));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(this));
+        uint256 afterLpBalance = lpToken.balanceOf(address(this));
 
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 > preBalance2);
         assert(afterBalance3 > preBalance3);
-        assert(aftrerLpBalance < preLpBalance);
+        assert(afterLpBalance < preLpBalance);
     }
 
     function testRemoveLiquidityImbalanceWstEthSfrxEthREth() public {
@@ -634,12 +629,12 @@ contract BalancerAdapterTest is Test {
         uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(this));
         uint256 afterBalance2 = IERC20(SFRXETH_MAINNET).balanceOf(address(this));
         uint256 afterBalance3 = IERC20(RETH_MAINNET).balanceOf(address(this));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(this));
+        uint256 afterLpBalance = lpToken.balanceOf(address(this));
 
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 == preBalance2);
         assert(afterBalance3 == preBalance3);
-        assert(aftrerLpBalance < preLpBalance);
+        assert(afterLpBalance < preLpBalance);
     }
 
     function testAddLiquidityWstEthWethArbitrum() public {
@@ -670,11 +665,11 @@ contract BalancerAdapterTest is Test {
 
         uint256 afterBalance1 = IERC20(WSTETH_ARBITRUM).balanceOf(address(this));
         uint256 afterBalance2 = IERC20(WETH_ARBITRUM).balanceOf(address(this));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(this));
+        uint256 afterLpBalance = lpToken.balanceOf(address(this));
 
         assertEq(afterBalance1, preBalance1 - amounts[0]);
         assertEq(afterBalance2, preBalance2 - amounts[1]);
-        assert(aftrerLpBalance > preLpBalance);
+        assert(afterLpBalance > preLpBalance);
     }
 
     function testRemoveLiquidityWstEthWethArbitrum() public {
@@ -709,11 +704,11 @@ contract BalancerAdapterTest is Test {
 
         uint256 afterBalance1 = IERC20(WSTETH_ARBITRUM).balanceOf(address(this));
         uint256 afterBalance2 = IERC20(WETH_ARBITRUM).balanceOf(address(this));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(this));
+        uint256 afterLpBalance = lpToken.balanceOf(address(this));
 
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 > preBalance2);
-        assert(aftrerLpBalance < preLpBalance);
+        assert(afterLpBalance < preLpBalance);
     }
 
     function testRemoveLiquidityImbalanceWstEthWethArbitrum() public {
@@ -749,11 +744,11 @@ contract BalancerAdapterTest is Test {
 
         uint256 afterBalance1 = IERC20(WSTETH_ARBITRUM).balanceOf(address(this));
         uint256 afterBalance2 = IERC20(WETH_ARBITRUM).balanceOf(address(this));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(this));
+        uint256 afterLpBalance = lpToken.balanceOf(address(this));
 
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 > preBalance2);
-        assert(aftrerLpBalance == 0);
+        assert(afterLpBalance == 0);
     }
     /// @dev This is an integration test for the Solver project. More information is available in the README.
 
@@ -778,11 +773,11 @@ contract BalancerAdapterTest is Test {
 
         uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(this));
         uint256 afterBalance2 = IERC20(CBETH_MAINNET).balanceOf(address(this));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(this));
+        uint256 afterLpBalance = lpToken.balanceOf(address(this));
 
         assertEq(afterBalance1, preBalance1 - amounts[0]);
         assertEq(afterBalance2, preBalance2 - amounts[1]);
-        assert(aftrerLpBalance > preLpBalance);
+        assert(afterLpBalance > preLpBalance);
     }
 
     /// @dev This is an integration test for the Solver project. More information is available in the README.
@@ -815,10 +810,10 @@ contract BalancerAdapterTest is Test {
 
         uint256 afterBalance1 = IERC20(WSTETH_MAINNET).balanceOf(address(this));
         uint256 afterBalance2 = IERC20(CBETH_MAINNET).balanceOf(address(this));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(this));
+        uint256 afterLpBalance = lpToken.balanceOf(address(this));
 
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 > preBalance2);
-        assert(aftrerLpBalance < preLpBalance);
+        assert(afterLpBalance < preLpBalance);
     }
 }

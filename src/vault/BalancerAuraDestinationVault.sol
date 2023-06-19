@@ -95,7 +95,7 @@ contract BalancerAuraDestinationVault is AuraAdapter, DestinationVault {
 
     function debtValue() public override returns (uint256 value) {
         uint256 lpTokenAmount = auraBalance() + balancerBalance();
-        value = lpTokenAmount * getTokenPriceInBaseAsset(pool);
+        value = lpTokenAmount * _getTokenPriceInBaseAsset(pool);
     }
 
     function rewardValue() public override returns (uint256 value) {
@@ -105,14 +105,14 @@ contract BalancerAuraDestinationVault is AuraAdapter, DestinationVault {
         for (uint256 i = 0; i < rewarder.extraRewardsLength(); ++i) {
             address rewardToken = rewarder.extraRewards(i);
             uint256 rewardAmount = IERC20(rewardToken).balanceOf(address(this));
-            value += rewardAmount * getTokenPriceInBaseAsset(rewardToken);
+            value += rewardAmount * _getTokenPriceInBaseAsset(rewardToken);
         }
         //slither-disable-end calls-loop
     }
 
     /// @notice If base asset is not WETH (which is a case for our MVP)
     /// we should figure out price of the given token in terms of base asset
-    function getTokenPriceInBaseAsset(address token) private returns (uint256 value) {
+    function _getTokenPriceInBaseAsset(address token) private returns (uint256 value) {
         //slither-disable-start calls-loop
         IRootPriceOracle priceOracle = systemRegistry.rootPriceOracle();
         uint256 tokenPriceInEth = priceOracle.getPriceInEth(token);
