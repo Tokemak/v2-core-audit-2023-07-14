@@ -2,19 +2,23 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.8.17;
 
-import { ILMPVaultRouterBase, LMPVaultRouterBase } from "./LMPVaultRouterBase.sol";
-
-import { ILMPVault, ILMPVaultRouter } from "src/interfaces/vault/ILMPVaultRouter.sol";
-
 import { IERC20, SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
-
-import { IWETH9 } from "src/interfaces/utils/IWETH9.sol";
+import { Address } from "openzeppelin-contracts/utils/Address.sol";
+import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
+import { ILMPVault, ILMPVaultRouter } from "src/interfaces/vault/ILMPVaultRouter.sol";
+import { SwapParams } from "src/interfaces/liquidation/IAsyncSwapper.sol";
+import { LMPVaultRouterBase } from "src/vault/LMPVaultRouterBase.sol";
 
 /// @title ERC4626Router contract
 contract LMPVaultRouter is ILMPVaultRouter, LMPVaultRouterBase {
     using SafeERC20 for IERC20;
+    using Address for address;
 
-    constructor(address _weth9) LMPVaultRouterBase(_weth9) { }
+    ISystemRegistry private immutable systemRegistry;
+
+    constructor(ISystemRegistry _systemRegistry, address _weth9) LMPVaultRouterBase(_weth9) {
+        systemRegistry = _systemRegistry;
+    }
 
     // For the below, no approval needed, assumes vault is already max approved
 
@@ -40,6 +44,29 @@ contract LMPVaultRouter is ILMPVaultRouter, LMPVaultRouterBase {
     ) external override returns (uint256 sharesOut) {
         withdraw(fromVault, address(this), amount, maxSharesIn, false);
         return deposit(toVault, to, amount, minSharesOut);
+    }
+
+    /// @inheritdoc ILMPVaultRouter
+    function swapAndDepositToVault(
+        address swapper,
+        SwapParams memory swapParams,
+        ILMPVault vault,
+        address to,
+        uint256 minSharesOut
+    ) external returns (uint256 sharesOut) {
+        systemRegistry.asyncSwapperRegistry().verifyIsRegistered(swapper);
+        _pullToken(IERC20(swapParams.sellTokenAddress), swapParams.sellAmount, address(this));
+
+        // verify that the swap is for the vault asset
+        if (swapParams.buyTokenAddress != vault.asset()) revert InvalidParams();
+
+        bytes memory data = swapper.functionDelegateCall(
+            abi.encodeWithSignature("swap((address,uint256,address,uint256,bytes,bytes))", swapParams), "SwapFailed"
+        );
+
+        uint256 amountReceived = abi.decode(data, (uint256));
+
+        return deposit(vault, to, amountReceived, minSharesOut);
     }
 
     /// @inheritdoc ILMPVaultRouter

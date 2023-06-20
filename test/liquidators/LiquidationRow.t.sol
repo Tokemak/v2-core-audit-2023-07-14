@@ -27,7 +27,7 @@ contract AsyncSwapperMock is BaseAsyncSwapper {
         liquidationRow = _liquidationRow;
     }
 
-    function swap(SwapParams memory params) public override {
+    function swap(SwapParams memory params) public override returns (uint256 buyTokenAmountReceived) {
         /// @dev This is a mock function that will mint the target token to the liquidation row assuming that the swap
         /// was successful
         targetToken.mint(liquidationRow, params.sellAmount);

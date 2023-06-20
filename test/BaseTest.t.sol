@@ -77,6 +77,14 @@ contract BaseTest is Test {
 
         accessController = new AccessController(address(systemRegistry));
         systemRegistry.setAccessController(address(accessController));
+        lmpVaultRegistry = new LMPVaultRegistry(systemRegistry);
+        systemRegistry.setLMPVaultRegistry(address(lmpVaultRegistry));
+        lmpVaultRouter = new LMPVaultRouter(systemRegistry, WETH_MAINNET);
+        systemRegistry.setLMPVaultRouter(address(lmpVaultRouter));
+        lmpVaultFactory = new LMPVaultFactory(systemRegistry);
+        systemRegistry.setLMPVaultFactory(VaultTypes.LST, address(lmpVaultFactory));
+        // NOTE: deployer grants factory permission to update the registry
+        accessController.grantRole(Roles.REGISTRY_UPDATER, address(lmpVaultFactory));
 
         // NOTE: these pieces were taken out so that each set of tests can init only the components it needs!
         //       Saves a ton of unnecessary setup time and makes fuzzing tests run much much faster
@@ -147,7 +155,7 @@ contract BaseTest is Test {
     function deployLMPVaultRouter() public {
         if (address(lmpVaultRouter) != address(0)) return;
 
-        lmpVaultRouter = new LMPVaultRouter(WETH_MAINNET);
+        lmpVaultRouter = new LMPVaultRouter(systemRegistry, WETH_MAINNET);
         systemRegistry.setLMPVaultRouter(address(lmpVaultRouter));
     }
 

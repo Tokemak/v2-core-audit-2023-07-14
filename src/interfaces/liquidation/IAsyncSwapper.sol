@@ -37,5 +37,5 @@ interface IAsyncSwapper {
      * @notice Swaps sellToken for buyToken
      * @param swapParams Encoded swap data
      */
-    function swap(SwapParams memory swapParams) external;
+    function swap(SwapParams memory swapParams) external returns (uint256 buyTokenAmountReceived);
 }

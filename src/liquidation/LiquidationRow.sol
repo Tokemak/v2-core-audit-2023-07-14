@@ -203,6 +203,7 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
         if (!allowedSwappers.contains(asyncSwapper)) {
             revert AsyncSwapperNotAllowed();
         }
+        //slither-disable-next-line unused-return
         IAsyncSwapper(asyncSwapper).swap(params);
     }
 

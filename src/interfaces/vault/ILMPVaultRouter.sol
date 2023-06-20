@@ -2,13 +2,16 @@
 // Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
-import { ILMPVault } from "./ILMPVault.sol";
+import { ILMPVault } from "src/interfaces/vault/ILMPVault.sol";
+import { IAsyncSwapper, SwapParams } from "src/interfaces/liquidation/IAsyncSwapper.sol";
 
 /**
  * @title ILMPVaultRouter Interface
  * @notice Extends the ILMPVaultRouterBase with specific flows to save gas
  */
 interface ILMPVaultRouter {
+    error InvalidParams();
+
     /**
      * ***************************   Deposit ********************************
      */
@@ -26,6 +29,25 @@ interface ILMPVaultRouter {
         ILMPVault vault,
         address to,
         uint256 amount,
+        uint256 minSharesOut
+    ) external returns (uint256 sharesOut);
+
+    /**
+     * @notice swap and deposit max assets to a LMPVault.
+     * @dev The goal is to deposit whatever amount is received from the swap into the vault such as depositMax.
+     * Balances are checked in the swapper function.
+     * @param swapper The address of the swapper contract.
+     * @param swapParams The swap parameters.
+     * @param vault The ILMPVault contract.
+     * @param to The address to receive the deposited amount.
+     * @param minSharesOut The minimum amount of shares to be received as output.
+     * @return sharesOut The amount of shares deposited into the vault.
+     */
+    function swapAndDepositToVault(
+        address swapper,
+        SwapParams memory swapParams,
+        ILMPVault vault,
+        address to,
         uint256 minSharesOut
     ) external returns (uint256 sharesOut);
 

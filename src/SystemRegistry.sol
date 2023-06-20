@@ -19,6 +19,7 @@ import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSe
 import { IDestinationRegistry } from "src/interfaces/destinations/IDestinationRegistry.sol";
 import { IStatsCalculatorRegistry } from "src/interfaces/stats/IStatsCalculatorRegistry.sol";
 import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
+import { IAsyncSwapperRegistry } from "src/interfaces/liquidation/IAsyncSwapperRegistry.sol";
 
 /// @notice Root contract of the system instance.
 /// @dev All contracts in this instance of the system should be reachable from this contract
@@ -38,6 +39,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     IDestinationRegistry private _destinationTemplateRegistry;
     ILMPVaultRouter private _lmpVaultRouter;
     IRootPriceOracle private _rootPriceOracle;
+    IAsyncSwapperRegistry private _asyncSwapperRegistry;
 
     mapping(bytes32 => ILMPVaultFactory) private _lmpVaultFactoryByType;
     EnumerableSet.Bytes32Set private _lmpVaultFactoryTypes;
@@ -57,6 +59,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     event LMPVaultFactoryRemoved(bytes32 vaultType, address factoryAddress);
     event StatsCalculatorRegistrySet(address newAddress);
     event RootPriceOracleSet(address rootPriceOracle);
+    event AsyncSwapperRegistrySet(address newAddress);
 
     /* ******************************** */
     /* Errors                           */
@@ -128,6 +131,11 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     /// @inheritdoc ISystemRegistry
     function rootPriceOracle() external view returns (IRootPriceOracle) {
         return _rootPriceOracle;
+    }
+
+    /// @inheritdoc ISystemRegistry
+    function asyncSwapperRegistry() external view returns (IAsyncSwapperRegistry) {
+        return _asyncSwapperRegistry;
     }
 
     /* ******************************** */
@@ -262,6 +270,23 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         _rootPriceOracle = IRootPriceOracle(oracle);
 
         verifySystemsAgree(address(_rootPriceOracle));
+    }
+
+    /// @notice Set the Async Swapper Registry for this instance of the system
+    /// @dev Should only be able to set this value one time
+    /// @param registry Address of the registry
+    function setAsyncSwapperRegistry(address registry) external onlyOwner {
+        Errors.verifyNotZero(registry, "asyncSwapperRegistry");
+
+        if (address(_asyncSwapperRegistry) != address(0)) {
+            revert Errors.AlreadySet("asyncSwapperRegistry");
+        }
+
+        emit AsyncSwapperRegistrySet(registry);
+
+        _asyncSwapperRegistry = IAsyncSwapperRegistry(registry);
+
+        verifySystemsAgree(address(_asyncSwapperRegistry));
     }
 
     /// @notice Verifies that a system bound contract matches this contract

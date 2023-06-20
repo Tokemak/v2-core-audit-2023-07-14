@@ -18,6 +18,7 @@ import { IAccessController } from "src/interfaces/security/IAccessController.sol
 import { IDestinationRegistry } from "src/interfaces/destinations/IDestinationRegistry.sol";
 import { IStatsCalculatorRegistry } from "src/interfaces/stats/IStatsCalculatorRegistry.sol";
 import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
+import { IAsyncSwapperRegistry } from "src/interfaces/liquidation/IAsyncSwapperRegistry.sol";
 
 /// @notice Root most registry contract for the system
 interface ISystemRegistry {
@@ -64,4 +65,8 @@ interface ISystemRegistry {
     /// @notice Get the root price oracle for this system
     /// @return oracle instance of the root price oracle for this system
     function rootPriceOracle() external view returns (IRootPriceOracle oracle);
+
+    /// @notice Get the async swapper registry for this system
+    /// @return registry instance of the registry for this system
+    function asyncSwapperRegistry() external view returns (IAsyncSwapperRegistry registry);
 }

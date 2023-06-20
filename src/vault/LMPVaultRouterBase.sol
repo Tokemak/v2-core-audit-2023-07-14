@@ -46,7 +46,7 @@ abstract contract LMPVaultRouterBase is ILMPVaultRouterBase, SelfPermit, Multica
     ) public payable virtual override returns (uint256 sharesOut) {
         // handle possible eth
         _processEthIn(vault);
-
+        IERC20(vault.asset()).safeApprove(address(vault), amount);
         if ((sharesOut = vault.deposit(amount, to)) < minSharesOut) {
             revert MinSharesError();
         }

@@ -685,7 +685,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         address destinationOut,
         address tokenOut,
         uint256 amountOut
-    ) public view returns (bool success, string memory message) {
+    ) public view virtual returns (bool success, string memory message) {
         return LMPStrategy.verifyRebalance(destinationIn, tokenIn, amountIn, destinationOut, tokenOut, amountOut);
     }
 }
