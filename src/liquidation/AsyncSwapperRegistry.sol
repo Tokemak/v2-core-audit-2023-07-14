@@ -2,12 +2,9 @@
 // Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
-import { console } from "forge-std/Test.sol";
-
 import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 
 import { IAsyncSwapperRegistry } from "src/interfaces/liquidation/IAsyncSwapperRegistry.sol";
-import { IAsyncSwapper } from "src/interfaces/liquidation/IAsyncSwapper.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
 import { Roles } from "src/libs/Roles.sol";
@@ -21,6 +18,7 @@ contract AsyncSwapperRegistry is IAsyncSwapperRegistry, SecurityBase {
     EnumerableSet.AddressSet private _swappers;
 
     constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
+        Errors.verifyNotZero(address(_systemRegistry), "_systemRegistry");
         systemRegistry = _systemRegistry;
     }
 

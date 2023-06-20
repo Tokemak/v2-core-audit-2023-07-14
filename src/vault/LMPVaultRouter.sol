@@ -4,6 +4,7 @@ pragma solidity 0.8.17;
 
 import { IERC20, SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import { Address } from "openzeppelin-contracts/utils/Address.sol";
+import { Errors } from "src/utils/Errors.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { ILMPVault, ILMPVaultRouter } from "src/interfaces/vault/ILMPVaultRouter.sol";
 import { SwapParams } from "src/interfaces/liquidation/IAsyncSwapper.sol";
@@ -58,7 +59,7 @@ contract LMPVaultRouter is ILMPVaultRouter, LMPVaultRouterBase {
         _pullToken(IERC20(swapParams.sellTokenAddress), swapParams.sellAmount, address(this));
 
         // verify that the swap is for the vault asset
-        if (swapParams.buyTokenAddress != vault.asset()) revert InvalidParams();
+        if (swapParams.buyTokenAddress != vault.asset()) revert Errors.InvalidParams();
 
         bytes memory data = swapper.functionDelegateCall(
             abi.encodeWithSignature("swap((address,uint256,address,uint256,bytes,bytes))", swapParams), "SwapFailed"
