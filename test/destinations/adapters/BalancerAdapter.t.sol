@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
-import { console } from "forge-std/console.sol";
 import { Test } from "forge-std/Test.sol";
 import { stdStorage, StdStorage } from "forge-std/StdStorage.sol";
 

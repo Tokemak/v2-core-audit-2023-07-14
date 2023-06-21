@@ -5,17 +5,11 @@ pragma solidity 0.8.17;
 
 import { IVault } from "src/interfaces/external/balancer/IVault.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import { LibAdapter } from "src/libs/LibAdapter.sol";
 
 library BalancerUtilities {
     error BalancerVaultReentrancy();
 
-    struct BalancerExtraParams {
-        address pool;
-        IERC20[] tokens;
-    }
     // 400 is Balancers Vault REENTRANCY error code
-
     bytes32 internal constant REENTRANCY_ERROR_HASH = keccak256(abi.encodeWithSignature("Error(string)", "BAL#400"));
 
     function checkReentrancy(address balancerVault) external view {
@@ -30,52 +24,6 @@ library BalancerUtilities {
         }
     }
 
-    error MustBeMoreThanZero();
-    error ArraysLengthMismatch();
-    error BalanceMustIncrease();
-    error MinLpAmountNotReached();
-    error LpTokenAmountMismatch();
-    error NoNonZeroAmountProvided();
-    error InvalidBalanceChange();
-    error InvalidAddress(address);
-
-    // function addLiquidityComposable(
-    //     IVault vault,
-    //     address pool,
-    //     address[] memory tokens,
-    //     uint256[] calldata exactTokenAmounts,
-    //     uint256 minLpMintAmount
-    // ) public {
-    //     // Approve the underlying pool tokens
-    //     // While building our user amounts array that filters out the
-    //     // the amount of the bpt token
-    //     uint256 nTokens = tokens.length;
-    //     uint256 uix = 0;
-    //     uint256 bptIndex = IBalancerComposableStablePool(pool).getBptIndex();
-    //     uint256[] memory amountsUser = new uint256[](nTokens - 1);
-    //     for (uint256 i = 0; i < nTokens; i++) {
-    //         if (i != bptIndex) {
-    //             LibAdapter._approve(tokens[i], address(vault), exactTokenAmounts[i]);
-    //             amountsUser[uix] = exactTokenAmounts[i];
-    //             uix++;
-    //         }
-    //     }
-
-    //     IVault.JoinPoolRequest memory joinRequest = IVault.JoinPoolRequest({
-    //         assets: tokens,
-    //         maxAmountsIn: exactTokenAmounts, // maxAmountsIn,
-    //         userData: abi.encode(IVault.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, amountsUser, minLpMintAmount),
-    //         fromInternalBalance: false
-    //     });
-
-    //     vault.joinPool(
-    //         IBalancerComposableStablePool(pool).getPoolId(),
-    //         address(this), // sender
-    //         address(this), // recipient of BPT token
-    //         joinRequest
-    //     );
-    // }
-
     function isComposablePool(address pool) public view returns (bool) {
         // Using the presence of a getBptIndex() fn as an indicator of pool type
         // slither-disable-start low-level-calls
@@ -89,18 +37,6 @@ library BalancerUtilities {
      * @dev This helper function is a fast and cheap way to convert between IERC20[] and IAsset[] types
      */
     function _convertERC20sToAddresses(IERC20[] memory tokens) internal pure returns (address[] memory assets) {
-        //slither-disable-start assembly
-        //solhint-disable-next-line no-inline-assembly
-        assembly {
-            assets := tokens
-        }
-        //slither-disable-end assembly
-    }
-
-    /**
-     * @dev This helper function is a fast and cheap way to convert between IERC20[] and IAsset[] types
-     */
-    function _convertAddressesToERC20s(address[] memory tokens) internal pure returns (IERC20[] memory assets) {
         //slither-disable-start assembly
         //solhint-disable-next-line no-inline-assembly
         assembly {

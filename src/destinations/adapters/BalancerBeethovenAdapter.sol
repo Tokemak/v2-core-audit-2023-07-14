@@ -4,10 +4,7 @@ pragma solidity 0.8.17;
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
-import { Initializable } from "openzeppelin-contracts/proxy/utils/Initializable.sol";
-import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
-import { IPoolAdapter } from "src/interfaces/destinations/IPoolAdapter.sol";
 import { IVault } from "src/interfaces/external/balancer/IVault.sol";
 import { IBalancerPool } from "src/interfaces/external/balancer/IBalancerPool.sol";
 import { IBalancerComposableStablePool } from "src/interfaces/external/balancer/IBalancerComposableStablePool.sol";
@@ -41,7 +38,6 @@ library BalancerBeethovenAdapter {
     );
 
     error TokenPoolAssetMismatch();
-    error MustBeMoreThanZero();
     error ArraysLengthMismatch();
     error BalanceMustIncrease();
     error NoNonZeroAmountProvided();
