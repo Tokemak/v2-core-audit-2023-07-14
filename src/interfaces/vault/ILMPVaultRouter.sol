@@ -10,8 +10,6 @@ import { IAsyncSwapper, SwapParams } from "src/interfaces/liquidation/IAsyncSwap
  * @notice Extends the ILMPVaultRouterBase with specific flows to save gas
  */
 interface ILMPVaultRouter {
-    error InvalidParams();
-
     /**
      * ***************************   Deposit ********************************
      */
