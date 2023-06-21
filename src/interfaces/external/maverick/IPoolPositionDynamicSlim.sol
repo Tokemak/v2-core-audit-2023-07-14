@@ -14,7 +14,7 @@ interface IPoolPositionDynamicSlim is IERC20 {
     function getReserves() external returns (uint256 reserveA, uint256 reserveB);
 
     /// @notice Pool that boosted position is for.
-    function pool() external returns (address pool);
+    function pool() external returns (address maverickPool);
 
     /// @notice Returns an array of all binIds that boosted position is active for.
     function allBinIds() external returns (uint128[] memory);
