@@ -12,8 +12,11 @@ library BalancerUtilities {
     // 400 is Balancers Vault REENTRANCY error code
     bytes32 internal constant REENTRANCY_ERROR_HASH = keccak256(abi.encodeWithSignature("Error(string)", "BAL#400"));
 
+    /**
+     * @notice Verifies reentrancy to the Balancer Vault
+     * @dev Reverts if gets BAL#400 error
+     */
     function checkReentrancy(address balancerVault) external view {
-        // Reentrancy protection
         // solhint-disable max-line-length
         // https://github.com/balancer/balancer-v2-monorepo/blob/90f77293fef4b8782feae68643c745c754bac45c/pkg/pool-utils/contracts/lib/VaultReentrancyLib.sol
         (, bytes memory returnData) = balancerVault.staticcall(
@@ -24,8 +27,11 @@ library BalancerUtilities {
         }
     }
 
+    /**
+     * @notice Checks if a given address is Balancer Composable pool
+     * @dev Using the presence of a getBptIndex() fn as an indicator of pool type
+     */
     function isComposablePool(address pool) public view returns (bool) {
-        // Using the presence of a getBptIndex() fn as an indicator of pool type
         // slither-disable-start low-level-calls
         // solhint-disable-next-line no-unused-vars
         (bool success, bytes memory data) = pool.staticcall(abi.encodeWithSignature("getBptIndex()"));

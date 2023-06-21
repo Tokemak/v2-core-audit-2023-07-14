@@ -95,35 +95,38 @@ library BalancerBeethovenAdapter {
         uint256[] calldata exactTokenAmounts,
         uint256 minLpMintAmount
     ) public {
-        if (tokens.length == 0 || tokens.length != exactTokenAmounts.length) {
+        uint256 nTokens = tokens.length;
+        if (nTokens == 0 || nTokens != exactTokenAmounts.length) {
             revert ArraysLengthMismatch();
         }
         Errors.verifyNotZero(address(vault), "vault");
         Errors.verifyNotZero(pool, "pool");
         Errors.verifyNotZero(minLpMintAmount, "minLpMintAmount");
 
-        uint256[] memory assetBalancesBefore = new uint256[](tokens.length);
+        uint256[] memory assetBalancesBefore = new uint256[](nTokens);
+        bytes32 poolId = IBalancerPool(pool).getPoolId();
 
         // verify that we're passing correct pool tokens
-        _ensureTokenOrderAndApprovals(vault, exactTokenAmounts, tokens, IBalancerPool(pool), assetBalancesBefore);
+        _ensureTokenOrderAndApprovals(vault, exactTokenAmounts, tokens, poolId, assetBalancesBefore);
 
-        // record balances before deposit
-        uint256 bptBalanceBefore = IERC20(pool).balanceOf(address(this));
+        // record BPT balances before deposit 0 - balance before; 1 - balance after
+        uint256[] memory bptBalances = new uint256[](2);
+        bptBalances[0] = IBalancerPool(pool).balanceOf(address(this));
 
         vault.joinPool(
-            IBalancerPool(pool).getPoolId(),
+            poolId,
             address(this), // sender
             address(this), // recipient of BPT token
             _getJoinPoolRequest(pool, tokens, exactTokenAmounts, minLpMintAmount)
         );
 
         // make sure we received bpt
-        uint256 bptBalanceAfter = IERC20(pool).balanceOf(address(this));
-        if (bptBalanceAfter < bptBalanceBefore + minLpMintAmount) {
+        bptBalances[1] = IBalancerPool(pool).balanceOf(address(this));
+        if (bptBalances[1] < bptBalances[0] + minLpMintAmount) {
             revert BalanceMustIncrease();
         }
         // make sure we spent exactly how much we wanted
-        for (uint256 i = 0; i < tokens.length; ++i) {
+        for (uint256 i = 0; i < nTokens; ++i) {
             //slither-disable-next-line calls-loop
             uint256 currentBalance = IERC20(tokens[i]).balanceOf(address(this));
 
@@ -134,13 +137,8 @@ library BalancerBeethovenAdapter {
                 }
             }
         }
-        emit DeployLiquidity(
-            exactTokenAmounts,
-            tokens,
-            [bptBalanceAfter - bptBalanceBefore, bptBalanceAfter, IERC20(pool).totalSupply()],
-            pool,
-            IBalancerPool(pool).getPoolId()
-        );
+
+        _emitDeploy(exactTokenAmounts, tokens, bptBalances, pool, poolId);
     }
 
     /**
@@ -253,6 +251,25 @@ library BalancerBeethovenAdapter {
         );
     }
 
+    /**
+     * @dev This is a helper function to avoid stack-too-deep-errors
+     */
+    function _emitDeploy(
+        uint256[] calldata exactTokenAmounts,
+        address[] calldata tokens,
+        uint256[] memory bptBalances,
+        address pool,
+        bytes32 poolId
+    ) private {
+        emit DeployLiquidity(
+            exactTokenAmounts,
+            tokens,
+            [bptBalances[1] - bptBalances[0], bptBalances[1], IERC20(pool).totalSupply()],
+            pool,
+            poolId
+        );
+    }
+
     /// @dev Helper method to avoid stack-too-deep-errors
     function _withdraw(IVault vault, WithdrawParams memory params) private returns (uint256[] memory amountsOut) {
         //slither-disable-start reentrancy-events
@@ -347,18 +364,18 @@ library BalancerBeethovenAdapter {
      * @dev Separate function to avoid stack-too-deep errors
      * and combine gas-costly loop operations into single loop
      * @param amounts Amounts of corresponding tokens to approve
-     * @param pool Balancer or Beethoven Pool to pull token information from
+     * @param poolId Balancer or Beethoven Pool ID
      * @param assetBalancesBefore Array to record initial token balances
      */
     function _ensureTokenOrderAndApprovals(
         IVault vault,
         uint256[] calldata amounts,
         address[] memory tokens,
-        IBalancerPool pool,
+        bytes32 poolId,
         uint256[] memory assetBalancesBefore
     ) private {
         // (two part verification: total number checked here, and individual match check below)
-        (IERC20[] memory poolAssets,,) = vault.getPoolTokens(pool.getPoolId());
+        (IERC20[] memory poolAssets,,) = vault.getPoolTokens(poolId);
 
         uint256 nTokens = amounts.length;
 
