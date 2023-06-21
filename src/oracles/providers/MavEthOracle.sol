@@ -7,6 +7,7 @@ import { IPool } from "src/interfaces/external/maverick/IPool.sol";
 import { IPoolPositionDynamicSlim } from "src/interfaces/external/maverick/IPoolPositionDynamicSlim.sol";
 import { Errors } from "src/utils/Errors.sol";
 import { IPriceOracle } from "src/interfaces/oracles/IPriceOracle.sol";
+import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
 
@@ -60,9 +61,11 @@ contract MavEthOracle is IPriceOracle, SecurityBase {
         // Get total supply of lp tokens from boosted position.
         uint256 boostedPositionTotalSupply = boostedPosition.totalSupply();
 
+        IRootPriceOracle rootPriceOracle = systemRegistry.rootPriceOracle();
+
         // Price pool tokens.
-        uint256 priceInEthTokenA = systemRegistry.rootPriceOracle().getPriceInEth(address(pool.tokenA()));
-        uint256 priceInEthTokenB = systemRegistry.rootPriceOracle().getPriceInEth(address(pool.tokenB()));
+        uint256 priceInEthTokenA = rootPriceOracle.getPriceInEth(address(pool.tokenA()));
+        uint256 priceInEthTokenB = rootPriceOracle.getPriceInEth(address(pool.tokenB()));
 
         // Calculate total value of each token in boosted position.
         uint256 totalBoostedPositionValueTokenA = reserveTokenA * priceInEthTokenA;
