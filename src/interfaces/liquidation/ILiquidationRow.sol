@@ -15,7 +15,6 @@ interface ILiquidationRow {
     error ZeroBalance();
     error NoVaults();
     error LengthsMismatch();
-    error InsufficientSellAmount();
     error SellAmountMismatch();
     error InsufficientBalance();
     error NothingToLiquidate();

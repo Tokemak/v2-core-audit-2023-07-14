@@ -171,21 +171,14 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
             _removeRewardToken(fromToken);
         }
 
-        uint256 balanceBefore = IERC20(params.buyTokenAddress).balanceOf(address(this));
-
-        _swapTokens(asyncSwapper, params);
-
         /// @todo integrate pricing to confirm that our specified minimum token is within a reasonable price
-        uint256 balanceDiff = IERC20(params.buyTokenAddress).balanceOf(address(this)) - balanceBefore;
-
-        if (balanceDiff < params.buyAmount) {
-            revert InsufficientSellAmount();
-        }
+        uint256 amountReceived = _swapTokens(asyncSwapper, params);
 
         uint256 gasUsedPerVault = (gasBefore - gasleft()) / vaultsToLiquidateLength;
         for (uint256 i = 0; i < vaultsToLiquidateLength; ++i) {
             address vaultAddress = vaultsToLiquidate[i];
-            uint256 amount = balanceDiff * vaultsBalances[i] / totalBalanceToLiquidate;
+
+            uint256 amount = amountReceived * vaultsBalances[i] / totalBalanceToLiquidate;
 
             IERC20(params.buyTokenAddress).safeTransfer(vaultAddress, amount);
 
@@ -199,12 +192,12 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
      * @param asyncSwapper The address of the async swapper
      * @param params Swap parameters for the async swapper
      */
-    function _swapTokens(address asyncSwapper, SwapParams memory params) private {
+    function _swapTokens(address asyncSwapper, SwapParams memory params) private returns (uint256) {
         if (!allowedSwappers.contains(asyncSwapper)) {
             revert AsyncSwapperNotAllowed();
         }
-        //slither-disable-next-line unused-return
-        IAsyncSwapper(asyncSwapper).swap(params);
+
+        return IAsyncSwapper(asyncSwapper).swap(params);
     }
 
     /**

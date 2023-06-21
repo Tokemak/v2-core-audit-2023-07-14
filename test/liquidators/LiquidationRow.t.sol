@@ -31,6 +31,7 @@ contract AsyncSwapperMock is BaseAsyncSwapper {
         /// @dev This is a mock function that will mint the target token to the liquidation row assuming that the swap
         /// was successful
         targetToken.mint(liquidationRow, params.sellAmount);
+        return params.sellAmount;
     }
 }
 
