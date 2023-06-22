@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
@@ -10,16 +11,9 @@ library LibAdapter {
     // Utils
     function _approve(IERC20 token, address spender, uint256 amount) internal {
         uint256 currentAllowance = token.allowance(address(this), spender);
-        if (currentAllowance == 0) {
-            token.approve(spender, amount);
+        if (currentAllowance > 0) {
+            token.safeDecreaseAllowance(spender, currentAllowance);
         }
-        if (currentAllowance < amount) {
-            token.safeIncreaseAllowance(spender, amount);
-        }
-        if (currentAllowance > amount) token.safeDecreaseAllowance(spender, currentAllowance);
-    }
-
-    function _approve(address token, address spender, uint256 amount) internal {
-        _approve(IERC20(token), spender, amount);
+        token.safeIncreaseAllowance(spender, amount);
     }
 }

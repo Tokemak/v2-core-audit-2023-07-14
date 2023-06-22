@@ -294,9 +294,6 @@ library BalancerBeethovenAdapter {
 
         _verifyPoolTokensMatch(params.tokens, poolTokens);
 
-        // Grant ERC20 approval for vault to spend our tokens
-        LibAdapter._approve(IERC20(params.pool), address(vault), params.bptAmount);
-
         // Record balance before withdraw
         uint256 bptBalanceBefore = IERC20(params.pool).balanceOf(address(this));
 
