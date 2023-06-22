@@ -3,7 +3,6 @@
 pragma solidity 0.8.17;
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { IVault } from "src/interfaces/external/balancer/IVault.sol";
 import { IBalancerPool } from "src/interfaces/external/balancer/IBalancerPool.sol";
@@ -13,8 +12,6 @@ import { BalancerUtilities } from "src/libs/BalancerUtilities.sol";
 import { Errors } from "src/utils/Errors.sol";
 
 library BalancerBeethovenAdapter {
-    using SafeERC20 for IERC20;
-
     event DeployLiquidity(
         uint256[] amountsDeposited,
         address[] tokens,
@@ -166,7 +163,8 @@ library BalancerBeethovenAdapter {
         }
 
         bool hasNonZeroAmount = false;
-        for (uint256 i = 0; i < exactAmountsOut.length; ++i) {
+        uint256 nTokens = exactAmountsOut.length;
+        for (uint256 i = 0; i < nTokens; ++i) {
             if (exactAmountsOut[i] != 0) {
                 hasNonZeroAmount = true;
                 break;
@@ -273,29 +271,34 @@ library BalancerBeethovenAdapter {
     /// @dev Helper method to avoid stack-too-deep-errors
     function _withdraw(IVault vault, WithdrawParams memory params) private returns (uint256[] memory amountsOut) {
         //slither-disable-start reentrancy-events
+
+        address pool = params.pool;
+        IBalancerPool poolInterface = IBalancerPool(pool);
+
         Errors.verifyNotZero(address(vault), "vault");
-        Errors.verifyNotZero(params.pool, "params.pool");
+        Errors.verifyNotZero(pool, "pool");
         Errors.verifyNotZero(params.bptAmount, "params.bptAmount");
 
         amountsOut = params.amountsOut;
+        address[] memory tokens = params.tokens;
 
-        uint256 nTokens = params.tokens.length;
+        uint256 nTokens = tokens.length;
         // slither-disable-next-line incorrect-equality
         if (nTokens == 0 || nTokens != amountsOut.length) {
             revert ArraysLengthMismatch();
         }
 
-        bytes32 poolId = IBalancerPool(params.pool).getPoolId();
+        bytes32 poolId = poolInterface.getPoolId();
         (IERC20[] memory poolTokens,,) = vault.getPoolTokens(poolId);
 
         if (poolTokens.length != nTokens) {
             revert ArraysLengthMismatch();
         }
 
-        _verifyPoolTokensMatch(params.tokens, poolTokens);
+        _verifyPoolTokensMatch(tokens, poolTokens);
 
         // Record balance before withdraw
-        uint256 bptBalanceBefore = IERC20(params.pool).balanceOf(address(this));
+        uint256 bptBalanceBefore = poolInterface.balanceOf(address(this));
 
         uint256[] memory assetBalancesBefore = new uint256[](nTokens);
         for (uint256 i = 0; i < nTokens; ++i) {
@@ -317,7 +320,7 @@ library BalancerBeethovenAdapter {
         );
 
         // Make sure we burned BPT, and assets were received
-        uint256 bptBalanceAfter = IERC20(params.pool).balanceOf(address(this));
+        uint256 bptBalanceAfter = poolInterface.balanceOf(address(this));
         if (bptBalanceAfter >= bptBalanceBefore) {
             revert InvalidBalanceChange();
         }
@@ -326,7 +329,7 @@ library BalancerBeethovenAdapter {
             uint256 assetBalanceBefore = assetBalancesBefore[i];
 
             IERC20 currentToken = poolTokens[i];
-            if (address(currentToken) != params.pool) {
+            if (address(currentToken) != pool) {
                 uint256 currentBalance = currentToken.balanceOf(address(this));
 
                 if (currentBalance < assetBalanceBefore + amountsOut[i]) {
@@ -338,9 +341,9 @@ library BalancerBeethovenAdapter {
         }
         emit WithdrawLiquidity(
             amountsOut,
-            params.tokens,
-            [bptBalanceBefore - bptBalanceAfter, bptBalanceAfter, IERC20(params.pool).totalSupply()],
-            params.pool,
+            tokens,
+            [bptBalanceBefore - bptBalanceAfter, bptBalanceAfter, poolInterface.totalSupply()],
+            pool,
             poolId
         );
         //slither-disable-end reentrancy-events
@@ -348,7 +351,8 @@ library BalancerBeethovenAdapter {
 
     // run through tokens and make sure it matches the pool's assets
     function _verifyPoolTokensMatch(address[] memory tokens, IERC20[] memory poolTokens) private pure {
-        for (uint256 i = 0; i < tokens.length; ++i) {
+        uint256 nTokens = tokens.length;
+        for (uint256 i = 0; i < nTokens; ++i) {
             IERC20 currentToken = IERC20(tokens[i]);
             if (currentToken != poolTokens[i]) {
                 revert TokenPoolAssetMismatch();
