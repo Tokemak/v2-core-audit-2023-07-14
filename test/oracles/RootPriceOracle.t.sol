@@ -11,7 +11,7 @@ import { RootPriceOracle } from "src/oracles/RootPriceOracle.sol";
 import { IPriceOracle } from "src/interfaces/oracles/IPriceOracle.sol";
 import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { Errors } from "src/utils/Errors.sol";
-import { ISystemBound } from "src/interfaces/ISystemBound.sol";
+import { ISystemComponent } from "src/interfaces/ISystemComponent.sol";
 import { IAccessController } from "src/interfaces/security/IAccessController.sol";
 import { TOKE_MAINNET, WETH_MAINNET } from "test/utils/Addresses.sol";
 
@@ -43,18 +43,18 @@ contract RootPriceOracleTests is Test {
 
         address badRegistry = vm.addr(888);
         address badOracle = vm.addr(999);
-        mockSystemBound(badOracle, badRegistry);
+        mockSystemComponent(badOracle, badRegistry);
         vm.expectRevert(abi.encodeWithSelector(Errors.SystemMismatch.selector, address(_rootPriceOracle), badOracle));
         _rootPriceOracle.registerMapping(vm.addr(23), IPriceOracle(badOracle));
     }
 
     function testReplacingAttemptOnRegister() public {
         address oracle = vm.addr(999);
-        mockSystemBound(oracle, address(_systemRegistry));
+        mockSystemComponent(oracle, address(_systemRegistry));
         _rootPriceOracle.registerMapping(vm.addr(23), IPriceOracle(oracle));
 
         address newOracle = vm.addr(9996);
-        mockSystemBound(newOracle, address(_systemRegistry));
+        mockSystemComponent(newOracle, address(_systemRegistry));
         vm.expectRevert(abi.encodeWithSelector(RootPriceOracle.AlreadyRegistered.selector, vm.addr(23)));
         _rootPriceOracle.registerMapping(vm.addr(23), IPriceOracle(newOracle));
     }
@@ -62,7 +62,7 @@ contract RootPriceOracleTests is Test {
     function testSuccessfulRegister() public {
         address token = vm.addr(5);
         address oracle = vm.addr(999);
-        mockSystemBound(oracle, address(_systemRegistry));
+        mockSystemComponent(oracle, address(_systemRegistry));
         _rootPriceOracle.registerMapping(token, IPriceOracle(oracle));
 
         assertEq(address(_rootPriceOracle.tokenMappings(token)), oracle);
@@ -79,7 +79,7 @@ contract RootPriceOracleTests is Test {
         _rootPriceOracle.replaceMapping(vm.addr(23), IPriceOracle(vm.addr(23)), IPriceOracle(address(0)));
 
         address oracle = vm.addr(999);
-        mockSystemBound(oracle, address(vm.addr(333)));
+        mockSystemComponent(oracle, address(vm.addr(333)));
         vm.expectRevert(abi.encodeWithSelector(Errors.SystemMismatch.selector, address(_rootPriceOracle), oracle));
         _rootPriceOracle.replaceMapping(vm.addr(23), IPriceOracle(vm.addr(23)), IPriceOracle(oracle));
     }
@@ -87,11 +87,11 @@ contract RootPriceOracleTests is Test {
     function testReplaceMustMatchOld() public {
         address token = vm.addr(5);
         address oracle = vm.addr(999);
-        mockSystemBound(oracle, address(_systemRegistry));
+        mockSystemComponent(oracle, address(_systemRegistry));
         _rootPriceOracle.registerMapping(token, IPriceOracle(oracle));
 
         address newOracle = vm.addr(9998);
-        mockSystemBound(newOracle, address(_systemRegistry));
+        mockSystemComponent(newOracle, address(_systemRegistry));
         address badOld = vm.addr(5454);
         vm.expectRevert(abi.encodeWithSelector(RootPriceOracle.ReplaceOldMismatch.selector, token, badOld, oracle));
         _rootPriceOracle.replaceMapping(token, IPriceOracle(badOld), IPriceOracle(newOracle));
@@ -100,7 +100,7 @@ contract RootPriceOracleTests is Test {
     function testReplaceMustBeNew() public {
         address token = vm.addr(5);
         address oracle = vm.addr(999);
-        mockSystemBound(oracle, address(_systemRegistry));
+        mockSystemComponent(oracle, address(_systemRegistry));
         _rootPriceOracle.registerMapping(token, IPriceOracle(oracle));
 
         vm.expectRevert(abi.encodeWithSelector(RootPriceOracle.ReplaceAlreadyMatches.selector, token, oracle));
@@ -110,11 +110,11 @@ contract RootPriceOracleTests is Test {
     function testReplaceIsSet() public {
         address token = vm.addr(5);
         address oracle = vm.addr(999);
-        mockSystemBound(oracle, address(_systemRegistry));
+        mockSystemComponent(oracle, address(_systemRegistry));
         _rootPriceOracle.registerMapping(token, IPriceOracle(oracle));
 
         address newOracle = vm.addr(9998);
-        mockSystemBound(newOracle, address(_systemRegistry));
+        mockSystemComponent(newOracle, address(_systemRegistry));
         _rootPriceOracle.replaceMapping(token, IPriceOracle(oracle), IPriceOracle(newOracle));
 
         assertEq(address(_rootPriceOracle.tokenMappings(token)), newOracle);
@@ -135,7 +135,7 @@ contract RootPriceOracleTests is Test {
     function testRemoveDeletes() public {
         address token = vm.addr(5);
         address oracle = vm.addr(999);
-        mockSystemBound(oracle, address(_systemRegistry));
+        mockSystemComponent(oracle, address(_systemRegistry));
         _rootPriceOracle.registerMapping(token, IPriceOracle(oracle));
 
         _rootPriceOracle.removeMapping(token);
@@ -172,7 +172,7 @@ contract RootPriceOracleTests is Test {
         address oracle = vm.addr(44_444);
         address token = vm.addr(55);
         mockOracle(oracle, token, 5e18);
-        mockSystemBound(oracle, address(_systemRegistry));
+        mockSystemComponent(oracle, address(_systemRegistry));
         _rootPriceOracle.registerMapping(token, IPriceOracle(oracle));
 
         uint256 price = _rootPriceOracle.getPriceInEth(token);
@@ -184,7 +184,7 @@ contract RootPriceOracleTests is Test {
         address oracle = vm.addr(44_444);
         address token = vm.addr(55);
         mockOracle(oracle, token, 5e18);
-        mockSystemBound(oracle, address(_systemRegistry));
+        mockSystemComponent(oracle, address(_systemRegistry));
         _rootPriceOracle.registerMapping(token, IPriceOracle(oracle));
 
         vm.expectRevert(abi.encodeWithSelector(RootPriceOracle.MissingTokenOracle.selector, vm.addr(44)));
@@ -197,7 +197,7 @@ contract RootPriceOracleTests is Test {
         );
     }
 
-    function mockSystemBound(address component, address system) internal {
-        vm.mockCall(component, abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector), abi.encode(system));
+    function mockSystemComponent(address component, address system) internal {
+        vm.mockCall(component, abi.encodeWithSelector(ISystemComponent.getSystemRegistry.selector), abi.encode(system));
     }
 }

@@ -8,13 +8,11 @@ import { ISfrxEth } from "src/interfaces/external/frax/ISfrxEth.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IPriceOracle } from "src/interfaces/oracles/IPriceOracle.sol";
 import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
 
 /// @title Price oracle specifically for sfrxETH
 /// @dev getPriceEth is not a view fn to support reentrancy checks. Dont actually change state.
-contract SfrxEthEthOracle is IPriceOracle {
-    /// @notice The system this oracle will be registered with
-    ISystemRegistry public immutable systemRegistry;
-
+contract SfrxEthEthOracle is SystemComponent, IPriceOracle {
     ISfrxEth public immutable sfrxETH;
     IERC20Metadata public immutable frxETH;
     uint256 public immutable frxETHPrecision;
@@ -22,14 +20,12 @@ contract SfrxEthEthOracle is IPriceOracle {
     error InvalidToken(address token);
     error InvalidDecimals(address token, uint8 decimals);
 
-    constructor(ISystemRegistry _systemRegistry, address _sfrxETH) {
+    constructor(ISystemRegistry _systemRegistry, address _sfrxETH) SystemComponent(_systemRegistry) {
         // System registry must be properly initialized first
         Errors.verifyNotZero(address(_systemRegistry), "_systemRegistry");
         Errors.verifyNotZero(address(_systemRegistry.rootPriceOracle()), "rootPriceOracle");
 
         Errors.verifyNotZero(address(_sfrxETH), "_sfrxETH");
-
-        systemRegistry = _systemRegistry;
 
         sfrxETH = ISfrxEth(_sfrxETH);
 
@@ -57,9 +53,5 @@ contract SfrxEthEthOracle is IPriceOracle {
 
         // Our prices are always in 1e18 so just use frxETH precision to get back to 1e18;
         price = (sfrxETH.pricePerShare() * frxETHPrice) / frxETHPrecision;
-    }
-
-    function getSystemRegistry() external view returns (address registry) {
-        return address(systemRegistry);
     }
 }

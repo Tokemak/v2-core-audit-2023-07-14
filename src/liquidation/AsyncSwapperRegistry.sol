@@ -9,18 +9,17 @@ import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
 import { Roles } from "src/libs/Roles.sol";
 import { Errors } from "src/utils/Errors.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
 
-contract AsyncSwapperRegistry is IAsyncSwapperRegistry, SecurityBase {
+contract AsyncSwapperRegistry is SystemComponent, IAsyncSwapperRegistry, SecurityBase {
     using EnumerableSet for EnumerableSet.AddressSet;
-
-    ISystemRegistry private immutable systemRegistry;
 
     EnumerableSet.AddressSet private _swappers;
 
-    constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
-        Errors.verifyNotZero(address(_systemRegistry), "_systemRegistry");
-        systemRegistry = _systemRegistry;
-    }
+    constructor(ISystemRegistry _systemRegistry)
+        SystemComponent(_systemRegistry)
+        SecurityBase(address(_systemRegistry.accessController()))
+    { }
 
     function register(address swapperAddress) external override hasRole(Roles.REGISTRY_UPDATER) {
         Errors.verifyNotZero(swapperAddress, "swapperAddress");
@@ -48,9 +47,5 @@ contract AsyncSwapperRegistry is IAsyncSwapperRegistry, SecurityBase {
 
     function list() external view override returns (address[] memory) {
         return _swappers.values();
-    }
-
-    function getSystemRegistry() external view returns (address) {
-        return address(systemRegistry);
     }
 }

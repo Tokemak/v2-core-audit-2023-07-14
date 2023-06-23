@@ -6,7 +6,7 @@ import { Test } from "forge-std/Test.sol";
 import { Roles } from "src/libs/Roles.sol";
 import { Errors } from "src/utils/Errors.sol";
 import { SystemRegistry } from "src/SystemRegistry.sol";
-import { ISystemBound } from "src/interfaces/ISystemBound.sol";
+import { ISystemComponent } from "src/interfaces/ISystemComponent.sol";
 import { AccessController } from "src/security/AccessController.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
@@ -157,7 +157,7 @@ contract StatsCalculatorRegistryTests is Test {
 
     function generateFactory(ISystemRegistry sysRegistry) internal returns (address) {
         address f = vm.addr(7);
-        vm.mockCall(f, abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector), abi.encode(sysRegistry));
+        vm.mockCall(f, abi.encodeWithSelector(ISystemComponent.getSystemRegistry.selector), abi.encode(sysRegistry));
         return f;
     }
 

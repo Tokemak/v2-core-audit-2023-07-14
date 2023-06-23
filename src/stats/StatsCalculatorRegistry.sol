@@ -10,11 +10,10 @@ import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
 import { IStatsCalculatorFactory } from "src/interfaces/stats/IStatsCalculatorFactory.sol";
 import { IStatsCalculatorRegistry } from "src/interfaces/stats/IStatsCalculatorRegistry.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
 
-contract StatsCalculatorRegistry is IStatsCalculatorRegistry, SecurityBase {
+contract StatsCalculatorRegistry is SystemComponent, IStatsCalculatorRegistry, SecurityBase {
     using Clones for address;
-
-    ISystemRegistry private immutable systemRegistry;
 
     /// @notice Currently registered factory. Only thing can register new calculators
     IStatsCalculatorFactory public factory;
@@ -38,9 +37,10 @@ contract StatsCalculatorRegistry is IStatsCalculatorRegistry, SecurityBase {
     error SystemMismatch(address ours, address theirs);
     error AlreadyRegistered(bytes32 aprId, address calculator);
 
-    constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
-        systemRegistry = _systemRegistry;
-    }
+    constructor(ISystemRegistry _systemRegistry)
+        SystemComponent(_systemRegistry)
+        SecurityBase(address(_systemRegistry.accessController()))
+    { }
 
     function getCalculator(bytes32 aprId) external view returns (IStatsCalculator calculator) {
         address calcAddress = calculators[aprId];
@@ -80,9 +80,5 @@ contract StatsCalculatorRegistry is IStatsCalculatorRegistry, SecurityBase {
         if (factorySystem != systemRegistry) {
             revert SystemMismatch(address(systemRegistry), address(factorySystem));
         }
-    }
-
-    function getSystemRegistry() external view returns (address) {
-        return address(systemRegistry);
     }
 }

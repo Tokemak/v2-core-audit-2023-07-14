@@ -15,10 +15,9 @@ import { IGPToke } from "src/interfaces/staking/IGPToke.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
 import { Errors } from "src/utils/Errors.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
 
-contract GPToke is IGPToke, ERC20Votes, ReentrancyGuard, Pausable, SecurityBase {
-    ISystemRegistry internal immutable systemRegistry;
-
+contract GPToke is IGPToke, ERC20Votes, ReentrancyGuard, Pausable, SystemComponent, SecurityBase {
     // variables
     uint256 public immutable startEpoch;
     uint256 public immutable minStakeDuration;
@@ -36,10 +35,14 @@ contract GPToke is IGPToke, ERC20Votes, ReentrancyGuard, Pausable, SecurityBase 
         address _toke,
         uint256 _startEpoch,
         uint256 _minStakeDuration
-    ) ERC20("Staked Toke", "gpToke") ERC20Permit("gpToke") SecurityBase(address(_systemRegistry.accessController())) {
+    )
+        SystemComponent(_systemRegistry)
+        ERC20("Staked Toke", "gpToke")
+        ERC20Permit("gpToke")
+        SecurityBase(address(_systemRegistry.accessController()))
+    {
         Errors.verifyNotZero(_toke, "_toke");
 
-        systemRegistry = _systemRegistry;
         toke = ERC20(_toke);
         startEpoch = _startEpoch;
         minStakeDuration = _minStakeDuration;
@@ -164,9 +167,5 @@ contract GPToke is IGPToke, ERC20Votes, ReentrancyGuard, Pausable, SecurityBase 
 
     function unpause() external onlyOwner {
         _unpause();
-    }
-
-    function getSystemRegistry() external view returns (address) {
-        return address(systemRegistry);
     }
 }

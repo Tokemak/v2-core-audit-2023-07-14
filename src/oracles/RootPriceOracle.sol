@@ -8,11 +8,9 @@ import { SecurityBase } from "src/security/SecurityBase.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IPriceOracle } from "src/interfaces/oracles/IPriceOracle.sol";
 import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
 
-contract RootPriceOracle is SecurityBase, IRootPriceOracle {
-    /// @notice The system this oracle will be registered with
-    ISystemRegistry private immutable systemRegistry;
-
+contract RootPriceOracle is SystemComponent, SecurityBase, IRootPriceOracle {
     mapping(address => IPriceOracle) public tokenMappings;
 
     event TokenRemoved(address token);
@@ -25,11 +23,10 @@ contract RootPriceOracle is SecurityBase, IRootPriceOracle {
     error ReplaceOldMismatch(address token, address oldExpected, address oldActual);
     error ReplaceAlreadyMatches(address token, address newOracle);
 
-    constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
-        Errors.verifyNotZero(address(_systemRegistry), "_systemRegistry");
-
-        systemRegistry = _systemRegistry;
-    }
+    constructor(ISystemRegistry _systemRegistry)
+        SystemComponent(_systemRegistry)
+        SecurityBase(address(_systemRegistry.accessController()))
+    { }
 
     /// @notice Register a new token to oracle mapping
     /// @dev May require additional registration in the oracle itself
@@ -38,7 +35,7 @@ contract RootPriceOracle is SecurityBase, IRootPriceOracle {
     function registerMapping(address token, IPriceOracle oracle) external onlyOwner {
         Errors.verifyNotZero(token, "token");
         Errors.verifyNotZero(address(oracle), "oracle");
-        Errors.verifySystemsMatch(this, oracle);
+        Errors.verifySystemsMatch(address(this), address(oracle));
 
         // We want the operation of replacing a mapping to be an explicit
         // call so we don't accidentally overwrite something
@@ -60,7 +57,7 @@ contract RootPriceOracle is SecurityBase, IRootPriceOracle {
         Errors.verifyNotZero(token, "token");
         Errors.verifyNotZero(address(oldOracle), "oldOracle");
         Errors.verifyNotZero(address(newOracle), "newOracle");
-        Errors.verifySystemsMatch(this, newOracle);
+        Errors.verifySystemsMatch(address(this), address(newOracle));
 
         // We want to ensure you know what you're replacing so ensure
         // you provide a matching old value
@@ -107,9 +104,5 @@ contract RootPriceOracle is SecurityBase, IRootPriceOracle {
         }
 
         price = oracle.getPriceInEth(token);
-    }
-
-    function getSystemRegistry() external view returns (address registry) {
-        return address(systemRegistry);
     }
 }

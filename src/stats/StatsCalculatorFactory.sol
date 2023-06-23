@@ -9,11 +9,10 @@ import { Clones } from "openzeppelin-contracts/proxy/Clones.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
 import { IStatsCalculatorFactory } from "src/interfaces/stats/IStatsCalculatorFactory.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
 
-contract StatsCalculatorFactory is IStatsCalculatorFactory, SecurityBase {
+contract StatsCalculatorFactory is SystemComponent, IStatsCalculatorFactory, SecurityBase {
     using Clones for address;
-
-    ISystemRegistry private immutable systemRegistry;
 
     /// @notice Registered stat calculator templates
     mapping(bytes32 => address) public templates;
@@ -41,9 +40,10 @@ contract StatsCalculatorFactory is IStatsCalculatorFactory, SecurityBase {
     error TemplateReplaceMismatch(bytes32 aprTemplateId, address actualOld, address specifiedOld);
     error TemplateReplaceMatches(bytes32 aprTemplateId, address actualOld, address specifiedOld);
 
-    constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
-        systemRegistry = _systemRegistry;
-    }
+    constructor(ISystemRegistry _systemRegistry)
+        SystemComponent(_systemRegistry)
+        SecurityBase(address(_systemRegistry.accessController()))
+    { }
 
     /// @inheritdoc IStatsCalculatorFactory
     function create(
@@ -125,9 +125,5 @@ contract StatsCalculatorFactory is IStatsCalculatorFactory, SecurityBase {
         emit TemplateRemoved(aprTemplateId, templates[aprTemplateId]);
 
         delete templates[aprTemplateId];
-    }
-
-    function getSystemRegistry() external view returns (address) {
-        return address(systemRegistry);
     }
 }

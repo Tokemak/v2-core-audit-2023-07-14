@@ -2,10 +2,10 @@
 // Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
-import { ISystemBound } from "src/interfaces/ISystemBound.sol";
+import { ISystemComponent } from "src/interfaces/ISystemComponent.sol";
 
 /// @title Create and register stat calculators
-interface IStatsCalculatorFactory is ISystemBound {
+interface IStatsCalculatorFactory is ISystemComponent {
     /// @notice Create an instance of a calculator pointed to a pool or destination
     /// @param aprTemplateId id of the template registered with the factory
     /// @param dependentAprIds apr ids that cover the dependencies of this calculator

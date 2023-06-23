@@ -10,13 +10,11 @@ import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IPriceOracle } from "src/interfaces/oracles/IPriceOracle.sol";
 import { IUniswapV2Pair } from "src/interfaces/external/uniswap/IUniswapV2Pair.sol";
 import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
 
 /// @title Price oracle for Uni V2 style, 50/50 pools
 /// @dev getPriceEth is not a view fn to support reentrancy checks. Dont actually change state.
-contract UniswapV2EthOracle is SecurityBase, IPriceOracle {
-    /// @notice The system this oracle will be registered with
-    ISystemRegistry public immutable systemRegistry;
-
+contract UniswapV2EthOracle is SystemComponent, SecurityBase, IPriceOracle {
     struct PairRegistration {
         address token0;
         uint96 numeratorPad;
@@ -34,12 +32,12 @@ contract UniswapV2EthOracle is SecurityBase, IPriceOracle {
     error InvalidDecimals(uint8 decimals);
     error NotRegistered(address pairAddress);
 
-    constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
+    constructor(ISystemRegistry _systemRegistry)
+        SystemComponent(_systemRegistry)
+        SecurityBase(address(_systemRegistry.accessController()))
+    {
         // System registry must be properly initialized first
-        Errors.verifyNotZero(address(_systemRegistry), "_systemRegistry");
         Errors.verifyNotZero(address(_systemRegistry.rootPriceOracle()), "rootPriceOracle");
-
-        systemRegistry = _systemRegistry;
     }
 
     function register(address pairAddress) external onlyOwner {
@@ -108,10 +106,6 @@ contract UniswapV2EthOracle is SecurityBase, IPriceOracle {
         uint256 value = (2 * sqR * sqP); // >= e36
         uint256 scaledSupply = (totalSupply * registration.denominatorPad); // >= e18, < e36
         price = value / scaledSupply; // e18
-    }
-
-    function getSystemRegistry() external view returns (address registry) {
-        return address(systemRegistry);
     }
 
     function _getReserves(address token) internal view virtual returns (uint256 reserve0, uint256 reserve1) {

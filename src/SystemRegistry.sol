@@ -8,7 +8,6 @@ import { IWETH9 } from "src/interfaces/utils/IWETH9.sol";
 import { IGPToke } from "src/interfaces/staking/IGPToke.sol";
 import { Errors } from "src/utils/Errors.sol";
 import { Ownable2Step } from "./access/Ownable2Step.sol";
-import { ISystemBound } from "src/interfaces/ISystemBound.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { ILMPVaultRouter } from "src/interfaces/vault/ILMPVaultRouter.sol";
 import { ILMPVaultFactory } from "src/interfaces/vault/ILMPVaultFactory.sol";

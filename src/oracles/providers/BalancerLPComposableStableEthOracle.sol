@@ -10,27 +10,22 @@ import { IPriceOracle } from "src/interfaces/oracles/IPriceOracle.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IVault as IBalancerVault } from "src/interfaces/external/balancer/IVault.sol";
 import { IBalancerComposableStablePool } from "src/interfaces/external/balancer/IBalancerComposableStablePool.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
 
 /// @title Price oracle for Balancer Composable Stable pools
 /// @dev getPriceEth is not a view fn to support reentrancy checks. Dont actually change state.
-contract BalancerLPComposableStableEthOracle is IPriceOracle {
-    /// @notice The system this oracle will be registered with
-    ISystemRegistry public immutable systemRegistry;
-
+contract BalancerLPComposableStableEthOracle is SystemComponent, IPriceOracle {
     /// @notice The Balancer Vault that all tokens we're resolving here should reference
     /// @dev BPTs themselves are configured with an immutable vault reference
     IBalancerVault public immutable balancerVault;
 
     error InvalidPrice(address token, uint256 price);
 
-    constructor(ISystemRegistry _systemRegistry, IBalancerVault _balancerVault) {
+    constructor(ISystemRegistry _systemRegistry, IBalancerVault _balancerVault) SystemComponent(_systemRegistry) {
         // System registry must be properly initialized first
-        Errors.verifyNotZero(address(_systemRegistry), "_systemRegistry");
         Errors.verifyNotZero(address(_systemRegistry.rootPriceOracle()), "rootPriceOracle");
-
         Errors.verifyNotZero(address(_balancerVault), "_balancerVault");
 
-        systemRegistry = _systemRegistry;
         balancerVault = _balancerVault;
     }
 
@@ -75,9 +70,5 @@ contract BalancerLPComposableStableEthOracle is IPriceOracle {
         // Intentional precision loss, prices should always be in e18
         // slither-disable-next-line divide-before-multiply
         price = (minPrice * pool.getRate()) / 1e18;
-    }
-
-    function getSystemRegistry() external view returns (address registry) {
-        return address(systemRegistry);
     }
 }

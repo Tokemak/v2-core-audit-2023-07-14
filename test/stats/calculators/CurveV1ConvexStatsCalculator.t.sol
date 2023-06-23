@@ -5,8 +5,6 @@ pragma solidity >=0.8.7;
 import { Test } from "forge-std/Test.sol";
 import { Stats } from "src/stats/Stats.sol";
 import { Roles } from "src/libs/Roles.sol";
-import { ISystemBound } from "src/interfaces/ISystemBound.sol";
-import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
 
 import { IAccessControl } from "openzeppelin-contracts/access/IAccessControl.sol";

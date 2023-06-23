@@ -3,10 +3,8 @@
 
 pragma solidity 0.8.17;
 
-import { ISystemBound } from "src/interfaces/ISystemBound.sol";
-
 /// @notice An oracle that can provide prices for single or multiple classes of tokens
-interface IPriceOracle is ISystemBound {
+interface IPriceOracle {
     /// @notice Returns a fair price for the provided token in ETH
     /// @dev May require additional registration with the provider before being used for a token
     /// @param token Token to get the price of

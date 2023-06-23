@@ -12,27 +12,22 @@ import { IVault as IBalancerVault } from "src/interfaces/external/balancer/IVaul
 import { IProtocolFeesCollector } from "src/interfaces/external/balancer/IProtocolFeesCollector.sol";
 import { IBalancerMetaStablePool } from "src/interfaces/external/balancer/IBalancerMetaStablePool.sol";
 import { IRateProvider } from "src/interfaces/external/balancer/IRateProvider.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
 
 /// @title Price oracle for Balancer Meta Stable pools
 /// @dev getPriceEth is not a view fn to support reentrancy checks. Dont actually change state.
-contract BalancerLPMetaStableEthOracle is IPriceOracle {
-    /// @notice The system this oracle will be registered with
-    ISystemRegistry public immutable systemRegistry;
-
+contract BalancerLPMetaStableEthOracle is SystemComponent, IPriceOracle {
     /// @notice Balancer vault all BPTs registered to point here should reference
     /// @dev BPTs themselves are configured with an immutable vault reference
     IBalancerVault public immutable balancerVault;
 
     error InvalidTokenCount(address token, uint256 length);
 
-    constructor(ISystemRegistry _systemRegistry, IBalancerVault _balancerVault) {
+    constructor(ISystemRegistry _systemRegistry, IBalancerVault _balancerVault) SystemComponent(_systemRegistry) {
         // System registry must be properly initialized first
-        Errors.verifyNotZero(address(_systemRegistry), "_systemRegistry");
         Errors.verifyNotZero(address(_systemRegistry.rootPriceOracle()), "rootPriceOracle");
-
         Errors.verifyNotZero(address(_balancerVault), "_balancerVault");
 
-        systemRegistry = _systemRegistry;
         balancerVault = _balancerVault;
     }
 
@@ -81,9 +76,5 @@ contract BalancerLPMetaStableEthOracle is IPriceOracle {
 
         price = ((px0 > px1 ? px1 : px0) * virtualPrice) / 1e18;
         // slither-disable-end divide-before-multiply
-    }
-
-    function getSystemRegistry() external view returns (address registry) {
-        return address(systemRegistry);
     }
 }

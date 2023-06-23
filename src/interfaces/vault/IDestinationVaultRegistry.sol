@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { ISystemBound } from "src/interfaces/ISystemBound.sol";
-
 /// @notice Tracks valid Destination Vaults for the system
-interface IDestinationVaultRegistry is ISystemBound {
+interface IDestinationVaultRegistry {
     /// @notice Determines if a given address is a valid Destination Vault in the system
     /// @param destinationVault address to check
     /// @return True if vault is registered

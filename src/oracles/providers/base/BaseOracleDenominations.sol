@@ -8,9 +8,10 @@ import { Errors } from "src/utils/Errors.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { Ownable } from "openzeppelin-contracts/access/Ownable.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
 
 /// @title Base functionalities for Chainlink and Tellor Oracle contracts.
-abstract contract BaseOracleDenominations is IPriceOracle, SecurityBase {
+abstract contract BaseOracleDenominations is SystemComponent, IPriceOracle, SecurityBase {
     /// @notice Used to denote what denomination a token is in.
     enum Denomination {
         ETH,
@@ -27,21 +28,14 @@ abstract contract BaseOracleDenominations is IPriceOracle, SecurityBase {
      */
     address public constant ETH_IN_USD = address(bytes20("ETH_IN_USD"));
 
-    /// @notice The system this oracle will be registered with
-    ISystemRegistry public immutable systemRegistry;
-
     // Thrown in the event that parameter returned with data is invalid.  Timestamp, pricing, etc.
     error InvalidDataReturned();
 
-    constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
-        Errors.verifyNotZero(address(_systemRegistry), "_systemRegistry");
+    constructor(ISystemRegistry _systemRegistry)
+        SystemComponent(_systemRegistry)
+        SecurityBase(address(_systemRegistry.accessController()))
+    {
         Errors.verifyNotZero(address(_systemRegistry.rootPriceOracle()), "rootPriceOracle");
-
-        systemRegistry = _systemRegistry;
-    }
-
-    function getSystemRegistry() external view returns (address registry) {
-        return address(systemRegistry);
     }
 
     // Handles non-Eth denomination if neccessary.

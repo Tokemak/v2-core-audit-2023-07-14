@@ -32,7 +32,7 @@ contract SwEthEthOracleTest is Test {
     }
 
     function test_StateVariablesSetConstructor() external {
-        assertEq(address(swEthOracle.systemRegistry()), address(1));
+        assertEq(address(swEthOracle.getSystemRegistry()), address(1));
         assertEq(address(swEthOracle.swEth()), SWETH_MAINNET);
     }
 

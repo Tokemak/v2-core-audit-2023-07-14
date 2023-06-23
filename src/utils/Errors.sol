@@ -1,9 +1,10 @@
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { ISystemBound } from "src/interfaces/ISystemBound.sol";
+import { Address } from "openzeppelin-contracts/utils/Address.sol";
 
 library Errors {
+    using Address for address;
     ///////////////////////////////////////////////////////////////////
     //                       Set errors
     ///////////////////////////////////////////////////////////////////
@@ -55,9 +56,14 @@ library Errors {
         }
     }
 
-    function verifySystemsMatch(ISystemBound component1, ISystemBound component2) internal view {
-        if (component1.getSystemRegistry() != component2.getSystemRegistry()) {
-            revert SystemMismatch(address(component1), address(component2));
+    function verifySystemsMatch(address component1, address component2) internal view {
+        bytes memory call = abi.encodeWithSignature("getSystemRegistry()");
+
+        address registry1 = abi.decode(component1.functionStaticCall(call), (address));
+        address registry2 = abi.decode(component2.functionStaticCall(call), (address));
+
+        if (registry1 != registry2) {
+            revert SystemMismatch(component1, component2);
         }
     }
 }

@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { ISystemBound } from "src/interfaces/ISystemBound.sol";
 import { IDestinationAdapter } from "./IDestinationAdapter.sol";
 
-interface IDestinationRegistry is ISystemBound {
+interface IDestinationRegistry {
     event Register(bytes32[] indexed destinationTypes, address[] indexed targets);
     event Replace(bytes32[] indexed destinationTypes, address[] indexed targets);
     event Unregister(bytes32[] indexed destinationTypes);

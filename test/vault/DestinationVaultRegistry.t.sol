@@ -3,7 +3,7 @@ pragma solidity >=0.8.7;
 
 import { Errors } from "src/utils/Errors.sol";
 import { SystemRegistry } from "src/SystemRegistry.sol";
-import { ISystemBound } from "src/interfaces/ISystemBound.sol";
+import { ISystemComponent } from "src/interfaces/ISystemComponent.sol";
 import { Test, StdCheats, StdUtils } from "forge-std/Test.sol";
 import { DestinationVault } from "src/vault/DestinationVault.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
@@ -125,14 +125,14 @@ contract DestinationVaultRegistryBaseTests is Test {
 
     function generateFactory(ISystemRegistry sysRegistry) internal returns (address) {
         address f = vm.addr(7);
-        vm.mockCall(f, abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector), abi.encode(sysRegistry));
+        vm.mockCall(f, abi.encodeWithSelector(ISystemComponent.getSystemRegistry.selector), abi.encode(sysRegistry));
         return f;
     }
 
     function generateDestinationVault(ISystemRegistry sysRegistry) internal returns (address) {
         destinationVaultCounter++;
-        address vault = vm.addr(destinationVaultCounter);
-        vm.mockCall(vault, abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector), abi.encode(sysRegistry));
-        return vault;
+        address v = vm.addr(destinationVaultCounter);
+        vm.mockCall(v, abi.encodeWithSelector(ISystemComponent.getSystemRegistry.selector), abi.encode(sysRegistry));
+        return v;
     }
 }

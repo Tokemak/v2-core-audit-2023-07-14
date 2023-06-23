@@ -2,11 +2,10 @@
 // Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
-import { ISystemBound } from "src/interfaces/ISystemBound.sol";
 import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
 
 /// @notice Track stat calculators for this instance of the system
-interface IStatsCalculatorRegistry is ISystemBound {
+interface IStatsCalculatorRegistry {
     /// @notice Get a registered calculator
     /// @dev Should revert if missing
     /// @param aprId key of the calculator to get

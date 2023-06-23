@@ -10,11 +10,10 @@ import { AccessControl } from "openzeppelin-contracts/access/AccessControl.sol";
 import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 import { IDestinationVaultFactory } from "src/interfaces/vault/IDestinationVaultFactory.sol";
 import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
 
-contract DestinationVaultRegistry is IDestinationVaultRegistry, SecurityBase {
+contract DestinationVaultRegistry is SystemComponent, IDestinationVaultRegistry, SecurityBase {
     using EnumerableSet for EnumerableSet.AddressSet;
-
-    ISystemRegistry private immutable systemRegistry;
 
     IDestinationVaultFactory public factory;
     EnumerableSet.AddressSet private vaults;
@@ -33,9 +32,10 @@ contract DestinationVaultRegistry is IDestinationVaultRegistry, SecurityBase {
     error AlreadyRegistered(address vaultAddress);
     error SystemMismatch(address ours, address theirs);
 
-    constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
-        systemRegistry = _systemRegistry;
-    }
+    constructor(ISystemRegistry _systemRegistry)
+        SystemComponent(_systemRegistry)
+        SecurityBase(address(_systemRegistry.accessController()))
+    { }
 
     /// @inheritdoc IDestinationVaultRegistry
     function isRegistered(address destinationVault) external view returns (bool) {
@@ -70,9 +70,5 @@ contract DestinationVaultRegistry is IDestinationVaultRegistry, SecurityBase {
         if (factorySystem != systemRegistry) {
             revert SystemMismatch(address(systemRegistry), address(factorySystem));
         }
-    }
-
-    function getSystemRegistry() external view returns (address) {
-        return address(systemRegistry);
     }
 }

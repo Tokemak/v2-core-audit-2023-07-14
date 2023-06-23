@@ -4,7 +4,7 @@ pragma solidity >=0.8.7;
 import { Errors } from "src/utils/Errors.sol";
 import { Test, StdCheats } from "forge-std/Test.sol";
 import { SystemRegistry } from "src/SystemRegistry.sol";
-import { ISystemBound } from "src/interfaces/ISystemBound.sol";
+import { ISystemComponent } from "src/interfaces/ISystemComponent.sol";
 import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
 import { IAccessController } from "src/interfaces/security/IAccessController.sol";
 import { IDestinationRegistry } from "src/interfaces/destinations/IDestinationRegistry.sol";
@@ -32,7 +32,7 @@ contract SystemRegistryTest is Test {
 
     function testSystemRegistryLMPVaultSetOnceDuplicateValue() public {
         address lmpVault = vm.addr(1);
-        mockSystemBound(lmpVault);
+        mockSystemComponent(lmpVault);
         _systemRegistry.setLMPVaultRegistry(lmpVault);
         vm.expectRevert(abi.encodeWithSelector(Errors.AlreadySet.selector, "lmpVaultRegistry"));
         _systemRegistry.setLMPVaultRegistry(lmpVault);
@@ -40,7 +40,7 @@ contract SystemRegistryTest is Test {
 
     function testSystemRegistryLMPVaultSetOnceDifferentValue() public {
         address lmpVault = vm.addr(1);
-        mockSystemBound(lmpVault);
+        mockSystemComponent(lmpVault);
         _systemRegistry.setLMPVaultRegistry(lmpVault);
         lmpVault = vm.addr(2);
         vm.expectRevert(abi.encodeWithSelector(Errors.AlreadySet.selector, "lmpVaultRegistry"));
@@ -54,7 +54,7 @@ contract SystemRegistryTest is Test {
 
     function testSystemRegistryLMPVaultRetrieveSetValue() public {
         address lmpVault = vm.addr(3);
-        mockSystemBound(lmpVault);
+        mockSystemComponent(lmpVault);
         _systemRegistry.setLMPVaultRegistry(lmpVault);
         ILMPVaultRegistry queried = _systemRegistry.lmpVaultRegistry();
 
@@ -67,7 +67,7 @@ contract SystemRegistryTest is Test {
         vm.expectEmit(true, true, true, true);
         emit LMPVaultRegistrySet(lmpVault);
 
-        mockSystemBound(lmpVault);
+        mockSystemComponent(lmpVault);
         _systemRegistry.setLMPVaultRegistry(lmpVault);
     }
 
@@ -84,7 +84,7 @@ contract SystemRegistryTest is Test {
         address lmpVault = vm.addr(1);
         address fakeRegistry = vm.addr(2);
         bytes memory registry = abi.encode(fakeRegistry);
-        vm.mockCall(lmpVault, abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector), registry);
+        vm.mockCall(lmpVault, abi.encodeWithSelector(ISystemComponent.getSystemRegistry.selector), registry);
         vm.expectRevert(abi.encodeWithSelector(Errors.SystemMismatch.selector, address(_systemRegistry), fakeRegistry));
         _systemRegistry.setLMPVaultRegistry(lmpVault);
     }
@@ -107,7 +107,7 @@ contract SystemRegistryTest is Test {
 
     function testSystemRegistryDestinationVaultSetOnceDuplicateValue() public {
         address destinationVault = vm.addr(1);
-        mockSystemBound(destinationVault);
+        mockSystemComponent(destinationVault);
         _systemRegistry.setDestinationVaultRegistry(destinationVault);
         vm.expectRevert(abi.encodeWithSelector(Errors.AlreadySet.selector, "destinationVaultRegistry"));
         _systemRegistry.setDestinationVaultRegistry(destinationVault);
@@ -115,7 +115,7 @@ contract SystemRegistryTest is Test {
 
     function testSystemRegistryDestinationVaultSetOnceDifferentValue() public {
         address destinationVault = vm.addr(1);
-        mockSystemBound(destinationVault);
+        mockSystemComponent(destinationVault);
         _systemRegistry.setDestinationVaultRegistry(destinationVault);
         destinationVault = vm.addr(2);
         vm.expectRevert(abi.encodeWithSelector(Errors.AlreadySet.selector, "destinationVaultRegistry"));
@@ -129,7 +129,7 @@ contract SystemRegistryTest is Test {
 
     function testSystemRegistryDestinationVaultRetrieveSetValue() public {
         address destinationVault = vm.addr(3);
-        mockSystemBound(destinationVault);
+        mockSystemComponent(destinationVault);
         _systemRegistry.setDestinationVaultRegistry(destinationVault);
         IDestinationVaultRegistry queried = _systemRegistry.destinationVaultRegistry();
 
@@ -142,7 +142,7 @@ contract SystemRegistryTest is Test {
         vm.expectEmit(true, true, true, true);
         emit DestinationVaultRegistrySet(destinationVault);
 
-        mockSystemBound(destinationVault);
+        mockSystemComponent(destinationVault);
         _systemRegistry.setDestinationVaultRegistry(destinationVault);
     }
 
@@ -159,7 +159,9 @@ contract SystemRegistryTest is Test {
         address destinationVault = vm.addr(1);
         address fakeRegistry = vm.addr(2);
         vm.mockCall(
-            destinationVault, abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector), abi.encode(fakeRegistry)
+            destinationVault,
+            abi.encodeWithSelector(ISystemComponent.getSystemRegistry.selector),
+            abi.encode(fakeRegistry)
         );
         vm.expectRevert(abi.encodeWithSelector(Errors.SystemMismatch.selector, address(_systemRegistry), fakeRegistry));
         _systemRegistry.setDestinationVaultRegistry(destinationVault);
@@ -183,7 +185,7 @@ contract SystemRegistryTest is Test {
 
     function testSystemRegistryDestinationTemplateSetOnceDuplicateValue() public {
         address destinationTemplate = vm.addr(1);
-        mockSystemBound(destinationTemplate);
+        mockSystemComponent(destinationTemplate);
         _systemRegistry.setDestinationTemplateRegistry(destinationTemplate);
         vm.expectRevert(abi.encodeWithSelector(Errors.AlreadySet.selector, "destinationTemplateRegistry"));
         _systemRegistry.setDestinationTemplateRegistry(destinationTemplate);
@@ -191,7 +193,7 @@ contract SystemRegistryTest is Test {
 
     function testSystemRegistryDestinationTemplateSetOnceDifferentValue() public {
         address destinationTemplate = vm.addr(1);
-        mockSystemBound(destinationTemplate);
+        mockSystemComponent(destinationTemplate);
         _systemRegistry.setDestinationTemplateRegistry(destinationTemplate);
         destinationTemplate = vm.addr(2);
         vm.expectRevert(abi.encodeWithSelector(Errors.AlreadySet.selector, "destinationTemplateRegistry"));
@@ -205,7 +207,7 @@ contract SystemRegistryTest is Test {
 
     function testSystemRegistryDestinationTemplateRetrieveSetValue() public {
         address destinationTemplate = vm.addr(3);
-        mockSystemBound(destinationTemplate);
+        mockSystemComponent(destinationTemplate);
         _systemRegistry.setDestinationTemplateRegistry(destinationTemplate);
         IDestinationRegistry queried = _systemRegistry.destinationTemplateRegistry();
 
@@ -218,7 +220,7 @@ contract SystemRegistryTest is Test {
         vm.expectEmit(true, true, true, true);
         emit DestinationTemplateRegistrySet(destinationTemplate);
 
-        mockSystemBound(destinationTemplate);
+        mockSystemComponent(destinationTemplate);
         _systemRegistry.setDestinationTemplateRegistry(destinationTemplate);
     }
 
@@ -236,7 +238,7 @@ contract SystemRegistryTest is Test {
         address fakeRegistry = vm.addr(2);
         vm.mockCall(
             destinationTemplate,
-            abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector),
+            abi.encodeWithSelector(ISystemComponent.getSystemRegistry.selector),
             abi.encode(fakeRegistry)
         );
         vm.expectRevert(abi.encodeWithSelector(Errors.SystemMismatch.selector, address(_systemRegistry), fakeRegistry));
@@ -261,7 +263,7 @@ contract SystemRegistryTest is Test {
 
     function testSystemRegistryAccessControllerVaultSetOnceDuplicateValue() public {
         address accessController = vm.addr(1);
-        mockSystemBound(accessController);
+        mockSystemComponent(accessController);
         _systemRegistry.setAccessController(accessController);
         vm.expectRevert(abi.encodeWithSelector(Errors.AlreadySet.selector, "accessController"));
         _systemRegistry.setAccessController(accessController);
@@ -269,7 +271,7 @@ contract SystemRegistryTest is Test {
 
     function testSystemRegistryAccessControllerVaultSetOnceDifferentValue() public {
         address accessController = vm.addr(1);
-        mockSystemBound(accessController);
+        mockSystemComponent(accessController);
         _systemRegistry.setAccessController(accessController);
         accessController = vm.addr(2);
         vm.expectRevert(abi.encodeWithSelector(Errors.AlreadySet.selector, "accessController"));
@@ -283,7 +285,7 @@ contract SystemRegistryTest is Test {
 
     function testSystemRegistryAccessControllerVaultRetrieveSetValue() public {
         address accessController = vm.addr(3);
-        mockSystemBound(accessController);
+        mockSystemComponent(accessController);
         _systemRegistry.setAccessController(accessController);
         IAccessController queried = _systemRegistry.accessController();
 
@@ -296,7 +298,7 @@ contract SystemRegistryTest is Test {
         vm.expectEmit(true, true, true, true);
         emit AccessControllerSet(accessController);
 
-        mockSystemBound(accessController);
+        mockSystemComponent(accessController);
         _systemRegistry.setAccessController(accessController);
     }
 
@@ -313,7 +315,7 @@ contract SystemRegistryTest is Test {
         address controller = vm.addr(1);
         address fakeController = vm.addr(2);
         vm.mockCall(
-            controller, abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector), abi.encode(fakeController)
+            controller, abi.encodeWithSelector(ISystemComponent.getSystemRegistry.selector), abi.encode(fakeController)
         );
         vm.expectRevert(
             abi.encodeWithSelector(Errors.SystemMismatch.selector, address(_systemRegistry), fakeController)
@@ -339,7 +341,7 @@ contract SystemRegistryTest is Test {
 
     function testSystemRegistryStatsCalcRegistrySetOnceDuplicateValue() public {
         address statsCalcRegistry = vm.addr(1);
-        mockSystemBound(statsCalcRegistry);
+        mockSystemComponent(statsCalcRegistry);
         _systemRegistry.setStatsCalculatorRegistry(statsCalcRegistry);
         vm.expectRevert(abi.encodeWithSelector(Errors.AlreadySet.selector, "statsCalculatorRegistry"));
         _systemRegistry.setStatsCalculatorRegistry(statsCalcRegistry);
@@ -347,7 +349,7 @@ contract SystemRegistryTest is Test {
 
     function testSystemRegistryStatsCalcRegistrySetOnceDifferentValue() public {
         address statsCalcRegistry = vm.addr(1);
-        mockSystemBound(statsCalcRegistry);
+        mockSystemComponent(statsCalcRegistry);
         _systemRegistry.setStatsCalculatorRegistry(statsCalcRegistry);
         statsCalcRegistry = vm.addr(2);
         vm.expectRevert(abi.encodeWithSelector(Errors.AlreadySet.selector, "statsCalculatorRegistry"));
@@ -361,7 +363,7 @@ contract SystemRegistryTest is Test {
 
     function testSystemRegistryStatsCalcRegistryRetrieveSetValue() public {
         address statsCalcRegistry = vm.addr(3);
-        mockSystemBound(statsCalcRegistry);
+        mockSystemComponent(statsCalcRegistry);
         _systemRegistry.setStatsCalculatorRegistry(statsCalcRegistry);
         IStatsCalculatorRegistry queried = _systemRegistry.statsCalculatorRegistry();
 
@@ -374,7 +376,7 @@ contract SystemRegistryTest is Test {
         vm.expectEmit(true, true, true, true);
         emit StatsCalculatorRegistrySet(statsCalcRegistry);
 
-        mockSystemBound(statsCalcRegistry);
+        mockSystemComponent(statsCalcRegistry);
         _systemRegistry.setStatsCalculatorRegistry(statsCalcRegistry);
     }
 
@@ -392,7 +394,7 @@ contract SystemRegistryTest is Test {
         address fakeStatsCalcRegistry = vm.addr(2);
         vm.mockCall(
             statsCalcRegistry,
-            abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector),
+            abi.encodeWithSelector(ISystemComponent.getSystemRegistry.selector),
             abi.encode(fakeStatsCalcRegistry)
         );
         vm.expectRevert(
@@ -419,19 +421,19 @@ contract SystemRegistryTest is Test {
 
     function testSystemRegistryRootPriceOracleCanSetMultipleTimes() public {
         address oracle = vm.addr(1);
-        mockSystemBound(oracle);
+        mockSystemComponent(oracle);
         _systemRegistry.setRootPriceOracle(oracle);
         assertEq(address(_systemRegistry.rootPriceOracle()), oracle);
 
         address oracle2 = vm.addr(2);
-        mockSystemBound(oracle2);
+        mockSystemComponent(oracle2);
         _systemRegistry.setRootPriceOracle(oracle2);
         assertEq(address(_systemRegistry.rootPriceOracle()), oracle2);
     }
 
     function testSystemRegistryRootPriceOracleCantSetDup() public {
         address oracle = vm.addr(1);
-        mockSystemBound(oracle);
+        mockSystemComponent(oracle);
         _systemRegistry.setRootPriceOracle(oracle);
 
         vm.expectRevert(abi.encodeWithSelector(SystemRegistry.DuplicateSet.selector, address(oracle)));
@@ -444,7 +446,7 @@ contract SystemRegistryTest is Test {
         vm.expectEmit(true, true, true, true);
         emit RootPriceOracleSet(oracle);
 
-        mockSystemBound(oracle);
+        mockSystemComponent(oracle);
         _systemRegistry.setRootPriceOracle(oracle);
     }
 
@@ -459,9 +461,9 @@ contract SystemRegistryTest is Test {
 
     function testSystemRegistryRootPriceOracleSystemsMatch() public {
         address oracle = vm.addr(1);
-        address fakeOracle = vm.addr(2);
-        vm.mockCall(oracle, abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector), abi.encode(fakeOracle));
-        vm.expectRevert(abi.encodeWithSelector(Errors.SystemMismatch.selector, address(_systemRegistry), fakeOracle));
+        address fake = vm.addr(2);
+        vm.mockCall(oracle, abi.encodeWithSelector(ISystemComponent.getSystemRegistry.selector), abi.encode(fake));
+        vm.expectRevert(abi.encodeWithSelector(Errors.SystemMismatch.selector, address(_systemRegistry), fake));
         _systemRegistry.setRootPriceOracle(oracle);
     }
 
@@ -481,8 +483,10 @@ contract SystemRegistryTest is Test {
     /* Helpers
     /* ******************************** */
 
-    function mockSystemBound(address addr) internal {
-        vm.mockCall(addr, abi.encodeWithSelector(ISystemBound.getSystemRegistry.selector), abi.encode(_systemRegistry));
+    function mockSystemComponent(address addr) internal {
+        vm.mockCall(
+            addr, abi.encodeWithSelector(ISystemComponent.getSystemRegistry.selector), abi.encode(_systemRegistry)
+        );
     }
 }
 

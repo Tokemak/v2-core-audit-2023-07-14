@@ -8,27 +8,22 @@ import { IstEth } from "src/interfaces/external/lido/IstEth.sol";
 import { IwstEth } from "src/interfaces/external/lido/IwstEth.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IPriceOracle } from "src/interfaces/oracles/IPriceOracle.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
 
 /// @title Price oracle specifically for wstETH
 /// @dev getPriceEth is not a view fn to support reentrancy checks. Dont actually change state.
-contract WstETHEthOracle is IPriceOracle {
-    /// @notice The system this oracle will be registered with
-    ISystemRegistry public immutable systemRegistry;
-
+contract WstETHEthOracle is SystemComponent, IPriceOracle {
     IwstEth public immutable wstETH;
     IstEth public immutable stETH;
     uint256 public immutable stETHPrecision;
 
     error InvalidDecimals(address token, uint8 decimals);
 
-    constructor(ISystemRegistry _systemRegistry, address _wstETH) {
+    constructor(ISystemRegistry _systemRegistry, address _wstETH) SystemComponent(_systemRegistry) {
         // System registry must be properly initialized first
-        Errors.verifyNotZero(address(_systemRegistry), "_systemRegistry");
         Errors.verifyNotZero(address(_systemRegistry.rootPriceOracle()), "rootPriceOracle");
 
         Errors.verifyNotZero(address(_wstETH), "_wstETH");
-
-        systemRegistry = _systemRegistry;
 
         wstETH = IwstEth(_wstETH);
 
@@ -56,9 +51,5 @@ contract WstETHEthOracle is IPriceOracle {
 
         // Our prices are always in 1e18 so just use steths precision to get back to 1e18;
         price = (wstETH.stEthPerToken() * stETHPrice) / stETHPrecision;
-    }
-
-    function getSystemRegistry() external view returns (address registry) {
-        return address(systemRegistry);
     }
 }

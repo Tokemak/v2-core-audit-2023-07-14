@@ -14,11 +14,10 @@ import { ILMPVault } from "src/interfaces/vault/ILMPVault.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 
 import { Errors } from "src/utils/Errors.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
 
-contract LMPVaultRegistry is ILMPVaultRegistry, SecurityBase {
+contract LMPVaultRegistry is SystemComponent, ILMPVaultRegistry, SecurityBase {
     using EnumerableSet for EnumerableSet.AddressSet;
-
-    ISystemRegistry private immutable systemRegistry;
 
     EnumerableSet.AddressSet private _vaults;
     EnumerableSet.AddressSet private _assets;
@@ -28,9 +27,10 @@ contract LMPVaultRegistry is ILMPVaultRegistry, SecurityBase {
     // registry of vaults for a given type
     mapping(bytes32 => EnumerableSet.AddressSet) private _vaultsByType;
 
-    constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
-        systemRegistry = _systemRegistry;
-    }
+    constructor(ISystemRegistry _systemRegistry)
+        SystemComponent(_systemRegistry)
+        SecurityBase(address(_systemRegistry.accessController()))
+    { }
 
     modifier onlyUpdater() {
         if (!_hasRole(Roles.REGISTRY_UPDATER, msg.sender)) revert Errors.AccessDenied();
@@ -101,9 +101,5 @@ contract LMPVaultRegistry is ILMPVaultRegistry, SecurityBase {
 
     function listVaultsForType(bytes32 _vaultType) external view returns (address[] memory) {
         return _vaultsByType[_vaultType].values();
-    }
-
-    function getSystemRegistry() external view returns (address) {
-        return address(systemRegistry);
     }
 }

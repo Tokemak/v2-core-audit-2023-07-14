@@ -10,14 +10,12 @@ import { IPriceOracle } from "src/interfaces/oracles/IPriceOracle.sol";
 import { ICurveResolver } from "src/interfaces/utils/ICurveResolver.sol";
 import { ICurveOwner } from "src/interfaces/external/curve/ICurveOwner.sol";
 import { ICurveV1StableSwap } from "src/interfaces/external/curve/ICurveV1StableSwap.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
 
 /// @title Price oracle for Curve StableSwap pools
 /// @dev getPriceEth is not a view fn to support reentrancy checks. Dont actually change state.
-contract CurveV1StableEthOracle is SecurityBase, IPriceOracle {
+contract CurveV1StableEthOracle is SystemComponent, SecurityBase, IPriceOracle {
     bytes32 public constant LOCK_REVERT_MSG = keccak256(abi.encode("lock"));
-
-    /// @notice The system this oracle will be registered with
-    ISystemRegistry public immutable systemRegistry;
 
     ICurveResolver public immutable curveResolver;
 
@@ -45,14 +43,11 @@ contract CurveV1StableEthOracle is SecurityBase, IPriceOracle {
     constructor(
         ISystemRegistry _systemRegistry,
         ICurveResolver _curveResolver
-    ) SecurityBase(address(_systemRegistry.accessController())) {
+    ) SystemComponent(_systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
         // System registry must be properly initialized first
-        Errors.verifyNotZero(address(_systemRegistry), "_systemRegistry");
         Errors.verifyNotZero(address(_systemRegistry.rootPriceOracle()), "rootPriceOracle");
-
         Errors.verifyNotZero(address(_curveResolver), "_curveResolver");
 
-        systemRegistry = _systemRegistry;
         curveResolver = _curveResolver;
     }
 
@@ -159,10 +154,6 @@ contract CurveV1StableEthOracle is SecurityBase, IPriceOracle {
         }
 
         price = (minPrice * pool.get_virtual_price() / 1e18);
-    }
-
-    function getSystemRegistry() external view returns (address registry) {
-        return address(systemRegistry);
     }
 
     function getLpTokenToUnderlying(address lpToken) external view returns (address[] memory tokens) {

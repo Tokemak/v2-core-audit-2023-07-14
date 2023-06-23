@@ -1,25 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+import { Ownable2Step } from "openzeppelin-contracts/access/Ownable2Step.sol";
 import { Errors } from "src/utils/Errors.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
-import { Ownable2Step } from "openzeppelin-contracts/access/Ownable2Step.sol";
-import { IDestinationAdapter } from "../interfaces/destinations/IDestinationAdapter.sol";
-import { IDestinationRegistry } from "../interfaces/destinations/IDestinationRegistry.sol";
+import { IDestinationAdapter } from "src/interfaces/destinations/IDestinationAdapter.sol";
+import { IDestinationRegistry } from "src/interfaces/destinations/IDestinationRegistry.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
 
-contract DestinationRegistry is IDestinationRegistry, Ownable2Step {
-    ISystemRegistry private immutable systemRegistry;
-
+contract DestinationRegistry is SystemComponent, IDestinationRegistry, Ownable2Step {
     mapping(bytes32 => IDestinationAdapter) public destinations;
     mapping(bytes32 => bool) public allowedTypes;
 
-    constructor(ISystemRegistry _systemRegistry) {
-        // TODO: Decide the access control here
-        //SecurityBase(address(_systemRegistry.accessController())) {
-
-        Errors.verifyNotZero(address(_systemRegistry), "_systemRegistry");
-        systemRegistry = _systemRegistry;
-    }
+    constructor(ISystemRegistry _systemRegistry) SystemComponent(_systemRegistry) { }
 
     modifier arrayLengthMatch(bytes32[] calldata destinationTypes, address[] calldata targets) {
         if (destinationTypes.length != targets.length) {
@@ -117,9 +110,5 @@ contract DestinationRegistry is IDestinationRegistry, Ownable2Step {
 
     function isWhitelistedDestination(bytes32 destinationType) public view override returns (bool) {
         return allowedTypes[destinationType];
-    }
-
-    function getSystemRegistry() external view returns (address) {
-        return address(systemRegistry);
     }
 }

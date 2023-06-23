@@ -11,11 +11,10 @@ import { IDestinationVault } from "src/interfaces/vault/IDestinationVault.sol";
 import { IDestinationVaultFactory } from "src/interfaces/vault/IDestinationVaultFactory.sol";
 import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
 import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
 
-contract DestinationVaultFactory is IDestinationVaultFactory, SecurityBase {
+contract DestinationVaultFactory is SystemComponent, IDestinationVaultFactory, SecurityBase {
     using Clones for address;
-
-    ISystemRegistry private immutable systemRegistry;
 
     modifier onlyVaultCreator() {
         if (!_hasRole(Roles.CREATE_DESTINATION_VAULT_ROLE, msg.sender)) {
@@ -24,7 +23,10 @@ contract DestinationVaultFactory is IDestinationVaultFactory, SecurityBase {
         _;
     }
 
-    constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
+    constructor(ISystemRegistry _systemRegistry)
+        SystemComponent(_systemRegistry)
+        SecurityBase(address(_systemRegistry.accessController()))
+    {
         // Validate the registry is in a state we can use it
         if (address(_systemRegistry.destinationTemplateRegistry()) == address(0)) {
             revert Errors.RegistryItemMissing("destinationTemplateRegistry");
@@ -32,8 +34,6 @@ contract DestinationVaultFactory is IDestinationVaultFactory, SecurityBase {
         if (address(_systemRegistry.destinationVaultRegistry()) == address(0)) {
             revert Errors.RegistryItemMissing("destinationVaultRegistry");
         }
-
-        systemRegistry = _systemRegistry;
     }
 
     /// @inheritdoc IDestinationVaultFactory
@@ -57,9 +57,5 @@ contract DestinationVaultFactory is IDestinationVaultFactory, SecurityBase {
 
         // Add the vault to the registry
         systemRegistry.destinationVaultRegistry().register(newVault);
-    }
-
-    function getSystemRegistry() external view returns (address) {
-        return address(systemRegistry);
     }
 }

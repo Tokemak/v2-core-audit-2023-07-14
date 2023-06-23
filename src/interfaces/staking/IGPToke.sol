@@ -2,9 +2,8 @@
 pragma solidity 0.8.17;
 
 import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
-import { ISystemBound } from "src/interfaces/ISystemBound.sol";
 
-interface IGPToke is ISystemBound {
+interface IGPToke {
     ///////////////////////////////////////////////////////////////////
     //                        Variables
     ///////////////////////////////////////////////////////////////////

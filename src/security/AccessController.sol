@@ -6,16 +6,14 @@ import { Errors } from "src/utils/Errors.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IAccessController } from "src/interfaces/security/IAccessController.sol";
 import { AccessControlEnumerable } from "openzeppelin-contracts/access/AccessControlEnumerable.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
 
-contract AccessController is AccessControlEnumerable, IAccessController {
-    ISystemRegistry private immutable systemRegistry;
-
+contract AccessController is SystemComponent, AccessControlEnumerable, IAccessController {
     // ------------------------------------------------------------
     //          Pre-initialize roles list for deployer
     // ------------------------------------------------------------
-    constructor(address _systemRegistry) {
+    constructor(address _systemRegistry) SystemComponent(ISystemRegistry(_systemRegistry)) {
         Errors.verifyNotZero(_systemRegistry, "systemRegistry");
-        systemRegistry = ISystemRegistry(_systemRegistry);
 
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(Roles.REBALANCER_ROLE, msg.sender);
@@ -40,9 +38,5 @@ contract AccessController is AccessControlEnumerable, IAccessController {
         if (!hasRole(DEFAULT_ADMIN_ROLE, account)) {
             revert AccessDenied();
         }
-    }
-
-    function getSystemRegistry() external view returns (address) {
-        return address(systemRegistry);
     }
 }

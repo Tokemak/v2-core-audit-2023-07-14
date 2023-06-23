@@ -2,10 +2,8 @@
 // Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
-import { ISystemBound } from "src/interfaces/ISystemBound.sol";
-
 /// @title Keep track of Vaults created through the Vault Factory
-interface ILMPVaultRegistry is ISystemBound {
+interface ILMPVaultRegistry {
     ///////////////////////////////////////////////////////////////////
     //                        Errors
     ///////////////////////////////////////////////////////////////////
