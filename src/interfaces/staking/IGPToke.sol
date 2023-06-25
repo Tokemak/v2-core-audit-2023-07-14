@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
-import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
+import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 interface IGPToke {
     ///////////////////////////////////////////////////////////////////
@@ -18,7 +19,7 @@ interface IGPToke {
     }
 
     function getLockups(address user) external view returns (Lockup[] memory);
-    function toke() external view returns (ERC20);
+    function toke() external view returns (IERC20Metadata);
 
     ///////////////////////////////////////////////////////////////////
     //                        Errors
@@ -37,6 +38,7 @@ interface IGPToke {
     error ExtendDurationTooShort();
     error TransfersDisabled();
     error TransferFailed();
+    error NoRewardsToClaim();
 
     ///////////////////////////////////////////////////////////////////
     //                        Events
@@ -47,10 +49,13 @@ interface IGPToke {
     event Extend(
         address indexed user, uint256 lockupId, uint256 oldEnd, uint256 newEnd, uint256 oldPoints, uint256 newPoints
     );
+    event RewardsAdded(uint256 amount);
+    event RewardsCollected(address indexed user, uint256 amount);
+    event RewardsClaimed(address indexed user, uint256 amount);
 
     ///////////////////////////////////////////////////////////////////
     //
-    //                        Methods
+    //                        Staking Methods
     //
     ///////////////////////////////////////////////////////////////////
 
@@ -99,6 +104,22 @@ interface IGPToke {
      */
     function extend(uint256 lockupId, uint256 duration) external;
 
+    ///////////////////////////////////////////////////////////////////
+    //
+    //                        Rewards
+    //
+    ///////////////////////////////////////////////////////////////////
+
+    /// @notice The total amount of rewards earned for all stakes
+    function totalRewardsEarned() external returns (uint256);
+
+    /// @notice Total rewards claimed by all stakers
+    function totalRewardsClaimed() external returns (uint256);
+
+    /// @notice Rewards claimed by a specific wallet
+    /// @param user Address of the wallet to check
+    function rewardsClaimed(address user) external returns (uint256);
+
     /**
      * @notice Preview the number of points that would be returned for the
      * given amount and duration.
@@ -109,4 +130,13 @@ interface IGPToke {
      * @return end staking period end date
      */
     function previewPoints(uint256 amount, uint256 duration) external view returns (uint256, uint256);
+
+    /// @notice Preview the reward amount a caller can claim
+    function previewRewards() external view returns (uint256);
+
+    /// @notice Preview the reward amount a specified wallet can claim
+    function previewRewards(address user) external view returns (uint256);
+
+    /// @notice Claim rewards for the caller
+    function collectRewards() external returns (uint256);
 }

@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
 import { Test } from "forge-std/Test.sol";
@@ -56,20 +57,31 @@ contract BaseTest is Test {
     uint256 internal constant ONE_YEAR = 365 days;
     uint256 internal constant ONE_MONTH = 30 days;
 
-    bool internal toFork = true;
-
     function setUp() public virtual {
+        _setUp(true);
+    }
+
+    function _setUp(bool toFork) public {
         if (toFork) {
             fork();
         }
+        // TODO: proper mocks (bombs currently with just basic setup)
+        // } else {
+        //     toke = mockAsset("TOKE", "TOKE", 1 ether);
+        //     usdc = mockAsset("USDC", "USDC", 1 ether);
+        //     weth = IWETH9(address(mockAsset("WETH", "WETH", 1 ether)));
+        // }
 
         //////////////////////////////////////
-        // Set up misc values
+        // Set up misc labels
         //////////////////////////////////////
-
         toke = IERC20(TOKE_MAINNET);
         usdc = IERC20(USDC_MAINNET);
         weth = IWETH9(WETH_MAINNET);
+
+        vm.label(address(toke), "TOKE");
+        vm.label(address(usdc), "USDC");
+        vm.label(address(weth), "WETH");
 
         //////////////////////////////////////
         // Set up system registry
@@ -90,6 +102,8 @@ contract BaseTest is Test {
 
         systemSecurity = new SystemSecurity(systemRegistry);
         systemRegistry.setSystemSecurity(address(systemSecurity));
+        vm.label(address(systemRegistry), "System Registry");
+        vm.label(address(accessController), "Access Controller");
 
         // NOTE: these pieces were taken out so that each set of tests can init only the components it needs!
         //       Saves a ton of unnecessary setup time and makes fuzzing tests run much much faster
@@ -132,13 +146,16 @@ contract BaseTest is Test {
         vm.mockCall(
             address(systemRegistry), abi.encodeWithSelector(ISystemRegistry.isRewardToken.selector), abi.encode(true)
         );
-        return new MainRewarder(
+        MainRewarder mainRewarder = new MainRewarder(
             systemRegistry, // registry
             lmpVault, // stakeTracker
             asset, // address(mockAsset("MAIN_REWARD", "MAIN_REWARD", 0)), // rewardToken
             800, // newRewardRatio
             100 // durationInBlock
         );
+        vm.label(address(mainRewarder), "Main Rewarder");
+
+        return mainRewarder;
     }
 
     function deployGpToke() public {
@@ -146,11 +163,12 @@ contract BaseTest is Test {
 
         gpToke = new GPToke(
             systemRegistry,
-            address(toke),
             //solhint-disable-next-line not-rely-on-time
             block.timestamp, // start epoch
             MIN_STAKING_DURATION
         );
+
+        vm.label(address(gpToke), "GPToke");
 
         systemRegistry.setGPToke(address(gpToke));
     }
@@ -176,5 +194,21 @@ contract BaseTest is Test {
         systemRegistry.setLMPVaultFactory(VaultTypes.LST, address(lmpVaultFactory));
         // NOTE: deployer grants factory permission to update the registry
         accessController.grantRole(Roles.REGISTRY_UPDATER, address(lmpVaultFactory));
+
+        vm.label(address(lmpVaultFactory), "LMP Vault Factory");
+    }
+
+    function createAndPrankUser(string memory label) public returns (address) {
+        return createAndPrankUser(label, 0);
+    }
+
+    function createAndPrankUser(string memory label, uint256 tokeBalance) public returns (address) {
+        address user = makeAddr(label);
+
+        if (tokeBalance > 0) {
+            deal(address(toke), user, tokeBalance);
+        }
+
+        return user;
     }
 }

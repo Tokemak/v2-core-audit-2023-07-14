@@ -1,38 +1,65 @@
 // solhint-disable not-rely-on-time
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
+import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import { ERC20Votes } from "openzeppelin-contracts/token/ERC20/extensions/ERC20Votes.sol";
 import { ERC20Permit } from "openzeppelin-contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
 import { Ownable } from "openzeppelin-contracts/access/Ownable.sol";
-import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 import { Pausable } from "openzeppelin-contracts/security/Pausable.sol";
 
 import { PRBMathUD60x18 } from "prb-math/contracts/PRBMathUD60x18.sol";
 
+import { IWETH9 } from "src/interfaces/utils/IWETH9.sol";
 import { IGPToke } from "src/interfaces/staking/IGPToke.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
 import { Errors } from "src/utils/Errors.sol";
 import { SystemComponent } from "src/SystemComponent.sol";
 
-contract GPToke is IGPToke, ERC20Votes, ReentrancyGuard, Pausable, SystemComponent, SecurityBase {
+contract GPToke is IGPToke, ERC20Votes, Pausable, SystemComponent, SecurityBase {
+    using SafeERC20 for IERC20Metadata;
+    using SafeERC20 for IWETH9;
+
     // variables
     uint256 public immutable startEpoch;
     uint256 public immutable minStakeDuration;
     // solhint-disable-next-line const-name-snakecase
     uint256 public maxStakeDuration = 1461 days; // default 4 years
+    uint256 public constant MIN_STAKE_AMOUNT = 10_000;
+    uint256 public constant MAX_STAKE_AMOUNT = 100e6 * 1e18; // default 100m toke
 
     mapping(address => Lockup[]) public lockups;
 
     uint256 private constant YEAR_BASE_BOOST = 18e17;
+    IERC20Metadata public immutable toke;
 
-    ERC20 public immutable toke;
+    //
+    // Reward Vars
+    //
+    IWETH9 private immutable weth;
+
+    uint256 public constant REWARD_FACTOR = 1e12;
+
+    // tracks user's checkpointed reward debt per share
+    mapping(address => uint256) public rewardDebtPerShare;
+    // keeps track of rewards checkpointed / offloaded but not yet transferred
+    mapping(address => uint256) private unclaimedRewards;
+    // total current accumulated reward per share
+    uint256 public accRewardPerShare;
+
+    // See {IGPToke-totalRewardsEarned}
+    uint256 public totalRewardsEarned;
+    // See {IGPToke-totalRewardsClaimed}
+    uint256 public totalRewardsClaimed;
+    // See {IGPToke-rewardsClaimed}
+    mapping(address => uint256) public rewardsClaimed;
 
     constructor(
         ISystemRegistry _systemRegistry,
-        address _toke,
         uint256 _startEpoch,
         uint256 _minStakeDuration
     )
@@ -41,36 +68,40 @@ contract GPToke is IGPToke, ERC20Votes, ReentrancyGuard, Pausable, SystemCompone
         ERC20Permit("gpToke")
         SecurityBase(address(_systemRegistry.accessController()))
     {
-        Errors.verifyNotZero(_toke, "_toke");
-
-        toke = ERC20(_toke);
         startEpoch = _startEpoch;
         minStakeDuration = _minStakeDuration;
+
+        toke = systemRegistry.toke();
+        weth = systemRegistry.weth();
     }
 
-    // short-circuit transfers
+    // @dev short-circuit transfers
     function transfer(address, uint256) public pure override returns (bool) {
         revert TransfersDisabled();
     }
 
+    // @dev short-circuit transfers
     function transferFrom(address, address, uint256) public pure override returns (bool) {
         revert TransfersDisabled();
     }
 
     /// @inheritdoc IGPToke
-    function stake(uint256 amount, uint256 duration, address to) external nonReentrant {
+    function stake(uint256 amount, uint256 duration, address to) external {
         _stake(amount, duration, to);
     }
 
     /// @inheritdoc IGPToke
-    function stake(uint256 amount, uint256 duration) external nonReentrant {
+    function stake(uint256 amount, uint256 duration) external {
         _stake(amount, duration, msg.sender);
     }
 
     function _stake(uint256 amount, uint256 duration, address to) internal whenNotPaused {
+        //
+        // validation checks
+        //
         if (to == address(0)) revert ZeroAddress();
-        // if (amount > type(uint128).max) revert StakingAmountExceeded();
-        if (amount == 0) revert StakingAmountInsufficient();
+        if (amount < MIN_STAKE_AMOUNT) revert StakingAmountInsufficient();
+        if (amount > MAX_STAKE_AMOUNT) revert StakingAmountExceeded();
         if (amount > toke.balanceOf(msg.sender)) revert InsufficientFunds();
 
         // duration checked inside previewPoints
@@ -80,20 +111,26 @@ contract GPToke is IGPToke, ERC20Votes, ReentrancyGuard, Pausable, SystemCompone
             revert StakingPointsExceeded();
         }
 
+        // checkpoint rewards for caller
+        _collectRewards(to, false);
+
+        // save information for current lockup
         lockups[to].push(Lockup({ amount: uint128(amount), end: uint128(end), points: points }));
 
-        // checking return value to keep slither happy
-        if (!toke.transferFrom(msg.sender, address(this), amount)) revert TransferFailed();
-
+        // create points for user
         _mint(to, points);
 
         emit Stake(to, lockups[to].length - 1, amount, end, points);
+
+        // transfer staked toke in
+        toke.safeTransferFrom(msg.sender, address(this), amount);
     }
 
     /// @inheritdoc IGPToke
-    function unstake(uint256 lockupId) external nonReentrant whenNotPaused {
+    function unstake(uint256 lockupId) external whenNotPaused {
         if (lockupId >= lockups[msg.sender].length) revert LockupDoesNotExist();
 
+        // get staking information
         Lockup memory lockup = lockups[msg.sender][lockupId];
         uint256 amount = lockup.amount;
         uint256 end = lockup.end;
@@ -103,18 +140,27 @@ contract GPToke is IGPToke, ERC20Votes, ReentrancyGuard, Pausable, SystemCompone
         if (block.timestamp < end) revert NotUnlockableYet();
         if (end == 0) revert AlreadyUnlocked();
 
+        // checkpoint rewards
+        _collectRewards(msg.sender, false);
+
+        // remove stake
         delete lockups[msg.sender][lockupId];
 
+        // wipe points
         _burn(msg.sender, points);
 
-        if (!toke.transfer(msg.sender, amount)) revert TransferFailed();
-
         emit Unstake(msg.sender, lockupId, amount, end, points);
+
+        // send staked toke back to user
+        toke.safeTransfer(msg.sender, amount);
     }
 
     /// @inheritdoc IGPToke
     function extend(uint256 lockupId, uint256 duration) external whenNotPaused {
         if (lockupId >= lockups[msg.sender].length) revert LockupDoesNotExist();
+
+        // before doing anything, make sure the rewards checkpoints are updated!
+        _collectRewards(msg.sender, false);
 
         // duration checked inside previewPoints
         Lockup storage lockup = lockups[msg.sender][lockupId];
@@ -128,6 +174,7 @@ contract GPToke is IGPToke, ERC20Votes, ReentrancyGuard, Pausable, SystemCompone
         lockup.end = uint128(newEnd);
         lockup.points = newPoints;
         lockups[msg.sender][lockupId] = lockup;
+        // issue extra points for extension
         _mint(msg.sender, newPoints - oldPoints);
 
         emit Extend(msg.sender, lockupId, oldEnd, newEnd, oldPoints, newPoints);
@@ -138,21 +185,23 @@ contract GPToke is IGPToke, ERC20Votes, ReentrancyGuard, Pausable, SystemCompone
         if (duration < minStakeDuration) revert StakingDurationTooShort();
         if (duration > maxStakeDuration) revert StakingDurationTooLong();
 
-        // TODO: find nearest day rounding?
         // slither-disable-next-line timestamp
         uint256 start = block.timestamp > startEpoch ? block.timestamp : startEpoch;
         end = start + duration;
 
+        // calculate points based on duration from staking end date
         uint256 endYearpoc = ((end - startEpoch) * 1e18) / 365 days;
         uint256 multiplier = PRBMathUD60x18.pow(YEAR_BASE_BOOST, endYearpoc);
 
         points = (amount * multiplier) / 1e18;
     }
 
+    /// @inheritdoc IGPToke
     function getLockups(address user) external view returns (Lockup[] memory) {
         return lockups[user];
     }
 
+    /// @notice Update max stake duration allowed
     function setMaxStakeDuration(uint256 _maxStakeDuration) external onlyOwner {
         uint256 old = maxStakeDuration;
 
@@ -167,5 +216,110 @@ contract GPToke is IGPToke, ERC20Votes, ReentrancyGuard, Pausable, SystemCompone
 
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    /* **************************************************************************** */
+    /*																				*/
+    /* 									Rewards										*/
+    /*																				*/
+    /* **************************************************************************** */
+
+    /// @notice Allows an actor to deposit ETH as staking reward to be distributed to all staked participants
+    /// @param amount Amount of `WETH` to take from caller and deposit as reward for the stakers
+    function addWETHRewards(uint256 amount) external whenNotPaused {
+        Errors.verifyNotZero(amount, "amount");
+
+        uint256 supply = totalSupply();
+        Errors.verifyNotZero(supply, "supply");
+
+        totalRewardsEarned += amount;
+        accRewardPerShare += amount * REWARD_FACTOR / supply;
+
+        emit RewardsAdded(amount);
+
+        weth.safeTransferFrom(msg.sender, address(this), amount);
+    }
+
+    /// @inheritdoc IGPToke
+    function previewRewards() external view returns (uint256 amount) {
+        return previewRewards(msg.sender);
+    }
+
+    /// @inheritdoc IGPToke
+    function previewRewards(address user) public view returns (uint256 amount) {
+        uint256 supply = totalSupply();
+        if (supply == 0) {
+            return unclaimedRewards[user];
+        }
+
+        // calculate reward per share by taking the current reward per share and subtracting what user already claimed
+        uint256 _netRewardsPerShare = accRewardPerShare - rewardDebtPerShare[user];
+
+        // calculate full reward user is entitled to by taking their recently earned and adding unclaimed checkpointed
+        return ((balanceOf(user) * _netRewardsPerShare) / REWARD_FACTOR) + unclaimedRewards[user];
+    }
+
+    /// @inheritdoc IGPToke
+    function collectRewards() external returns (uint256) {
+        return _collectRewards(msg.sender, true);
+    }
+
+    /// @dev See {IGPToke-collectRewards}.
+    function _collectRewards(address user, bool distribute) internal returns (uint256) {
+        // calculate user's new rewards per share (current minus claimed)
+        uint256 netRewardsPerShare = accRewardPerShare - rewardDebtPerShare[user];
+        // calculate amount of actual rewards
+        uint256 netRewards = (balanceOf(user) * netRewardsPerShare) / REWARD_FACTOR;
+        // get reference to user's pending (sandboxed) rewards
+        uint256 pendingRewards = unclaimedRewards[user];
+
+        // update checkpoint to current
+        rewardDebtPerShare[user] = accRewardPerShare;
+
+        // if nothing to claim, bail
+        if (netRewards == 0 && pendingRewards == 0) {
+            return 0;
+        }
+
+        if (distribute) {
+            //
+            // if asked for actual distribution, transfer all earnings
+            //
+
+            // reset sandboxed rewards
+            unclaimedRewards[user] = 0;
+
+            // get total amount by adding new rewards and previously sandboxed
+            uint256 totalClaiming = netRewards + pendingRewards;
+
+            // update running totals
+            totalRewardsClaimed += totalClaiming;
+            rewardsClaimed[user] += totalClaiming;
+
+            emit RewardsClaimed(user, totalClaiming);
+
+            // send rewards to user
+            weth.safeTransfer(user, totalClaiming);
+
+            // return total amount claimed
+            return totalClaiming;
+        }
+
+        if (netRewards > 0) {
+            // Save (sandbox) to their account for later transfer
+            unclaimedRewards[user] += netRewards;
+
+            emit RewardsCollected(user, netRewards);
+        }
+
+        // nothing collected
+        return 0;
+    }
+
+    /// @notice Catch-all. If any eth is sent, wrap and add to rewards
+    receive() external payable {
+        // appreciate the ETH! wrap and add as rewards
+        weth.deposit{ value: msg.value }();
+        GPToke(payable(this)).addWETHRewards(msg.value);
     }
 }

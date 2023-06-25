@@ -192,7 +192,6 @@ contract AbstractRewarderTest is Test {
 
         GPToke gpToke = new GPToke(
             systemRegistry,
-            TOKE_MAINNET,
             //solhint-disable-next-line not-rely-on-time
             block.timestamp, // start epoch
             minStakingDuration

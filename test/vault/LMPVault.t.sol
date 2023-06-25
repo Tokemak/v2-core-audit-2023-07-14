@@ -1,5 +1,6 @@
-// SPDX-License-Identifier: MIT
-pragma solidity >=0.8.7;
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
+pragma solidity 0.8.17;
 
 // NOTE: should be put back in once the fuzzing constraints can be implemented
 
@@ -18,9 +19,7 @@ import { Roles } from "src/libs/Roles.sol";
 contract LMPVaultTest is ERC4626Test, BaseTest {
     function setUp() public override(BaseTest, ERC4626Test) {
         // everything's mocked, so disable forking
-        toFork = false;
-
-        BaseTest.setUp();
+        super._setUp(false);
 
         _underlying_ = address(mockAsset("MockERC20", "MockERC20", uint256(1_000_000_000_000_000_000_000_000)));
 
