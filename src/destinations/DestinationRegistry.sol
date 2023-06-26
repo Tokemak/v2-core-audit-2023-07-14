@@ -8,6 +8,7 @@ import { IDestinationAdapter } from "src/interfaces/destinations/IDestinationAda
 import { IDestinationRegistry } from "src/interfaces/destinations/IDestinationRegistry.sol";
 import { SystemComponent } from "src/SystemComponent.sol";
 
+// TODO: Add access control
 contract DestinationRegistry is SystemComponent, IDestinationRegistry, Ownable2Step {
     mapping(bytes32 => IDestinationAdapter) public destinations;
     mapping(bytes32 => bool) public allowedTypes;

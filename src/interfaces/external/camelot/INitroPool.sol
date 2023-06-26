@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "openzeppelin-contracts/token/ERC721/extensions/IERC721Enumerable.sol";
+import { IERC721Enumerable } from "openzeppelin-contracts/token/ERC721/extensions/IERC721Enumerable.sol";
 
 interface INitroPool is IERC721Enumerable {
     /// @notice Returns the address of the rewards token 1

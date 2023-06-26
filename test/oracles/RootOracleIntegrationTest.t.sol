@@ -7,7 +7,6 @@ pragma solidity 0.8.17;
 // solhint-disable var-name-mixedcase
 
 import { Test } from "forge-std/Test.sol";
-import { console } from "forge-std/console.sol";
 import {
     BAL_VAULT,
     CURVE_META_REGISTRY_MAINNET,

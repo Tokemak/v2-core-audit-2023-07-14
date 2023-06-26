@@ -48,10 +48,8 @@ contract BalancerLPComposableStableEthOracle is SystemComponent, IPriceOracle {
         for (uint256 i = 0; i < nTokens;) {
             if (i != bptIndex) {
                 // Our prices are always in 1e18
-                // slither-disable-start calls-loop
                 uint256 tokenPrice = systemRegistry.rootPriceOracle().getPriceInEth(address(tokens[i]));
                 tokenPrice = tokenPrice * 1e18 / pool.getTokenRate(tokens[i]);
-                // slither-disable-end calls-loop
                 if (tokenPrice < minPrice) {
                     minPrice = tokenPrice;
                 }

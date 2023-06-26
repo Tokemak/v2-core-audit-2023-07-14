@@ -20,7 +20,6 @@ contract BeethovenRewardsAdapter is IClaimableRewardsAdapter, ReentrancyGuard {
         GAUGE_REWARD_HELPER = gaugeRewardHelper;
     }
 
-    // slither-disable-start calls-loop
     /**
      * @param gauge The gauge to claim rewards from
      */
@@ -60,5 +59,4 @@ contract BeethovenRewardsAdapter is IClaimableRewardsAdapter, ReentrancyGuard {
 
         return (amountsClaimed, rewardTokens);
     }
-    // slither-disable-end calls-loop
 }

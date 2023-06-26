@@ -14,7 +14,7 @@ contract EthPeggedOracle is SystemComponent, IPriceOracle {
     constructor(ISystemRegistry _systemRegistry) SystemComponent(_systemRegistry) { }
 
     /// @inheritdoc IPriceOracle
-    function getPriceInEth(address) external returns (uint256 price) {
+    function getPriceInEth(address) external pure returns (uint256 price) {
         price = 1e18;
     }
 }

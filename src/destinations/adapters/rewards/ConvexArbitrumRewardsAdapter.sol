@@ -8,7 +8,6 @@ import { IConvexRewardPool, RewardType } from "../../../interfaces/external/conv
 import { IClaimableRewardsAdapter } from "../../../interfaces/destinations/IClaimableRewardsAdapter.sol";
 
 contract ConvexArbitrumRewardsAdapter is IClaimableRewardsAdapter, ReentrancyGuard {
-    // slither-disable-start calls-loop
     /**
      * @param gauge The gauge to claim rewards from
      */
@@ -45,5 +44,4 @@ contract ConvexArbitrumRewardsAdapter is IClaimableRewardsAdapter, ReentrancyGua
 
         return (amountsClaimed, rewardTokens);
     }
-    // slither-disable-end calls-loop
 }

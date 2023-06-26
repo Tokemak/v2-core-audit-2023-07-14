@@ -11,7 +11,6 @@ contract CurveRewardsAdapter is IClaimableRewardsAdapter, ReentrancyGuard {
     // solhint-disable-next-line var-name-mixedcase
     uint256 private constant MAX_REWARDS = 8;
 
-    // slither-disable-start calls-loop
     /**
      * @param gauge The gauge to claim rewards from
      */
@@ -66,5 +65,4 @@ contract CurveRewardsAdapter is IClaimableRewardsAdapter, ReentrancyGuard {
 
         return (amountsClaimed, rewardTokens);
     }
-    // slither-disable-end calls-loop
 }

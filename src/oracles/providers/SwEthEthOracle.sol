@@ -23,7 +23,7 @@ contract SwEthEthOracle is SystemComponent, IPriceOracle {
     }
 
     /// @inheritdoc IPriceOracle
-    function getPriceInEth(address token) external returns (uint256 price) {
+    function getPriceInEth(address token) external view returns (uint256 price) {
         // Prevents incorrect config at root level.
         if (token != address(swEth)) revert Errors.InvalidToken(token);
 

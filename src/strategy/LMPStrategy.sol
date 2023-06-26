@@ -22,7 +22,7 @@ library LMPStrategy {
         address destinationOut,
         address tokenOut,
         uint256 amountOut
-    ) internal view returns (bool success, string memory message) {
+    ) internal pure returns (bool success, string memory message) {
         // TODO: remove: setting dummy vars to avoid "unused parameter" warnings for now
         destinationIn = tokenIn = destinationOut = tokenOut = address(0);
         amountIn = amountOut = 0;

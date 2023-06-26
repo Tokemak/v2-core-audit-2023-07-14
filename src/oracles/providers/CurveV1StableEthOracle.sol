@@ -131,13 +131,11 @@ contract CurveV1StableEthOracle is SystemComponent, SecurityBase, IPriceOracle {
             if (iToken == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE) {
                 if (poolInfo.checkReentrancy == 1) {
                     // This will fail in reentrancy
-                    // slither-disable-next-line calls-loop
                     ICurveOwner(pool.owner()).withdraw_admin_fees(address(pool));
                 }
             }
 
             // Our prices are always in 1e18
-            // slither-disable-next-line calls-loop
             uint256 tokenPrice = systemRegistry.rootPriceOracle().getPriceInEth(iToken);
             if (tokenPrice < minPrice) {
                 minPrice = tokenPrice;

@@ -15,6 +15,34 @@
 
 A fairly strict and opinionated Foundry-based template for developing Solidity smart contracts.
 
+## TODOs
+
+-   Update liquidator with access control
+-   Update liquidator to call "collectRewards" from destination vaults (dv)
+-   Update liquidator to query main rewarder from dv and queue new rewards
+-   Add 0x integration to lmp router
+-   LMP debt reporting and updated withdrawal
+-   LMP fee collection
+-   ~~Taking used gas out of liquidations~~
+-   Add a fee to liquidations, allow the fee to modified
+-   Figure out how the veOGV rewarder works and add it in
+-   Ensure rewarder + lmp vault is working and setup correctly
+-   Consider switching rewarders to initializable so we can copy cheaply
+-   Figure out Curve V2 pool oracle
+-   Verify support for Curve -ng pools, tricrypto and steth/eth
+-   Pricing for Curve -ng pools
+-   ~~Add weth + toke to system registry constructor. Refactor dependencies to use it~~
+-   Do a Curve-but-not-Convex Destination Vault
+-   Ensure current Curve DV supports Curve V2
+-   Do we need a UniV3 on-chain swapper?
+-   Ensure oracles are covered for native lst's
+-   What winding down an LMP or DV looks like
+-   Registry for allowed reward tokens
+-   LMP -> Destination Vault extra reward permissions
+-   Nic's Lens Contract
+-   NPM package for
+-   Add rewarder events
+
 ## What are you getting
 
 -   Forge + Forge Std library

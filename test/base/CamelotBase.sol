@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 
-import "../../src/interfaces/external/camelot/INFTPool.sol";
+import { INFTPool } from "src/interfaces/external/camelot/INFTPool.sol";
 
 /// @notice  This contract is used to test Camelot contracts.
 abstract contract CamelotBase is Test {

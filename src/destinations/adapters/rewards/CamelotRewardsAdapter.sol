@@ -27,7 +27,6 @@ contract CamelotRewardsAdapter is IClaimableRewardsAdapter, INFTHandler, Reentra
         xGrailToken = _xGrailToken;
     }
 
-    // slither-disable-start calls-loop
     /**
      * @param nftPoolAddress The NFT pool to claim rewards from
      */
@@ -65,7 +64,6 @@ contract CamelotRewardsAdapter is IClaimableRewardsAdapter, INFTHandler, Reentra
 
         return (amountsClaimed, rewardTokens);
     }
-    // slither-disable-end calls-loop
 
     /**
      * @notice This function is required by Camelot NFTPool if the msg.sender is a contract, to confirm whether it is

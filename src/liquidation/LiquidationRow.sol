@@ -91,7 +91,6 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
             if (address(vaults[i]) == address(0)) revert ZeroAddress();
             // @todo: Check if the vault is in our registry
             IVaultClaimableRewards vault = vaults[i];
-            // slither-disable-next-line calls-loop
             (uint256[] memory amounts, IERC20[] memory tokens) = vault.claimRewards();
 
             uint256 tokensLength = tokens.length;
@@ -215,7 +214,6 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
         uint256 totalBalance = totalTokenBalances[tokenAddress];
         uint256 newTotalBalance = totalBalance + balance;
 
-        //slither-disable-next-line calls-loop
         uint256 balanceOfToken = IERC20(tokenAddress).balanceOf(address(this));
         if (newTotalBalance > balanceOfToken) {
             /**

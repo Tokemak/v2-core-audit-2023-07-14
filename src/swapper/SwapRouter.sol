@@ -50,7 +50,6 @@ contract SwapRouter is ISwapRouter, SecurityBase, ReentrancyGuard {
             Errors.verifyNotZero(route.pool, "swap pool");
             Errors.verifyNotZero(address(route.swapper), "swap swapper");
 
-            //slither-disable-next-line calls-loop
             route.swapper.validate(fromToken, route);
 
             swapRoute.push(route);
@@ -90,7 +89,7 @@ contract SwapRouter is ISwapRouter, SecurityBase, ReentrancyGuard {
         address currentToken = assetToken;
         uint256 currentAmount = sellAmount;
         for (uint256 hop = 0; hop < length; ++hop) {
-            // slither-disable-start low-level-calls,calls-loop
+            // slither-disable-start low-level-calls
             // solhint-disable-next-line avoid-low-level-calls
             (bool success, bytes memory data) = address(routes[hop].swapper).delegatecall(
                 abi.encodeWithSelector(
@@ -103,7 +102,7 @@ contract SwapRouter is ISwapRouter, SecurityBase, ReentrancyGuard {
                     routes[hop].data
                 )
             );
-            // slither-disable-end low-level-calls,calls-loop
+            // slither-disable-end low-level-calls
 
             if (!success) {
                 if (data.length == 0) revert SwapFailed();

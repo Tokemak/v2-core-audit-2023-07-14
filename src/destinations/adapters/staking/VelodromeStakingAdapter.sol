@@ -68,12 +68,10 @@ contract VelodromeStakingAdapter is IStakingAdapter, ReentrancyGuard {
         IGauge gauge = IGauge(gaugeAddress);
 
         uint256 lpTokensBefore = gauge.balanceOf(address(this));
-        //slither-disable-start calls-loop
         for (uint256 i = 0; i < amounts.length; ++i) {
             LibAdapter._approve(IERC20(gauge.stake()), address(gauge), amounts[i]);
             gauge.deposit(amounts[i], tokenIds[i]);
         }
-        //slither-disable-end calls-loop
         uint256 lpTokensAfter = gauge.balanceOf(address(this));
         uint256 lpTokenAmount = lpTokensAfter - lpTokensBefore;
         if (lpTokenAmount < minLpMintAmount) revert MinLpAmountNotReached();
@@ -111,11 +109,9 @@ contract VelodromeStakingAdapter is IStakingAdapter, ReentrancyGuard {
 
         uint256 lpTokensBefore = gauge.balanceOf(address(this));
 
-        //slither-disable-start calls-loop
         for (uint256 i = 0; i < amounts.length; ++i) {
             gauge.withdrawToken(amounts[i], tokenIds[i]);
         }
-        //slither-disable-end calls-loop
 
         uint256 lpTokensAfter = gauge.balanceOf(address(this));
 

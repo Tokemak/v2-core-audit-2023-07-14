@@ -26,7 +26,6 @@ contract MaverickRewardsAdapter is IClaimableRewardsAdapter, ReentrancyGuard {
         uint256[] memory amountsClaimed = new uint256[](length);
 
         // Iterating over each reward info, if earned is not zero, reward is claimed
-        // slither-disable-start calls-loop
         for (uint256 i = 0; i < length; ++i) {
             IReward.EarnedInfo memory earnedInfo = earnedInfos[i];
             IERC20 rewardToken = earnedInfo.rewardToken;
@@ -47,7 +46,6 @@ contract MaverickRewardsAdapter is IClaimableRewardsAdapter, ReentrancyGuard {
             // Calculating the claimed amount by comparing the balance after claiming the reward
             amountsClaimed[i] = rewardToken.balanceOf(account) - balanceBefore;
         }
-        // slither-disable-end calls-loop
 
         emit RewardsClaimed(rewardTokens, amountsClaimed);
 

@@ -73,7 +73,6 @@ abstract contract CurveV1PoolCalculatorBase is BaseStatsCalculator, Initializabl
             if (dependentAprId != Stats.NOOP_APR_ID) {
                 address coin = tokens[i];
 
-                //slither-disable-start calls-loop
                 IStatsCalculator calculator = registry.getCalculator(dependentAprIds[i]);
 
                 // Ensure that the calculator we configured is meant to handle the token
@@ -82,7 +81,6 @@ abstract contract CurveV1PoolCalculatorBase is BaseStatsCalculator, Initializabl
                 if (calculator.getAddressId() != coin) {
                     revert Stats.CalculatorAssetMismatch(dependentAprId[i], address(calculator), coin);
                 }
-                //slither-disable-end calls-loop
 
                 calculators.push(calculator);
             }

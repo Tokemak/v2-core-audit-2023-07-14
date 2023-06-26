@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 import {
     THREE_CURVE_POOL_MAINNET_LP,
     THREE_CURVE_MAINNET,
@@ -10,7 +10,7 @@ import {
     USDC_MAINNET
 } from "test/utils/Addresses.sol";
 
-import "src/pricing/value-providers/CurveValueProvider.sol";
+import { CurveValueProvider } from "src/pricing/value-providers/CurveValueProvider.sol";
 
 // solhint-disable func-name-mixedcase
 contract CurveValueProviderTest is Test {

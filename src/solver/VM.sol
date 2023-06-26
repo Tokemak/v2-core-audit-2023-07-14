@@ -2,11 +2,11 @@
 
 pragma solidity 0.8.17;
 
-import "./CommandBuilder.sol";
+import { CommandBuilder } from "src/solver/CommandBuilder.sol";
 
 // solhint-disable avoid-low-level-calls
 // solhint-disable no-inline-assembly
-// slither-disable-start delegatecall-loop,calls-loop,low-level-calls,assembly
+// slither-disable-start delegatecall-loop,low-level-calls,assembly
 
 /**
  *
@@ -137,4 +137,4 @@ abstract contract VM {
     }
 }
 
-// slither-disable-end delegatecall-loop,calls-loop,low-level-calls,assembly
+// slither-disable-end delegatecall-loop,low-level-calls,assembly

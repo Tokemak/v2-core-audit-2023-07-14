@@ -15,7 +15,6 @@ import { ICurveTokenV2 } from "src/interfaces/external/curve/ICurveTokenV2.sol";
 import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 // solhint-disable func-name-mixedcase
-// slither-disable-start calls-loop
 /**
  * @title Contains functionality to register curve pools and get their prices.
  * @dev Returns 18 decimals of precision.
@@ -238,4 +237,3 @@ contract CurveValueProvider is BaseValueProviderLP {
         return dynamicArray;
     }
 }
-// slither-disable-end calls-loop

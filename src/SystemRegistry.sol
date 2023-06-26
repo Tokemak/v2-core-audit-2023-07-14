@@ -3,12 +3,13 @@
 
 pragma solidity 0.8.17;
 
-import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import { IWETH9 } from "src/interfaces/utils/IWETH9.sol";
-import { IGPToke } from "src/interfaces/staking/IGPToke.sol";
 import { Errors } from "src/utils/Errors.sol";
+import { IWETH9 } from "src/interfaces/utils/IWETH9.sol";
 import { Ownable2Step } from "./access/Ownable2Step.sol";
+import { IGPToke } from "src/interfaces/staking/IGPToke.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
+import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
+import { ICurveResolver } from "src/interfaces/utils/ICurveResolver.sol";
 import { ILMPVaultRouter } from "src/interfaces/vault/ILMPVaultRouter.sol";
 import { ILMPVaultFactory } from "src/interfaces/vault/ILMPVaultFactory.sol";
 import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
@@ -17,8 +18,12 @@ import { IAccessController } from "src/interfaces/security/IAccessController.sol
 import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 import { IDestinationRegistry } from "src/interfaces/destinations/IDestinationRegistry.sol";
 import { IStatsCalculatorRegistry } from "src/interfaces/stats/IStatsCalculatorRegistry.sol";
-import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
 import { IAsyncSwapperRegistry } from "src/interfaces/liquidation/IAsyncSwapperRegistry.sol";
+import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
+import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
+
+/// TODO: Swap router set tests
+/// TODO: Curve Resolver set tests
 
 /// @notice Root contract of the system instance.
 /// @dev All contracts in this instance of the system should be reachable from this contract
@@ -39,6 +44,8 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     ILMPVaultRouter private _lmpVaultRouter;
     IRootPriceOracle private _rootPriceOracle;
     IAsyncSwapperRegistry private _asyncSwapperRegistry;
+    ISwapRouter private _swapRouter;
+    ICurveResolver private _curveResolver;
 
     mapping(bytes32 => ILMPVaultFactory) private _lmpVaultFactoryByType;
     EnumerableSet.Bytes32Set private _lmpVaultFactoryTypes;
@@ -59,6 +66,8 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     event StatsCalculatorRegistrySet(address newAddress);
     event RootPriceOracleSet(address rootPriceOracle);
     event AsyncSwapperRegistrySet(address newAddress);
+    event SwapRouterSet(address swapRouter);
+    event CurveResolverSet(address curveResolver);
 
     /* ******************************** */
     /* Errors                           */
@@ -137,6 +146,16 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         return _asyncSwapperRegistry;
     }
 
+    /// @inheritdoc ISystemRegistry
+    function swapRouter() external view returns (ISwapRouter) {
+        return _swapRouter;
+    }
+
+    /// @inheritdoc ISystemRegistry
+    function curveResolver() external view returns (ICurveResolver) {
+        return _curveResolver;
+    }
+
     /* ******************************** */
     /* Function                         */
     /* ******************************** */
@@ -155,7 +174,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
 
         emit GPTokeSet(newGPToke);
 
-        verifySystemsAgree(address(newGPToke));
+        _verifySystemsAgree(address(newGPToke));
     }
 
     /// @notice Set the LMP Vault Registry for this instance of the system
@@ -172,7 +191,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
 
         _lmpVaultRegistry = ILMPVaultRegistry(registry);
 
-        verifySystemsAgree(address(_lmpVaultRegistry));
+        _verifySystemsAgree(registry);
     }
 
     /// @notice Set the LMP Vault Router for this instance of the system
@@ -200,7 +219,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
 
         _destinationVaultRegistry = IDestinationVaultRegistry(registry);
 
-        verifySystemsAgree(address(_destinationVaultRegistry));
+        _verifySystemsAgree(registry);
     }
 
     /// @notice Set the Access Controller for this instance of the system
@@ -217,7 +236,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
 
         _accessController = IAccessController(controller);
 
-        verifySystemsAgree(address(_accessController));
+        _verifySystemsAgree(controller);
     }
 
     /// @notice Set the Destination Template Registry for this instance of the system
@@ -234,7 +253,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
 
         _destinationTemplateRegistry = IDestinationRegistry(registry);
 
-        verifySystemsAgree(address(_destinationTemplateRegistry));
+        _verifySystemsAgree(registry);
     }
 
     /// @notice Set the Stats Calculator Registry for this instance of the system
@@ -251,7 +270,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
 
         _statsCalculatorRegistry = IStatsCalculatorRegistry(registry);
 
-        verifySystemsAgree(address(_statsCalculatorRegistry));
+        _verifySystemsAgree(registry);
     }
 
     /// @notice Set the Root Price Oracle for this instance of the system
@@ -268,7 +287,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
 
         _rootPriceOracle = IRootPriceOracle(oracle);
 
-        verifySystemsAgree(address(_rootPriceOracle));
+        _verifySystemsAgree(oracle);
     }
 
     /// @notice Set the Async Swapper Registry for this instance of the system
@@ -285,29 +304,45 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
 
         _asyncSwapperRegistry = IAsyncSwapperRegistry(registry);
 
-        verifySystemsAgree(address(_asyncSwapperRegistry));
+        _verifySystemsAgree(address(_asyncSwapperRegistry));
     }
 
-    /// @notice Verifies that a system bound contract matches this contract
-    /// @dev All system bound contracts must match a registry contract. Will revert on mismatch
-    /// @param dep The contract to check
-    function verifySystemsAgree(address dep) internal view {
-        // slither-disable-start low-level-calls
-        // solhint-disable-next-line avoid-low-level-calls
-        (bool success, bytes memory data) = dep.staticcall(abi.encodeWithSignature("getSystemRegistry()"));
-        // slither-disable-end low-level-calls
-        if (success) {
-            address depRegistry = abi.decode(data, (address));
-            if (depRegistry != address(this)) {
-                revert Errors.SystemMismatch(address(this), depRegistry);
-            }
-        } else {
-            revert InvalidContract(dep);
+    /// @notice Set the Swap Router for this instance of the system
+    /// @dev This value can be set multiple times, but never back to 0
+    /// @param router Address of the router
+    function setSwapRouter(address router) external onlyOwner {
+        Errors.verifyNotZero(router, "router");
+
+        if (router == address(_swapRouter)) {
+            revert DuplicateSet(router);
         }
+
+        emit SwapRouterSet(router);
+
+        _swapRouter = ISwapRouter(router);
+
+        _verifySystemsAgree(router);
+    }
+
+    /// @notice Set the Curve Resolver for this instance of the system
+    /// @dev This value can be set multiple times, but never back to 0
+    /// @param resolver Address of the resolver
+    function setCurveResolver(address resolver) external onlyOwner {
+        Errors.verifyNotZero(resolver, "resolver");
+
+        if (resolver == address(_curveResolver)) {
+            revert DuplicateSet(resolver);
+        }
+
+        emit CurveResolverSet(resolver);
+
+        _curveResolver = ICurveResolver(resolver);
+
+        _verifySystemsAgree(resolver);
     }
 
     /* ******************************** */
-    /* LMP Vault Factories                  */
+    /* LMP Vault Factories              */
     /* ******************************** */
     function setLMPVaultFactory(bytes32 vaultType, address factoryAddress) external onlyOwner {
         Errors.verifyNotZero(factoryAddress, "factoryAddress");
@@ -334,5 +369,23 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         delete _lmpVaultFactoryByType[vaultType];
 
         emit LMPVaultFactoryRemoved(vaultType, factoryAddress);
+    }
+
+    /// @notice Verifies that a system bound contract matches this contract
+    /// @dev All system bound contracts must match a registry contract. Will revert on mismatch
+    /// @param dep The contract to check
+    function _verifySystemsAgree(address dep) internal view {
+        // slither-disable-start low-level-calls
+        // solhint-disable-next-line avoid-low-level-calls
+        (bool success, bytes memory data) = dep.staticcall(abi.encodeWithSignature("getSystemRegistry()"));
+        // slither-disable-end low-level-calls
+        if (success) {
+            address depRegistry = abi.decode(data, (address));
+            if (depRegistry != address(this)) {
+                revert Errors.SystemMismatch(address(this), depRegistry);
+            }
+        } else {
+            revert InvalidContract(dep);
+        }
     }
 }

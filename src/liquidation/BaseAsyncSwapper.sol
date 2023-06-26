@@ -15,7 +15,6 @@ contract BaseAsyncSwapper is IAsyncSwapper, ReentrancyGuard {
         AGGREGATOR = aggregator;
     }
 
-    // slither-disable-start calls-loop
     function swap(SwapParams memory swapParams) public virtual nonReentrant returns (uint256 buyTokenAmountReceived) {
         if (swapParams.buyTokenAddress == address(0)) revert TokenAddressZero();
         if (swapParams.sellTokenAddress == address(0)) revert TokenAddressZero();
@@ -61,5 +60,4 @@ contract BaseAsyncSwapper is IAsyncSwapper, ReentrancyGuard {
 
         return buyTokenAmountReceived;
     }
-    // slither-disable-end calls-loop
 }

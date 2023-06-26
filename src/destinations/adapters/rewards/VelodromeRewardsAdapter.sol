@@ -55,7 +55,6 @@ contract VelodromeRewardsAdapter is IClaimableRewardsAdapter, ReentrancyGuard {
         REWARDS_DISTRIBUTOR = IRewardsDistributor(rewardsDistributor);
     }
 
-    // slither-disable-start calls-loop
     /**
      * @param pool The pool to claim rewards from
      */
@@ -336,6 +335,4 @@ contract VelodromeRewardsAdapter is IClaimableRewardsAdapter, ReentrancyGuard {
     function getContractAddress() public view returns (address) {
         return address(this);
     }
-
-    // slither-disable-end calls-loop
 }

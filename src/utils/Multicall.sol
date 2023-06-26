@@ -3,7 +3,7 @@
 pragma solidity 0.8.17;
 pragma abicoder v2;
 
-import "../interfaces/utils/IMulticall.sol";
+import { IMulticall } from "src/interfaces/utils/IMulticall.sol";
 
 /// @title Multicall
 /// @notice Enables calling multiple methods in a single call to the contract
@@ -14,7 +14,7 @@ abstract contract Multicall is IMulticall {
 
         /* solhint-disable avoid-low-level-calls, reason-string, no-inline-assembly */
         for (uint256 i = 0; i < data.length; i++) {
-            // slither-disable-next-line delegatecall-loop,calls-loop,low-level-calls
+            // slither-disable-next-line delegatecall-loop,low-level-calls
             (bool success, bytes memory result) = address(this).delegatecall(data[i]);
 
             if (!success) {
