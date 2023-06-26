@@ -33,6 +33,7 @@ contract MaverickDestinationVault is DestinationVault, ReentrancyGuard {
     /* State Variables                  */
     /* ******************************** */
 
+    MainRewarder public rewarder;
     IPoolPositionSlim public boostedPosition;
     IReward public maverickRewarder;
     IPool public pool;
@@ -41,23 +42,24 @@ contract MaverickDestinationVault is DestinationVault, ReentrancyGuard {
 
     function initialize(
         ISystemRegistry _systemRegistry,
-        MainRewarder _rewarder,
-        ISwapRouter _swapper,
         IERC20Metadata _baseAsset,
         string memory baseName,
         bytes memory data,
+        MainRewarder _rewarder,
         IRouter maverickRouter,
         IPoolPositionSlim _boostedPosition,
         IReward _maverickRewarder,
         IPool _pool
     ) public initializer {
         //slither-disable-start missing-zero-check
-        DestinationVault.initialize(_systemRegistry, _rewarder, _swapper, _baseAsset, baseName, data);
+        DestinationVault.initialize(_systemRegistry, _baseAsset, baseName, data);
 
+        Errors.verifyNotZero(address(_rewarder), "_rewarder");
         Errors.verifyNotZero(address(_boostedPosition), "_boostedPosition");
         Errors.verifyNotZero(address(_maverickRewarder), "_maverickRewarder");
         Errors.verifyNotZero(address(_pool), "_pool");
 
+        rewarder = _rewarder;
         boostedPosition = _boostedPosition;
         maverickRewarder = _maverickRewarder;
         pool = _pool;
@@ -141,9 +143,9 @@ contract MaverickDestinationVault is DestinationVault, ReentrancyGuard {
 
         // 1) unstake from Maverick Rewarder if we cannot cover all (we prefer not to unstake as long as we can)
         uint256 unstakeLpAmount = 0;
-        uint256 stakedLpBalance = stakedAmount();
-        if (totalLpBurnAmount > stakedLpBalance) {
-            unstakeLpAmount = totalLpBurnAmount - stakedLpBalance;
+        uint256 stakingTokenBal = stakingTokenBalance();
+        if (totalLpBurnAmount > stakingTokenBal) {
+            unstakeLpAmount = totalLpBurnAmount - stakingTokenBal;
             MaverickStakingAdapter.unstakeLPs(maverickRewarder, unstakeLpAmount);
         }
 
