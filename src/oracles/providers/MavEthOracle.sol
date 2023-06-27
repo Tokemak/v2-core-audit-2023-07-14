@@ -10,23 +10,23 @@ import { IPriceOracle } from "src/interfaces/oracles/IPriceOracle.sol";
 import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
 
-contract MavEthOracle is IPriceOracle, SecurityBase {
+contract MavEthOracle is SystemComponent, IPriceOracle, SecurityBase {
     /// @notice Emitted when new maximum bin width is set.
     event MaxTotalBinWidthSet(uint256 newMaxBinWidth);
 
     /// @notice Thrown when the total width of all bins being priced exceeds the max.
     error TotalBinWidthExceedsMax();
 
-    ISystemRegistry public immutable systemRegistry;
     // 100 = 1% spacing, 10 = .1% spacing, 1 = .01% spacing etc.
     uint256 public maxTotalBinWidth = 50;
 
-    constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
-        Errors.verifyNotZero(address(_systemRegistry), "_systemRegistry");
+    constructor(ISystemRegistry _systemRegistry)
+        SystemComponent(_systemRegistry)
+        SecurityBase(address(_systemRegistry.accessController()))
+    {
         Errors.verifyNotZero(address(_systemRegistry.rootPriceOracle()), "priceOracle");
-
-        systemRegistry = _systemRegistry;
     }
 
     /**
@@ -74,9 +74,5 @@ contract MavEthOracle is IPriceOracle, SecurityBase {
         // Return price of lp token in boosted position.
         return (totalBoostedPositionValueTokenA + totalBoostedPositionValueTokenB) / boostedPositionTotalSupply;
         // slither-disable-end similar-names
-    }
-
-    function getSystemRegistry() external view returns (address) {
-        return address(systemRegistry);
     }
 }
