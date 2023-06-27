@@ -69,6 +69,10 @@ contract CurveV1ConvexStatsCalculator is BaseStatsCalculator, Initializable {
         // and the pools are in good standing
         address curveQueriedLpToken = curveRegistry.get_lp_token(decodedInitData.curvePoolAddress);
         Errors.verifyNotZero(curveQueriedLpToken, "curveQueriedLpToken");
+
+        // Partial return values are intentionally ignored. This call provides the most efficient way to obtain the
+        // data.
+        // slither-disable-next-line unused-return
         (address convexQueriedLpToken,,,,, bool shutdown) = convexBooster.poolInfo(decodedInitData.convexPoolId);
         if (shutdown) {
             revert ConvexPoolShutdown(decodedInitData.convexPoolId);

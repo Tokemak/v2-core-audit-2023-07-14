@@ -28,12 +28,11 @@ contract CurveResolverMainnet is ICurveResolver {
         numTokens = curveMetaRegistry.get_n_coins(poolAddress);
 
         // Using the presence of a gamma() fn as an indicator of pool type
-
         // Zero check for the poolAddress is above
-        // slither-disable-start low-level-calls,missing-zero-check
+        // slither-disable-start low-level-calls,missing-zero-check,unchecked-lowlevel
         // solhint-disable-next-line avoid-low-level-calls
         (bool success,) = poolAddress.staticcall(abi.encodeWithSignature("gamma()"));
-        // slither-disable-end low-level-calls,missing-zero-check
+        // slither-disable-end low-level-calls,missing-zero-check,unchecked-lowlevel
 
         isStableSwap = !success;
     }

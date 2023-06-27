@@ -1,3 +1,4 @@
+local/
 cache/
 out/
 .env

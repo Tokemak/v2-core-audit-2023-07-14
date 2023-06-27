@@ -102,6 +102,10 @@ contract ChainlinkOracle is BaseOracleDenominations {
     // slither-disable-start timestamp
     function getPriceInEth(address token) external returns (uint256) {
         ChainlinkInfo memory chainlinkOracle = _getChainlinkInfo(token);
+
+        // Partial return values are intentionally ignored. This call provides the most efficient way to obtain the
+        // data.
+        // slither-disable-next-line unused-return
         (uint80 roundId, int256 price,, uint256 updatedAt,) = chainlinkOracle.oracle.latestRoundData();
         uint256 timestamp = block.timestamp;
         uint256 oracleStoredTimeout = uint256(chainlinkOracle.pricingTimeout);

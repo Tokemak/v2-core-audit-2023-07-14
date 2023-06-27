@@ -109,6 +109,9 @@ contract UniswapV2EthOracle is SystemComponent, SecurityBase, IPriceOracle {
     }
 
     function _getReserves(address token) internal view virtual returns (uint256 reserve0, uint256 reserve1) {
+        // Partial return values are intentionally ignored. This call provides the most efficient way to obtain the
+        // data.
+        // slither-disable-next-line unused-return
         (reserve0, reserve1,) = IUniswapV2Pair(token).getReserves();
     }
 }

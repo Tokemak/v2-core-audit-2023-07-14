@@ -65,6 +65,7 @@ abstract contract VM {
             }
 
             if (flags & FLAG_CT_MASK == FLAG_CT_DELEGATECALL) {
+                // slither-disable-next-line controlled-delegatecall
                 (success, outdata) = address(uint160(uint256(command))).delegatecall( // target
                     // inputs
                     state.buildInputs(

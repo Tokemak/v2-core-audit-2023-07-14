@@ -29,17 +29,18 @@ contract BalancerV2Swap is BaseAdapter {
         // verify that the swapData.pool has the same id as the encoded poolId
         if (id != poolId) revert DataMismatch("poolId");
 
+        // verify that the fromAddress and toAddress are in the pool. getPoolTokenInfo will revert if not
+        // slither-disable-start low-level-calls,missing-zero-check,unchecked-lowlevel
+
         string memory funcSelector = "getPoolTokenInfo(bytes32,address)";
 
-        // verify that the fromAddress and toAddress are in the pool
-        // slither-disable-start low-level-calls,missing-zero-check
         // solhint-disable-next-line avoid-low-level-calls
         (bool success,) = address(vault).staticcall(abi.encodeWithSignature(funcSelector, poolId, fromAddress));
         if (!success) revert DataMismatch("fromAddress");
 
         (success,) = address(vault).staticcall(abi.encodeWithSignature(funcSelector, poolId, swapData.token));
         if (!success) revert DataMismatch("toAddress");
-        // slither-disable-end low-level-calls,missing-zero-check
+        // slither-disable-end low-level-calls,missing-zero-check,unchecked-lowlevel
     }
 
     /// @inheritdoc ISyncSwapper

@@ -34,10 +34,11 @@ contract BaseAsyncSwapper is IAsyncSwapper, ReentrancyGuard {
 
         uint256 buyTokenBalanceBefore = buyToken.balanceOf(address(this));
 
-        // slither-disable-start low-level-calls
+        // we don't need the returned value, we calculate the buyTokenAmountReceived ourselves
+        // slither-disable-start low-level-calls,unchecked-lowlevel
         // solhint-disable-next-line avoid-low-level-calls
         (bool success,) = AGGREGATOR.call(swapParams.data);
-        // slither-disable-end low-level-calls
+        // slither-disable-end low-level-calls,unchecked-lowlevel
 
         if (!success) {
             revert SwapFailed();

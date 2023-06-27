@@ -13,6 +13,9 @@ contract CamelotValueProvider is BaseValueProviderUniV2LP {
     constructor(address _ethValueOracle) BaseValueProviderUniV2LP(_ethValueOracle) { }
 
     function getPrice(address camelotLpTokenAddress) external view override onlyValueOracle returns (uint256) {
+        // Partial return values are intentionally ignored. This call provides the most efficient way to obtain the
+        // data.
+        // slither-disable-next-line unused-return
         (uint112 reserve0, uint112 reserve1,,) = ICamelotPair(camelotLpTokenAddress).getReserves();
         return _getPriceUniV2Contract(camelotLpTokenAddress, reserve0, reserve1);
     }

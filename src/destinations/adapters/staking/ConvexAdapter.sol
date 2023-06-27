@@ -94,6 +94,9 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
 
     /// @dev Separate function to avoid stack-too-deep errors
     function _validatePoolInfo(IConvexBooster booster, uint256 poolId, address lpToken, address staking) private {
+        // Partial return values are intentionally ignored. This call provides the most efficient way to obtain the
+        // data.
+        // slither-disable-next-line unused-return
         (address poolLpToken,,, address crvRewards,,) = booster.poolInfo(poolId);
         if (lpToken != poolLpToken) revert PoolIdLpTokenMismatch();
         if (staking != crvRewards) revert PoolIdStakingMismatch();

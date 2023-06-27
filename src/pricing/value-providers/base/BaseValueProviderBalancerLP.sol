@@ -35,6 +35,10 @@ abstract contract BaseValueProviderBalancerLP is BaseValueProvider {
     function _getPriceBalancerPool(address tokenToPrice) internal view virtual returns (uint256) {
         IBalancerPool pool = IBalancerPool(tokenToPrice);
         bytes32 poolId = pool.getPoolId();
+
+        // Partial return values are intentionally ignored. This call provides the most efficient way to obtain the
+        // data.
+        // slither-disable-next-line unused-return
         (IERC20[] memory tokens, uint256[] memory balances,) = balancerVault.getPoolTokens(poolId);
 
         uint256 poolValueEth; // Total value of pool in Eth.
