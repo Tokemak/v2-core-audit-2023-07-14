@@ -21,12 +21,14 @@ import {
 } from "test/utils/Addresses.sol";
 
 // solhint-disable func-name-mixedcase
-contract CurveV2SwapTest is Test {
+contract UniV3SwapTest is Test {
     using Address for address;
 
     UniV3Swap private adapter;
 
     ISwapRouter.SwapData private route;
+
+    uint24 private poolFee = 3000;
 
     function setUp() public {
         string memory endpoint = vm.envString("MAINNET_RPC_URL");
@@ -34,8 +36,6 @@ contract CurveV2SwapTest is Test {
         vm.selectFork(forkId);
 
         adapter = new UniV3Swap(address(this));
-
-        uint24 poolFee = 3000;
 
         // route DAI_MAINNET -> WETH_MAINNET
         route = ISwapRouter.SwapData({
@@ -73,6 +73,44 @@ contract CurveV2SwapTest is Test {
         bytes memory data = address(adapter).functionDelegateCall(
             abi.encodeWithSelector(
                 ISyncSwapper.swap.selector, route.pool, DAI_MAINNET, sellAmount, WETH9_ADDRESS, 1, route.data
+            )
+        );
+
+        // get balance of WETH_MAINNET after swap
+        uint256 wethBalanceAfter = IERC20(WETH9_ADDRESS).balanceOf(address(this));
+        uint256 val = abi.decode(data, (uint256));
+
+        assertGt(wethBalanceAfter, wethBalanceBefore);
+
+        // check that the amount of WETH received is equal to the amount returned by the swap function
+        assertEq(val, wethBalanceAfter - wethBalanceBefore);
+    }
+
+    function test_swap_SingleWorks() public {
+        ISwapRouter.SwapData memory singleroute = ISwapRouter.SwapData({
+            token: WETH9_ADDRESS,
+            pool: UNIV3_SWAP_ROUTER_MAINNET, // router
+            swapper: adapter,
+            data: abi.encodePacked(DAI_MAINNET, poolFee, WETH9_ADDRESS)
+        });
+
+        uint256 sellAmount = 1e18;
+
+        deal(DAI_MAINNET, address(this), 10 * sellAmount);
+        IERC20(DAI_MAINNET).approve(address(adapter), 4 * sellAmount);
+
+        // get balance of WETH_MAINNET before swap
+        uint256 wethBalanceBefore = IERC20(WETH9_ADDRESS).balanceOf(address(this));
+
+        bytes memory data = address(adapter).functionDelegateCall(
+            abi.encodeWithSelector(
+                ISyncSwapper.swap.selector,
+                singleroute.pool,
+                DAI_MAINNET,
+                sellAmount,
+                WETH9_ADDRESS,
+                1,
+                singleroute.data
             )
         );
 
