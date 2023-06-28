@@ -6,7 +6,6 @@ import { Errors } from "src/utils/Errors.sol";
 import { Math } from "openzeppelin-contracts/utils/math/Math.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
@@ -14,7 +13,6 @@ import { DestinationVault } from "src/vault/DestinationVault.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { MainRewarder } from "src/rewarders/MainRewarder.sol";
-import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
 import { IRouter } from "src/interfaces/external/maverick/IRouter.sol";
 import { IPool } from "src/interfaces/external/maverick/IPool.sol";
 import { IPosition } from "src/interfaces/external/maverick/IPosition.sol";
@@ -23,7 +21,6 @@ import { IPoolPositionSlim } from "src/interfaces/external/maverick/IPoolPositio
 import { MaverickStakingAdapter } from "src/destinations/adapters/staking/MaverickStakingAdapter.sol";
 
 contract MaverickDestinationVault is DestinationVault, ReentrancyGuard {
-    using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.AddressSet;
 
     error NothingToClaim();
@@ -58,6 +55,7 @@ contract MaverickDestinationVault is DestinationVault, ReentrancyGuard {
         Errors.verifyNotZero(address(_boostedPosition), "_boostedPosition");
         Errors.verifyNotZero(address(_maverickRewarder), "_maverickRewarder");
         Errors.verifyNotZero(address(_pool), "_pool");
+        Errors.verifyNotZero(address(maverickRouter), "maverickRouter");
 
         rewarder = _rewarder;
         boostedPosition = _boostedPosition;
@@ -88,7 +86,7 @@ contract MaverickDestinationVault is DestinationVault, ReentrancyGuard {
     }
 
     function debtValue() public override returns (uint256 value) {
-        value = totalLpAmount() * getTokenPriceInBaseAsset(address(stakingToken));
+        value = totalLpAmount() * _getTokenPriceInBaseAsset(address(stakingToken));
     }
 
     function rewardValue() public override returns (uint256 value) {
@@ -98,14 +96,14 @@ contract MaverickDestinationVault is DestinationVault, ReentrancyGuard {
         for (uint256 i = 0; i < rewarder.extraRewardsLength(); ++i) {
             address rewardToken = rewarder.extraRewards(i);
             uint256 rewardAmount = IERC20(rewardToken).balanceOf(address(this));
-            value += rewardAmount * getTokenPriceInBaseAsset(rewardToken);
+            value += rewardAmount * _getTokenPriceInBaseAsset(rewardToken);
         }
         //slither-disable-end calls-loop
     }
 
     /// @notice If base asset is not WETH (which is a case for our MVP)
     /// we should figure out price of the given token in terms of base asset
-    function getTokenPriceInBaseAsset(address token) private returns (uint256 value) {
+    function _getTokenPriceInBaseAsset(address token) private returns (uint256 value) {
         //slither-disable-start calls-loop
         IRootPriceOracle priceOracle = systemRegistry.rootPriceOracle();
         uint256 tokenPriceInEth = priceOracle.getPriceInEth(token);
@@ -128,7 +126,7 @@ contract MaverickDestinationVault is DestinationVault, ReentrancyGuard {
 
     /// @notice Stakes into Maverick Rewarder on deposit
     /// @dev Should be called by Strategy/Solver on liquidity deployment
-    function stakeOnDeposit(uint256 amount) public {
+    function stakeOnDeposit(uint256 amount) public nonReentrant {
         MaverickStakingAdapter.stakeLPs(maverickRewarder, amount);
     }
 

@@ -7,6 +7,7 @@ pragma solidity 0.8.17;
  *      Specific interface type is defined by extending from this interface.
  */
 interface IDestinationAdapter {
+    // TODO: consolidate Adapter errors in the `Errors` lib
     error MustBeMoreThanZero();
     error ArraysLengthMismatch();
     error BalanceMustIncrease();
