@@ -39,8 +39,7 @@ contract BalancerLPComposableStableEthOracle is SystemComponent, IPriceOracle {
         bytes32 poolId = pool.getPoolId();
 
         // Will revert with BAL#500 on invalid pool id
-        // Partial return values are intentionally ignored. This call provides the most efficient way to obtain the
-        // data.
+        // Partial return values are intentionally ignored. This call provides the most efficient way to get the data.
         // slither-disable-next-line unused-return
         (IERC20[] memory tokens,,) = balancerVault.getPoolTokens(poolId);
 

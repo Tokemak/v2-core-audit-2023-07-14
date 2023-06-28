@@ -686,9 +686,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         address tokenOut,
         uint256 amountOut
     ) public view virtual returns (bool success, string memory message) {
-        // Slither seems to flag a false positive here.
-        // The return values are directly re-returned, not unused.
-        // slither-disable-next-line unused-return
-        return LMPStrategy.verifyRebalance(destinationIn, tokenIn, amountIn, destinationOut, tokenOut, amountOut);
+        (success, message) =
+            LMPStrategy.verifyRebalance(destinationIn, tokenIn, amountIn, destinationOut, tokenOut, amountOut);
     }
 }

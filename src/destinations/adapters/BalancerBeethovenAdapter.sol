@@ -289,6 +289,8 @@ library BalancerBeethovenAdapter {
         }
 
         bytes32 poolId = poolInterface.getPoolId();
+        // Partial return values are intentionally ignored. This call provides the most efficient way to get the data.
+        // slither-disable-next-line unused-return
         (IERC20[] memory poolTokens,,) = vault.getPoolTokens(poolId);
 
         if (poolTokens.length != nTokens) {
@@ -376,6 +378,9 @@ library BalancerBeethovenAdapter {
         uint256[] memory assetBalancesBefore
     ) private {
         // (two part verification: total number checked here, and individual match check below)
+
+        // Partial return values are intentionally ignored. This call provides the most efficient way to get the data.
+        // slither-disable-next-line unused-return
         (IERC20[] memory poolAssets,,) = vault.getPoolTokens(poolId);
 
         uint256 nTokens = amounts.length;

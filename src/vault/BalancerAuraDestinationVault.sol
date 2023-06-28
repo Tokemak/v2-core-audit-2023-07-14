@@ -68,8 +68,7 @@ contract BalancerAuraDestinationVault is AuraAdapter, DestinationVault {
 
         bytes32 poolId = IBalancerPool(pool).getPoolId();
 
-        // Partial return values are intentionally ignored. This call provides the most efficient way to obtain the
-        // data.
+        // Partial return values are intentionally ignored. This call provides the most efficient way to get the data.
         // slither-disable-next-line unused-return
         (IERC20[] memory balancerPoolTokens,,) = balancerVault.getPoolTokens(poolId);
         if (balancerPoolTokens.length == 0) revert ArrayLengthMismatch();

@@ -135,10 +135,7 @@ contract VelodromeAdapter is IPoolAdapter, ReentrancyGuard {
         uint256 maxLpBurnAmount,
         VelodromeExtraParams memory params
     ) private returns (uint256 amountA, uint256 amountB) {
-        // Slither seems to flag a false positive here.
-        // The return values are directly re-returned, not unused.
-        // slither-disable-next-line unused-return
-        return router.removeLiquidity(
+        (amountA, amountB) = router.removeLiquidity(
             params.tokenA,
             params.tokenB,
             params.stable,

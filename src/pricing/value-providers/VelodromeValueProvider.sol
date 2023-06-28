@@ -13,8 +13,7 @@ contract VelodromeValueProvider is BaseValueProviderUniV2LP {
     constructor(address _ethValueOracle) BaseValueProviderUniV2LP(_ethValueOracle) { }
 
     function getPrice(address velodromeLpTokenAddress) external view override onlyValueOracle returns (uint256) {
-        // Partial return values are intentionally ignored. This call provides the most efficient way to obtain the
-        // data.
+        // Partial return values are intentionally ignored. This call provides the most efficient way to get the data.
         // slither-disable-next-line unused-return
         (uint256 reserve0, uint256 reserve1,) = IPair(velodromeLpTokenAddress).getReserves();
         return _getPriceUniV2Contract(velodromeLpTokenAddress, reserve0, reserve1);

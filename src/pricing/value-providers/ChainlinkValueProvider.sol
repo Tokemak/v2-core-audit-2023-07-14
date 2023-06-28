@@ -88,8 +88,7 @@ contract ChainlinkValueProvider is BaseValueProviderDenominations {
     function getPrice(address token) external view override onlyValueOracle returns (uint256) {
         ChainlinkInfo memory chainlinkOracle = _getChainlinkInfo(token);
 
-        // Partial return values are intentionally ignored. This call provides the most efficient way to obtain the
-        // data.
+        // Partial return values are intentionally ignored. This call provides the most efficient way to get the data.
         // slither-disable-next-line unused-return
         (uint80 roundId, int256 price,, uint256 updatedAt,) = chainlinkOracle.oracle.latestRoundData();
         uint256 timestamp = block.timestamp;

@@ -36,8 +36,7 @@ abstract contract BaseValueProviderBalancerLP is BaseValueProvider {
         IBalancerPool pool = IBalancerPool(tokenToPrice);
         bytes32 poolId = pool.getPoolId();
 
-        // Partial return values are intentionally ignored. This call provides the most efficient way to obtain the
-        // data.
+        // Partial return values are intentionally ignored. This call provides the most efficient way to get the data.
         // slither-disable-next-line unused-return
         (IERC20[] memory tokens, uint256[] memory balances,) = balancerVault.getPoolTokens(poolId);
 
