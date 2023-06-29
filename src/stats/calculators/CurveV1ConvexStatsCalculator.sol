@@ -6,14 +6,16 @@ import { Stats } from "src/stats/Stats.sol";
 import { Errors } from "src/utils/Errors.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
+import { IDexLSTStats } from "src/interfaces/stats/IDexLSTStats.sol";
 import { ICurveRegistry } from "src/interfaces/external/curve/ICurveRegistry.sol";
 import { IConvexBooster } from "src/interfaces/external/convex/IConvexBooster.sol";
 import { Initializable } from "openzeppelin-contracts/proxy/utils/Initializable.sol";
 import { BaseStatsCalculator } from "src/stats/calculators/base/BaseStatsCalculator.sol";
 import { IStatsCalculatorRegistry } from "src/interfaces/stats/IStatsCalculatorRegistry.sol";
+import { ILSTStats } from "src/interfaces/stats/ILSTStats.sol";
 
 /// @notice Calculate stats for a Curve V1 StableSwap pool whose LP is staked in Convex
-contract CurveV1ConvexStatsCalculator is BaseStatsCalculator, Initializable {
+contract CurveV1ConvexStatsCalculator is IDexLSTStats, BaseStatsCalculator, Initializable {
     address private _addressId;
     bytes32 private _aprId;
 
@@ -95,9 +97,11 @@ contract CurveV1ConvexStatsCalculator is BaseStatsCalculator, Initializable {
         calculators.push(calculator);
     }
 
-    /// @inheritdoc IStatsCalculator
-    function current() external view override returns (Stats.CalculatedStats memory) {
-        return Stats.CalculatedStats({ statsType: Stats.StatsType.DEX, data: "", dependentStats: calculators });
+    /// @inheritdoc IDexLSTStats
+    function current() external view override returns (DexLSTStatsData memory) {
+        ILSTStats.LSTStatsData[] memory lstStatsData = new ILSTStats.LSTStatsData[](0);
+        uint256[] memory reservesInEth = new uint256[](0);
+        return DexLSTStatsData({ feeApr: 0, lstStatsData: lstStatsData, reservesInEth: reservesInEth });
     }
 
     /// @inheritdoc IStatsCalculator

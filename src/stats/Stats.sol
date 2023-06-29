@@ -6,6 +6,10 @@ import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
 
 library Stats {
     uint256 public constant SECONDS_IN_YEAR = 365 * 24 * 60 * 60;
+    uint256 public constant DEX_FEE_APR_SNAPSHOT_INTERVAL = 24 * 60 * 60; // daily
+    uint256 public constant DEX_FEE_ALPHA = 1e17; // 0.1; must be less than 1e18
+
+    address public constant CURVE_ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     enum StatsType {
         LST,
@@ -32,11 +36,19 @@ library Stats {
 
     error CalculatorAssetMismatch(bytes32 aprId, address calculator, address coin);
 
+    error DependentAprIdsMismatchTokens(uint256 numDependentAprIds, uint256 numCoins);
+
     /// @notice Generate an id for a stat calc representing a base ERC20
     /// @dev For rETH/stETH/cbETH etc. Do not use for pools, LP tokens, staking platforms.
     /// @param tokenAddress address of the token
-    function generateRawTokenIdentifier(address tokenAddress) external pure returns (bytes32) {
+    function generateRawTokenIdentifier(address tokenAddress) internal pure returns (bytes32) {
         return keccak256(abi.encode("erc20", tokenAddress));
+    }
+
+    /// @notice Generate an aprId for a curve pool
+    /// @param poolAddress address of the curve pool
+    function generateCurvePoolIdentifier(address poolAddress) internal pure returns (bytes32) {
+        return keccak256(abi.encode("curve", poolAddress));
     }
 
     function calculateAnnualizedChangeMinZero(

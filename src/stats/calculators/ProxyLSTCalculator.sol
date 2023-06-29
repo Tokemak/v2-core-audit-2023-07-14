@@ -8,9 +8,10 @@ import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { Stats } from "src/stats/Stats.sol";
 import { BaseStatsCalculator } from "src/stats/calculators/base/BaseStatsCalculator.sol";
 import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
+import { ILSTStats } from "src/interfaces/stats/ILSTStats.sol";
 
-contract ProxyLSTCalculator is BaseStatsCalculator, Initializable {
-    IStatsCalculator public statsCalculator;
+contract ProxyLSTCalculator is ILSTStats, BaseStatsCalculator, Initializable {
+    ILSTStats public statsCalculator;
     address public lstTokenAddress;
     bytes32 private _aprId;
 
@@ -25,7 +26,7 @@ contract ProxyLSTCalculator is BaseStatsCalculator, Initializable {
     function initialize(bytes32[] calldata, bytes calldata initData) external override initializer {
         InitData memory decodedInitData = abi.decode(initData, (InitData));
         lstTokenAddress = decodedInitData.lstTokenAddress;
-        statsCalculator = IStatsCalculator(decodedInitData.statsCalculator);
+        statsCalculator = ILSTStats(decodedInitData.statsCalculator);
         _aprId = keccak256(abi.encode("lst", lstTokenAddress));
     }
 
@@ -47,7 +48,11 @@ contract ProxyLSTCalculator is BaseStatsCalculator, Initializable {
         return false;
     }
 
-    function current() external view override returns (Stats.CalculatedStats memory stats) {
+    function current() external view returns (LSTStatsData memory stats) {
         return statsCalculator.current();
+    }
+
+    function calculateEthPerToken() external view returns (uint256) {
+        return statsCalculator.calculateEthPerToken();
     }
 }

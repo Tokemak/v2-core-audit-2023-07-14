@@ -15,9 +15,9 @@ import { SystemRegistry } from "src/SystemRegistry.sol";
 import { AccessController } from "src/security/AccessController.sol";
 import { StatsCalculatorFactory } from "src/stats/StatsCalculatorFactory.sol";
 import { StatsCalculatorRegistry } from "src/stats/StatsCalculatorRegistry.sol";
-import { CurveV1PoolStatsCalculator } from "src/stats/calculators/CurveV1PoolStatsCalculator.sol";
+import { CurveV1PoolNoRebasingStatsCalculator } from "src/stats/calculators/CurveV1PoolNoRebasingStatsCalculator.sol";
 import { CurveV1ConvexStatsCalculator } from "src/stats/calculators/CurveV1ConvexStatsCalculator.sol";
-import { CurveV1PoolCalculatorBase } from "src/stats/calculators/base/CurveV1PoolCalculatorBase.sol";
+import { CurvePoolNoRebasingCalculatorBase } from "src/stats/calculators/base/CurvePoolNoRebasingCalculatorBase.sol";
 import { IConvexBooster } from "src/interfaces/external/convex/IConvexBooster.sol";
 import { TOKE_MAINNET, WETH_MAINNET } from "test/utils/Addresses.sol";
 
@@ -59,8 +59,8 @@ contract CurveV1ConvexStatsCalculatorFrxEthEthTests is Test {
         // So we need an adapter for frxETH, the pool, then Convex
 
         // Setup the templates
-        CurveV1PoolStatsCalculator curveV1CalculatorTemplate =
-            new CurveV1PoolStatsCalculator(systemRegistry, CURVE_REGISTRY);
+        CurveV1PoolNoRebasingStatsCalculator curveV1CalculatorTemplate =
+            new CurveV1PoolNoRebasingStatsCalculator(systemRegistry);
         bytes32 curveV1Id = keccak256("curveV1");
         statsFactory.registerTemplate(curveV1Id, address(curveV1CalculatorTemplate));
 
@@ -70,8 +70,8 @@ contract CurveV1ConvexStatsCalculatorFrxEthEthTests is Test {
         statsFactory.registerTemplate(curveV1ConvexId, address(curveV1ConvexStatsTemplate));
 
         // Setup the Curve Pool
-        CurveV1PoolCalculatorBase.InitData memory curvePoolInitData =
-            CurveV1PoolCalculatorBase.InitData({ poolAddress: FRXETH_ETH_POOL });
+        CurvePoolNoRebasingCalculatorBase.InitData memory curvePoolInitData =
+            CurvePoolNoRebasingCalculatorBase.InitData({ poolAddress: FRXETH_ETH_POOL });
         bytes memory encodedCurvePoolInitData = abi.encode(curvePoolInitData);
         bytes32[] memory curveDeps = new bytes32[](2);
         curveDeps[0] = Stats.NOOP_APR_ID; //ETH

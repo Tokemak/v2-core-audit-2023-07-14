@@ -23,11 +23,6 @@ interface IStatsCalculator {
     /// @param initData setup data specific to this type of calculator
     function initialize(bytes32[] calldata dependentAprIds, bytes calldata initData) external;
 
-    /// @notice Current stats data including dependencies
-    /// @dev Some stat values may be empty depending on the hierarchy of the calculator
-    /// @return stats information about this pool or destination combination
-    function current() external view returns (Stats.CalculatedStats memory stats);
-
     /// @notice Capture stat data about this setup
     function snapshot() external;
 

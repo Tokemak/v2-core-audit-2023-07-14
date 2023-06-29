@@ -10,6 +10,7 @@ import { AccessController } from "src/security/AccessController.sol";
 import { Stats } from "src/stats/Stats.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
+import { ILSTStats } from "src/interfaces/stats/ILSTStats.sol";
 import { TOKE_MAINNET, WETH_MAINNET } from "test/utils/Addresses.sol";
 
 contract LSTCalculatorBaseTest is Test {
@@ -37,7 +38,7 @@ contract LSTCalculatorBaseTest is Test {
         uint256 priorEthPerToken, uint256 priorTimestamp, uint256 currentEthPerToken, uint256 currentTimestamp
     );
 
-    event SlashingEventRecorded(LSTCalculatorBase.SlashingEvent slashingEvent);
+    event SlashingEventRecorded(uint256 slashingCost, uint256 slashingTimestamp);
 
     function setUp() public {
         uint256 mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"), START_BLOCK);
@@ -84,10 +85,10 @@ contract LSTCalculatorBaseTest is Test {
         assertEq(testCalculator.lastSlashingSnapshotTimestamp(), END_TIMESTAMP);
         assertEq(testCalculator.lastSlashingEthPerToken(), endingEthPerShare);
 
-        Stats.CalculatedStats memory stats = testCalculator.current();
-        LSTCalculatorBase.LSTStatsData memory decoded = checkAndDecodeCurrent(stats);
-        assertEq(decoded.baseApr, expectedBaseApr);
-        assertEq(decoded.slashingEvents.length, 0);
+        ILSTStats.LSTStatsData memory stats = testCalculator.current();
+        assertEq(stats.baseApr, expectedBaseApr);
+        assertEq(stats.slashingCosts.length, 0);
+        assertEq(stats.slashingTimestamps.length, 0);
     }
 
     function testAprDecreaseSnapshot() public {
@@ -115,13 +116,12 @@ contract LSTCalculatorBaseTest is Test {
         assertEq(testCalculator.lastSlashingSnapshotTimestamp(), END_TIMESTAMP);
         assertEq(testCalculator.lastSlashingEthPerToken(), endingEthPerShare);
 
-        Stats.CalculatedStats memory stats = testCalculator.current();
-        LSTCalculatorBase.LSTStatsData memory decoded = checkAndDecodeCurrent(stats);
-
-        assertEq(decoded.baseApr, 0);
-        assertEq(decoded.slashingEvents.length, 1);
-        assertEq(decoded.slashingEvents[0].timestamp, END_TIMESTAMP);
-        assertEq(decoded.slashingEvents[0].cost, 1e17);
+        ILSTStats.LSTStatsData memory stats = testCalculator.current();
+        assertEq(stats.baseApr, 0);
+        assertEq(stats.slashingCosts.length, 1);
+        assertEq(stats.slashingTimestamps.length, 1);
+        assertEq(stats.slashingTimestamps[0], END_TIMESTAMP);
+        assertEq(stats.slashingCosts[0], 1e17);
     }
 
     function testRevertNoSnapshot() public {
@@ -162,11 +162,10 @@ contract LSTCalculatorBaseTest is Test {
         assertEq(testCalculator.lastSlashingSnapshotTimestamp(), endingTimestamp);
         assertEq(testCalculator.lastSlashingEthPerToken(), endingEthPerShare);
 
-        Stats.CalculatedStats memory stats = testCalculator.current();
-        LSTCalculatorBase.LSTStatsData memory decoded = checkAndDecodeCurrent(stats);
-
-        assertEq(decoded.baseApr, 0);
-        assertEq(decoded.slashingEvents.length, 0);
+        ILSTStats.LSTStatsData memory stats = testCalculator.current();
+        assertEq(stats.baseApr, 0);
+        assertEq(stats.slashingCosts.length, 0);
+        assertEq(stats.slashingTimestamps.length, 0);
     }
 
     function testSlashingEventOccurred() public {
@@ -183,11 +182,10 @@ contract LSTCalculatorBaseTest is Test {
 
         mockCalculateEthPerToken(endingEthPerShare);
 
-        LSTCalculatorBase.SlashingEvent memory expectedSlashingEvent =
-            LSTCalculatorBase.SlashingEvent({ cost: 1e17, timestamp: endingTimestamp });
+        uint256 expectedSlashingCost = 1e17;
 
         vm.expectEmit(true, true, true, true);
-        emit SlashingEventRecorded(expectedSlashingEvent);
+        emit SlashingEventRecorded(expectedSlashingCost, endingTimestamp);
 
         vm.expectEmit(true, true, true, true);
         emit SlashingSnapshotTaken(startingEthPerShare, START_TIMESTAMP, endingEthPerShare, endingTimestamp);
@@ -199,29 +197,18 @@ contract LSTCalculatorBaseTest is Test {
         assertEq(testCalculator.lastSlashingSnapshotTimestamp(), endingTimestamp);
         assertEq(testCalculator.lastSlashingEthPerToken(), endingEthPerShare);
 
-        Stats.CalculatedStats memory stats = testCalculator.current();
-        LSTCalculatorBase.LSTStatsData memory decoded = checkAndDecodeCurrent(stats);
-
-        assertEq(decoded.baseApr, 0);
-        assertEq(decoded.slashingEvents.length, 1);
-        assertEq(decoded.slashingEvents[0].timestamp, expectedSlashingEvent.timestamp);
-        assertEq(decoded.slashingEvents[0].cost, expectedSlashingEvent.cost);
+        ILSTStats.LSTStatsData memory stats = testCalculator.current();
+        assertEq(stats.baseApr, 0);
+        assertEq(stats.slashingCosts.length, 1);
+        assertEq(stats.slashingTimestamps.length, 1);
+        assertEq(stats.slashingTimestamps[0], endingTimestamp);
+        assertEq(stats.slashingCosts[0], expectedSlashingCost);
     }
 
     function initCalculator() private {
         bytes32[] memory dependantAprs = new bytes32[](0);
         LSTCalculatorBase.InitData memory initData = LSTCalculatorBase.InitData({ lstTokenAddress: mockToken });
         testCalculator.initialize(dependantAprs, abi.encode(initData));
-    }
-
-    function checkAndDecodeCurrent(Stats.CalculatedStats memory current)
-        private
-        returns (LSTCalculatorBase.LSTStatsData memory)
-    {
-        assertEq(uint256(current.statsType), uint256(Stats.StatsType.LST));
-        assertEq(current.dependentStats.length, 0);
-
-        return abi.decode(current.data, (LSTCalculatorBase.LSTStatsData));
     }
 
     function mockCalculateEthPerToken(uint256 amount) private {

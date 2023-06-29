@@ -39,7 +39,4 @@ abstract contract BaseStatsCalculator is IStatsCalculator, SecurityBase {
     /// @notice Capture stat data about this setup
     /// @dev This is protected by the STATS_SNAPSHOT_ROLE
     function _snapshot() internal virtual;
-
-    /// @inheritdoc IStatsCalculator
-    function current() external view virtual returns (Stats.CalculatedStats memory stats);
 }
