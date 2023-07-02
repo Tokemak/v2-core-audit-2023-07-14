@@ -243,14 +243,14 @@ abstract contract DestinationVault is SecurityBase, ERC20, Initializable, IDesti
         (address[] memory tokens, uint256[] memory amounts) = _burnUnderlyer(shares);
 
         uint256 nTokens = tokens.length;
-        Errors.verifyArrayLengths(nTokens, amounts.length, "tokens", "amounts");
+        Errors.verifyArrayLengths(nTokens, amounts.length, "token+amounts");
 
         // Swap what we receive if not already in base asset
         // This fn is only called during a users withdrawal. The user should be making this
         // call via the LMP Router, or through one of the other routes where
         // slippage is controlled for. 0 min amount is expected here.
         ISwapRouter swapRouter = _systemRegistry.swapRouter();
-        for (uint256 i = 0; i < nTokens; i++) {
+        for (uint256 i = 0; i < nTokens; ++i) {
             address token = tokens[i];
 
             if (token == _baseAsset) {

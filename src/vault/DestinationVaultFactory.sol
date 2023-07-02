@@ -10,7 +10,6 @@ import { SecurityBase } from "src/security/SecurityBase.sol";
 import { MainRewarder } from "src/rewarders/MainRewarder.sol";
 import { Clones } from "openzeppelin-contracts/proxy/Clones.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
-import { IMainRewarder } from "src/interfaces/rewarders/IMainRewarder.sol";
 import { IDestinationVault } from "src/interfaces/vault/IDestinationVault.sol";
 import { IDestinationVaultFactory } from "src/interfaces/vault/IDestinationVaultFactory.sol";
 import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
@@ -46,20 +45,16 @@ contract DestinationVaultFactory is SystemComponent, IDestinationVaultFactory, S
         }
 
         // Zero is valid here
-        defaultRewardRatio = _defaultRewardRatio;
-        defaultRewardBlockDuration = _defaultRewardBlockDuration;
+        _setDefaultRewardRatio(_defaultRewardRatio);
+        _setDefaultRewardBlockDuration(_defaultRewardBlockDuration);
     }
 
-    function setDefaultRewardRatio(uint256 rewardRatio) external onlyOwner {
-        defaultRewardRatio = rewardRatio;
-
-        emit DefaultRewardRatioSet(rewardRatio);
+    function setDefaultRewardRatio(uint256 rewardRatio) public onlyOwner {
+        _setDefaultRewardRatio(rewardRatio);
     }
 
-    function setDefaultRewardBlockDuration(uint256 blockDuration) external onlyOwner {
-        defaultRewardBlockDuration = blockDuration;
-
-        emit DefaultBlockDurationSet(blockDuration);
+    function setDefaultRewardBlockDuration(uint256 blockDuration) public onlyOwner {
+        _setDefaultRewardBlockDuration(blockDuration);
     }
 
     /// @inheritdoc IDestinationVaultFactory
@@ -98,5 +93,17 @@ contract DestinationVaultFactory is SystemComponent, IDestinationVaultFactory, S
 
         // Add the vault to the registry
         systemRegistry.destinationVaultRegistry().register(vault);
+    }
+
+    function _setDefaultRewardRatio(uint256 rewardRatio) private {
+        defaultRewardRatio = rewardRatio;
+
+        emit DefaultRewardRatioSet(rewardRatio);
+    }
+
+    function _setDefaultRewardBlockDuration(uint256 blockDuration) private {
+        defaultRewardBlockDuration = blockDuration;
+
+        emit DefaultBlockDurationSet(blockDuration);
     }
 }

@@ -122,7 +122,6 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
     {
         systemRegistry = _systemRegistry;
 
-        Errors.verifyNotZero(_vaultAsset, "token");
         _asset = IERC20(_vaultAsset); // TODO: rename to baseAsset for consistency
 
         // init withdrawal queue to empty (slither issue)
@@ -351,7 +350,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         }
 
         // Calculate the current value of our shares
-        uint256 currentDbDebtValue = destVault.debtValue(currentDvShares);
+        uint256 currentDvDebtValue = destVault.debtValue(currentDvShares);
 
         // Get the basis for the current deployment
         uint256 cachedDebtBasis = destinationInfo[vault].debtBasis;
@@ -373,26 +372,26 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         uint256 updatedDebtBasis = cachedDebtBasis.mulDiv(currentDvShares, cachedDvShares, Math.Rounding.Up);
 
         // Neither of these numbers include rewards from the DV
-        if (currentDbDebtValue < updatedDebtBasis) {
+        if (currentDvDebtValue < updatedDebtBasis) {
             // TODO: Decide if we want to add some tolerance to the above check
             // During initial deployments, tiny price movements could make this
             // jump back and forth
 
             // We are currently sitting at a loss. Limit the value we can pull from
             // the destination vault
-            currentDbDebtValue = currentDbDebtValue.mulDiv(userShares, totalVaultShares, Math.Rounding.Down);
+            currentDvDebtValue = currentDvDebtValue.mulDiv(userShares, totalVaultShares, Math.Rounding.Down);
             currentDvShares = currentDvShares.mulDiv(userShares, totalVaultShares, Math.Rounding.Down);
         }
 
         // Shouldn't pull more than we want
         // Or, we're not in profit so we limit the pull
-        if (currentDbDebtValue < maxAssetsToPull) {
-            maxAssetsToPull = currentDbDebtValue;
+        if (currentDvDebtValue < maxAssetsToPull) {
+            maxAssetsToPull = currentDvDebtValue;
         }
 
         // Calculate the portion of shares to burn based on the assets we need to pull
         // and the current total debt value. These are destination vault shares.
-        sharesToBurn = currentDvShares.mulDiv(maxAssetsToPull, currentDbDebtValue, Math.Rounding.Down);
+        sharesToBurn = currentDvShares.mulDiv(maxAssetsToPull, currentDvDebtValue, Math.Rounding.Down);
 
         // This is what will be deducted from totalDebt with the withdrawal. The totalDebt number
         // is calculated based on the cached values so we need to be sure to reduce it
@@ -638,7 +637,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         // TODO: Decide if we need to enforce all destinations to be processed as a set
         uint256 nDest = _destinations.length;
         Errors.verifyNotZero(nDest, "_destinations.length");
-        Errors.verifyArrayLengths(nDest, _claimRewards.length, "_destinations", "_claimRewards");
+        Errors.verifyArrayLengths(nDest, _claimRewards.length, "dest+claims");
 
         uint256 idleIncrease = 0;
         uint256 prevNTotalDebt = 0;

@@ -20,7 +20,7 @@ library Errors {
     error InvalidParams();
     error AlreadySet(string param);
     error SlippageExceeded(uint256 expected, uint256 actual);
-    error ArrayLengthMismatch(uint256 length1, uint256 length2, string param1, string param2);
+    error ArrayLengthMismatch(uint256 length1, uint256 length2, string details);
 
     error ItemNotFound();
     error ItemExists();
@@ -68,14 +68,9 @@ library Errors {
         }
     }
 
-    function verifyArrayLengths(
-        uint256 length1,
-        uint256 length2,
-        string memory param1,
-        string memory param2
-    ) external pure {
+    function verifyArrayLengths(uint256 length1, uint256 length2, string memory details) external pure {
         if (length1 != length2) {
-            revert ArrayLengthMismatch(length1, length2, param1, param2);
+            revert ArrayLengthMismatch(length1, length2, details);
         }
     }
 }

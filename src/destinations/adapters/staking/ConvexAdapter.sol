@@ -2,11 +2,9 @@
 pragma solidity 0.8.17;
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
 import { IBaseRewardPool } from "src/interfaces/external/convex/IBaseRewardPool.sol";
 import { IConvexBooster } from "src/interfaces/external/convex/IConvexBooster.sol";
-import { IStakingAdapter } from "src/interfaces/destinations/IStakingAdapter.sol";
 import { LibAdapter } from "src/libs/LibAdapter.sol";
 
 library ConvexStaking {

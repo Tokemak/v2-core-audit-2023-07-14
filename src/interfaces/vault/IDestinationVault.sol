@@ -3,7 +3,6 @@
 pragma solidity 0.8.17;
 
 import { IBaseAssetVault } from "./IBaseAssetVault.sol";
-import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IMainRewarder } from "src/interfaces/rewarders/IMainRewarder.sol";
 import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
