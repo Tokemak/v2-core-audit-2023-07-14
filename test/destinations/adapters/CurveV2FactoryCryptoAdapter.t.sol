@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+/* solhint-disable func-name-mixedcase */
+
 import { Test } from "forge-std/Test.sol";
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
@@ -106,10 +108,10 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
         uint256 afterBalance = IERC20(WETH_MAINNET).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterLpBalance = lpToken.balanceOf(address(adapter));
 
         assertEq(afterBalance, preBalance - amounts[0]);
-        assert(aftrerLpBalance > preLpBalance);
+        assert(afterLpBalance > preLpBalance);
     }
 
     function testRemoveLiquidityWethStEth() public {
@@ -138,10 +140,10 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         adapter.removeLiquidity(withdrawAmounts, preLpBalance, extraParams);
 
         uint256 afterBalance = IERC20(WETH_MAINNET).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterLpBalance = lpToken.balanceOf(address(adapter));
 
         assert(afterBalance > preBalance);
-        assert(aftrerLpBalance < preLpBalance);
+        assert(afterLpBalance < preLpBalance);
     }
 
     function testAddLiquidityRethWstEth() public {
@@ -163,10 +165,10 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         adapter.addLiquidity(amounts, minLpMintAmount, extraParams);
 
         uint256 afterBalance = IERC20(RETH_MAINNET).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterLpBalance = lpToken.balanceOf(address(adapter));
 
         assertEq(afterBalance, preBalance - amounts[0]);
-        assert(aftrerLpBalance > preLpBalance);
+        assert(afterLpBalance > preLpBalance);
     }
 
     function testRemoveLiquidityRethWstEth() public {
@@ -193,10 +195,10 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         adapter.removeLiquidity(withdrawAmounts, preLpBalance, extraParams);
 
         uint256 afterBalance = IERC20(RETH_MAINNET).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterLpBalance = lpToken.balanceOf(address(adapter));
 
         assert(afterBalance > preBalance);
-        assert(aftrerLpBalance < preLpBalance);
+        assert(afterLpBalance < preLpBalance);
     }
 
     function testAddLiquidityEthFrxEth() public {
@@ -222,11 +224,11 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
 
         uint256 afterEthBalance = address(adapter).balance;
         uint256 afterBalance = IERC20(FRXETH_MAINNET).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterLpBalance = lpToken.balanceOf(address(adapter));
 
         assertEq(afterEthBalance, preEthBalance - amounts[0]);
         assertEq(afterBalance, preBalance - amounts[1]);
-        assert(aftrerLpBalance > preLpBalance);
+        assert(afterLpBalance > preLpBalance);
     }
 
     function testRemoveLiquidityEthFrxEth() public {
@@ -258,11 +260,11 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
 
         uint256 afterBalance1 = IERC20(FRXETH_MAINNET).balanceOf(address(adapter));
         uint256 afterBalance2 = IERC20(WETH_MAINNET).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterLpBalance = lpToken.balanceOf(address(adapter));
 
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 > preBalance2);
-        assert(aftrerLpBalance < preLpBalance);
+        assert(afterLpBalance < preLpBalance);
     }
 
     function testAddLiquidityEthSeth() public {
@@ -293,11 +295,11 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
 
         uint256 afterEthBalance = address(adapter).balance;
         uint256 afterBalance = IERC20(SETH_MAINNET).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterLpBalance = lpToken.balanceOf(address(adapter));
 
         assertEq(afterEthBalance, preEthBalance - amounts[0]);
         assertEq(afterBalance, preBalance - amounts[1]);
-        assert(aftrerLpBalance > preLpBalance);
+        assert(afterLpBalance > preLpBalance);
     }
 
     function testRemoveLiquidityEthSeth() public {
@@ -335,11 +337,11 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         uint256 afterBalance1 = IERC20(SETH_MAINNET).balanceOf(address(adapter));
         uint256 afterBalance2 = IERC20(WETH_MAINNET).balanceOf(address(adapter));
 
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterLpBalance = lpToken.balanceOf(address(adapter));
 
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 > preBalance2);
-        assert(aftrerLpBalance < preLpBalance);
+        assert(afterLpBalance < preLpBalance);
     }
 
     function testAddLiquidityEthSethOptimism() public {
@@ -373,11 +375,11 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
 
         uint256 afterEthBalance = address(adapter).balance;
         uint256 afterBalance = IERC20(SETH_OPTIMISM).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterLpBalance = lpToken.balanceOf(address(adapter));
 
         assertEq(afterEthBalance, preEthBalance - amounts[0]);
         assertEq(afterBalance, preBalance - amounts[1]);
-        assert(aftrerLpBalance > preLpBalance);
+        assert(afterLpBalance > preLpBalance);
     }
 
     function testRemoveLiquidityEthSethOptimism() public {
@@ -416,11 +418,11 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
 
         uint256 afterBalance1 = IERC20(SETH_OPTIMISM).balanceOf(address(adapter));
         uint256 afterBalance2 = IERC20(WETH9_OPTIMISM).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterLpBalance = lpToken.balanceOf(address(adapter));
 
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 > preBalance2);
-        assert(aftrerLpBalance < preLpBalance);
+        assert(afterLpBalance < preLpBalance);
     }
 
     function testAddLiquidityEthWstethOptimism() public {
@@ -448,11 +450,11 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
 
         uint256 afterEthBalance = address(adapter).balance;
         uint256 afterBalance = IERC20(WSTETH_OPTIMISM).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterLpBalance = lpToken.balanceOf(address(adapter));
 
         assertEq(afterEthBalance, preEthBalance - amounts[0]);
         assertEq(afterBalance, preBalance - amounts[1]);
-        assert(aftrerLpBalance > preLpBalance);
+        assert(afterLpBalance > preLpBalance);
     }
 
     function testRemoveLiquidityEthWstethOptimism() public {
@@ -485,11 +487,11 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
 
         uint256 afterBalance1 = IERC20(WSTETH_OPTIMISM).balanceOf(address(adapter));
         uint256 afterBalance2 = IERC20(WETH9_OPTIMISM).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterLpBalance = lpToken.balanceOf(address(adapter));
 
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 > preBalance2);
-        assert(aftrerLpBalance < preLpBalance);
+        assert(afterLpBalance < preLpBalance);
     }
 
     function testAddLiquidityEthWstethArbitrum() public {
@@ -517,11 +519,11 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
 
         uint256 afterEthBalance = address(adapter).balance;
         uint256 afterBalance = IERC20(WSTETH_ARBITRUM).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterLpBalance = lpToken.balanceOf(address(adapter));
 
         assertEq(afterEthBalance, preEthBalance - amounts[0]);
         assertEq(afterBalance, preBalance - amounts[1]);
-        assert(aftrerLpBalance > preLpBalance);
+        assert(afterLpBalance > preLpBalance);
     }
 
     function testRemoveLiquidityEthWstethArbitrum() public {
@@ -554,11 +556,11 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
 
         uint256 afterBalance1 = IERC20(WSTETH_ARBITRUM).balanceOf(address(adapter));
         uint256 afterBalance2 = IERC20(WETH_ARBITRUM).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterLpBalance = lpToken.balanceOf(address(adapter));
 
         assert(afterBalance1 > preBalance1);
         assert(afterBalance2 > preBalance2);
-        assert(aftrerLpBalance < preLpBalance);
+        assert(afterLpBalance < preLpBalance);
     }
 
     /// @dev This is an integration test for the Solver project. More information is available in the README.
@@ -581,10 +583,10 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         adapter.execute(address(solver), commands, elements);
 
         uint256 afterBalance = IERC20(WETH_MAINNET).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterLpBalance = lpToken.balanceOf(address(adapter));
 
         assertEq(afterBalance, preBalance - amounts[0]);
-        assert(aftrerLpBalance > preLpBalance);
+        assert(afterLpBalance > preLpBalance);
     }
 
     /// @dev This is an integration test for the Solver project. More information is available in the README.
@@ -616,9 +618,9 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         adapter.execute(address(solver), commands, elements);
 
         uint256 afterBalance = IERC20(WETH_MAINNET).balanceOf(address(adapter));
-        uint256 aftrerLpBalance = lpToken.balanceOf(address(adapter));
+        uint256 afterLpBalance = lpToken.balanceOf(address(adapter));
 
         assert(afterBalance > preBalance);
-        assert(aftrerLpBalance < preLpBalance);
+        assert(afterLpBalance < preLpBalance);
     }
 }

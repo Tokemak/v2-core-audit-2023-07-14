@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.7;
 
+/* solhint-disable func-name-mixedcase */
+
 import { Roles } from "src/libs/Roles.sol";
 import { Errors } from "src/utils/Errors.sol";
 import { SystemRegistry } from "src/SystemRegistry.sol";
@@ -20,34 +22,34 @@ import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/ext
 import { TOKE_MAINNET, WETH_MAINNET } from "test/utils/Addresses.sol";
 
 contract DestinationVaultFactoryBaseTests is Test {
-    address private testUser1;
-    address private templateRegistry;
-    address private vaultRegistry;
+    address private _testUser1;
+    address private _templateRegistry;
+    address private _vaultRegistry;
 
-    SystemRegistry private systemRegistry;
-    IAccessController private accessController;
-    DestinationVaultFactory private factory;
+    SystemRegistry private _systemRegistry;
+    IAccessController private _accessController;
+    DestinationVaultFactory private _factory;
 
-    address private fakeUnderlyer;
-    address[] private fakeTracked;
+    address private _fakeUnderlyer;
+    address[] private _fakeTracked;
 
     event Initialized(ISystemRegistry registry, bytes params);
 
     function setUp() public {
-        testUser1 = vm.addr(1);
+        _testUser1 = vm.addr(1);
 
-        systemRegistry = new SystemRegistry(TOKE_MAINNET, WETH_MAINNET);
-        templateRegistry = generateTemplateRegistry(systemRegistry);
-        vaultRegistry = generateVaultRegistry(systemRegistry);
-        accessController = new AccessController(address(systemRegistry));
-        systemRegistry.setAccessController(address(accessController));
-        systemRegistry.setDestinationTemplateRegistry(templateRegistry);
-        systemRegistry.setDestinationVaultRegistry(vaultRegistry);
+        _systemRegistry = new SystemRegistry(TOKE_MAINNET, WETH_MAINNET);
+        _templateRegistry = _generateTemplateRegistry(_systemRegistry);
+        _vaultRegistry = _generateVaultRegistry(_systemRegistry);
+        _accessController = new AccessController(address(_systemRegistry));
+        _systemRegistry.setAccessController(address(_accessController));
+        _systemRegistry.setDestinationTemplateRegistry(_templateRegistry);
+        _systemRegistry.setDestinationVaultRegistry(_vaultRegistry);
 
-        factory = new DestinationVaultFactory(systemRegistry, 1, 1000);
+        _factory = new DestinationVaultFactory(_systemRegistry, 1, 1000);
 
-        fakeUnderlyer = vm.addr(10);
-        fakeTracked = new address[](0);
+        _fakeUnderlyer = vm.addr(10);
+        _fakeTracked = new address[](0);
     }
 
     function testRequiresValidRegistry() public {
@@ -69,12 +71,12 @@ contract DestinationVaultFactoryBaseTests is Test {
         new DestinationVaultFactory(incompleteRegistry, 1, 1000);
 
         // Try with the vault, still missing template
-        incompleteRegistry.setDestinationVaultRegistry(generateVaultRegistry(incompleteRegistry));
+        incompleteRegistry.setDestinationVaultRegistry(_generateVaultRegistry(incompleteRegistry));
         vm.expectRevert();
         new DestinationVaultFactory(incompleteRegistry, 1, 1000);
 
         // Should have everything now
-        incompleteRegistry.setDestinationTemplateRegistry(generateTemplateRegistry(incompleteRegistry));
+        incompleteRegistry.setDestinationTemplateRegistry(_generateTemplateRegistry(incompleteRegistry));
         new DestinationVaultFactory(incompleteRegistry, 1, 1000);
     }
 
@@ -88,12 +90,12 @@ contract DestinationVaultFactoryBaseTests is Test {
         new DestinationVaultFactory(incompleteRegistry, 1, 1000);
 
         // Try with template still missing the vault
-        incompleteRegistry.setDestinationTemplateRegistry(generateTemplateRegistry(incompleteRegistry));
+        incompleteRegistry.setDestinationTemplateRegistry(_generateTemplateRegistry(incompleteRegistry));
         vm.expectRevert();
         new DestinationVaultFactory(incompleteRegistry, 1, 1000);
 
         // Should have everything now
-        incompleteRegistry.setDestinationVaultRegistry(generateVaultRegistry(incompleteRegistry));
+        incompleteRegistry.setDestinationVaultRegistry(_generateVaultRegistry(incompleteRegistry));
         new DestinationVaultFactory(incompleteRegistry, 1, 1000);
     }
 
@@ -101,77 +103,77 @@ contract DestinationVaultFactoryBaseTests is Test {
         vm.expectRevert(
             abi.encodeWithSelector(Errors.MissingRole.selector, Roles.CREATE_DESTINATION_VAULT_ROLE, address(this))
         );
-        factory.create("x", address(8), fakeUnderlyer, fakeTracked, keccak256("abc"), abi.encode(""));
+        _factory.create("x", address(8), _fakeUnderlyer, _fakeTracked, keccak256("abc"), abi.encode(""));
 
         bytes32 key = keccak256(abi.encode("x"));
         address template = vm.addr(6);
-        registerTemplate(templateRegistry, key, template);
-        accessController.grantRole(Roles.CREATE_DESTINATION_VAULT_ROLE, address(this));
-        factory.create("x", address(8), fakeUnderlyer, fakeTracked, keccak256("abc"), abi.encode(""));
+        _registerTemplate(_templateRegistry, key, template);
+        _accessController.grantRole(Roles.CREATE_DESTINATION_VAULT_ROLE, address(this));
+        _factory.create("x", address(8), _fakeUnderlyer, _fakeTracked, keccak256("abc"), abi.encode(""));
     }
 
     function testVaultTypeMustBeRegistered() public {
-        accessController.grantRole(Roles.CREATE_DESTINATION_VAULT_ROLE, address(this));
+        _accessController.grantRole(Roles.CREATE_DESTINATION_VAULT_ROLE, address(this));
 
         // Fails when it gets address(0)
         bytes32 badKey = keccak256(abi.encode("y"));
-        registerTemplate(templateRegistry, badKey, address(0));
+        _registerTemplate(_templateRegistry, badKey, address(0));
         vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "template"));
-        factory.create("y", address(8), fakeUnderlyer, fakeTracked, keccak256("abc"), abi.encode(""));
+        _factory.create("y", address(8), _fakeUnderlyer, _fakeTracked, keccak256("abc"), abi.encode(""));
 
         // Succeeds when a template is registered
-        registerTemplate(templateRegistry, badKey, address(1));
-        factory.create("y", address(8), fakeUnderlyer, fakeTracked, keccak256("abc"), abi.encode(""));
+        _registerTemplate(_templateRegistry, badKey, address(1));
+        _factory.create("y", address(8), _fakeUnderlyer, _fakeTracked, keccak256("abc"), abi.encode(""));
     }
 
     function testCallsInitializeWithProvidedParams() public {
-        accessController.grantRole(Roles.CREATE_DESTINATION_VAULT_ROLE, address(this));
+        _accessController.grantRole(Roles.CREATE_DESTINATION_VAULT_ROLE, address(this));
 
         // Fails when it gets address(0)
         bytes32 badKey = keccak256(abi.encode("y"));
-        registerTemplate(templateRegistry, badKey, address(0));
+        _registerTemplate(_templateRegistry, badKey, address(0));
         vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "template"));
-        factory.create("y", address(8), fakeUnderlyer, fakeTracked, keccak256("abc"), abi.encode(""));
+        _factory.create("y", address(8), _fakeUnderlyer, _fakeTracked, keccak256("abc"), abi.encode(""));
 
         // Succeeds when a template is registered
-        TestVault tv = new TestVault(systemRegistry);
-        registerTemplate(templateRegistry, badKey, address(tv));
+        TestVault tv = new TestVault(_systemRegistry);
+        _registerTemplate(_templateRegistry, badKey, address(tv));
         bytes memory data = abi.encode("h");
 
         vm.expectEmit(true, true, true, true);
-        emit Initialized(systemRegistry, data);
-        factory.create("y", address(8), fakeUnderlyer, fakeTracked, keccak256("abc"), data);
+        emit Initialized(_systemRegistry, data);
+        _factory.create("y", address(8), _fakeUnderlyer, _fakeTracked, keccak256("abc"), data);
     }
 
     function testAddsToRegistry() public {
-        accessController.grantRole(Roles.CREATE_DESTINATION_VAULT_ROLE, address(this));
+        _accessController.grantRole(Roles.CREATE_DESTINATION_VAULT_ROLE, address(this));
 
         bytes32 badKey = keccak256(abi.encode("y"));
         bytes32 salt = keccak256("abc");
-        registerTemplate(templateRegistry, badKey, address(0));
+        _registerTemplate(_templateRegistry, badKey, address(0));
         vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "template"));
-        factory.create("y", address(8), fakeUnderlyer, fakeTracked, salt, abi.encode(""));
+        _factory.create("y", address(8), _fakeUnderlyer, _fakeTracked, salt, abi.encode(""));
 
-        TestVault tv = new TestVault(systemRegistry);
-        registerTemplate(templateRegistry, badKey, address(tv));
+        TestVault tv = new TestVault(_systemRegistry);
+        _registerTemplate(_templateRegistry, badKey, address(tv));
         bytes memory data = abi.encode("h");
 
-        address nextAddress = Clones.predictDeterministicAddress(address(tv), salt, address(factory));
-        vm.expectCall(vaultRegistry, abi.encodeCall(IDestinationVaultRegistry.register, nextAddress));
-        factory.create("y", address(8), fakeUnderlyer, fakeTracked, salt, data);
+        address nextAddress = Clones.predictDeterministicAddress(address(tv), salt, address(_factory));
+        vm.expectCall(_vaultRegistry, abi.encodeCall(IDestinationVaultRegistry.register, nextAddress));
+        _factory.create("y", address(8), _fakeUnderlyer, _fakeTracked, salt, data);
     }
 
     function testRewarderEndsUpWithCorrectStakeToken() public {
-        accessController.grantRole(Roles.CREATE_DESTINATION_VAULT_ROLE, address(this));
+        _accessController.grantRole(Roles.CREATE_DESTINATION_VAULT_ROLE, address(this));
         bytes32 salt = keccak256("abc");
         bytes32 key = keccak256(abi.encode("y"));
-        TestVault tv = new TestVault(systemRegistry);
-        registerTemplate(templateRegistry, key, address(tv));
+        TestVault tv = new TestVault(_systemRegistry);
+        _registerTemplate(_templateRegistry, key, address(tv));
         bytes memory data = abi.encode("h");
 
-        address nextAddress = Clones.predictDeterministicAddress(address(tv), salt, address(factory));
-        vm.expectCall(vaultRegistry, abi.encodeCall(IDestinationVaultRegistry.register, nextAddress));
-        address newVault = factory.create("y", address(8), fakeUnderlyer, fakeTracked, salt, data);
+        address nextAddress = Clones.predictDeterministicAddress(address(tv), salt, address(_factory));
+        vm.expectCall(_vaultRegistry, abi.encodeCall(IDestinationVaultRegistry.register, nextAddress));
+        address newVault = _factory.create("y", address(8), _fakeUnderlyer, _fakeTracked, salt, data);
 
         IMainRewarder rewarder = IMainRewarder(IDestinationVault(newVault).rewarder());
         IStakeTracking stakeToken = rewarder.stakeTracker();
@@ -179,25 +181,19 @@ contract DestinationVaultFactoryBaseTests is Test {
         assertEq(newVault, address(stakeToken));
     }
 
-    function registerTemplate(address templateReg, bytes32 key, address template) internal {
+    function _registerTemplate(address templateReg, bytes32 key, address template) internal {
         vm.mockCall(
             templateReg, abi.encodeWithSelector(IDestinationRegistry.getAdapter.selector, key), abi.encode(template)
         );
     }
 
-    function ensureVaultRegisterPasses(address vaultReg, address newVault) internal {
-        vm.mockCall(
-            vaultReg, abi.encodeWithSelector(IDestinationVaultRegistry.register.selector, newVault), abi.encode("")
-        );
-    }
-
-    function generateTemplateRegistry(ISystemRegistry sysRegistry) internal returns (address) {
+    function _generateTemplateRegistry(ISystemRegistry sysRegistry) internal returns (address) {
         address reg = vm.addr(1001);
         vm.mockCall(reg, abi.encodeWithSelector(ISystemComponent.getSystemRegistry.selector), abi.encode(sysRegistry));
         return reg;
     }
 
-    function generateVaultRegistry(ISystemRegistry sysRegistry) internal returns (address) {
+    function _generateVaultRegistry(ISystemRegistry sysRegistry) internal returns (address) {
         address reg = vm.addr(1002);
         vm.mockCall(reg, abi.encodeWithSelector(ISystemComponent.getSystemRegistry.selector), abi.encode(sysRegistry));
         return reg;
@@ -205,18 +201,18 @@ contract DestinationVaultFactoryBaseTests is Test {
 }
 
 contract TestVault {
-    ISystemRegistry public immutable systemRegistry;
+    ISystemRegistry public immutable _systemRegistry;
 
     event Initialized(ISystemRegistry registry, bytes params);
 
     address public rewarder;
 
-    constructor(ISystemRegistry systemRegistry_) {
-        systemRegistry = systemRegistry_;
+    constructor(ISystemRegistry _systemRegistry_) {
+        _systemRegistry = _systemRegistry_;
     }
 
     function initialize(IERC20, IERC20, IMainRewarder _rewarder, address[] memory, bytes memory params) external {
-        emit Initialized(systemRegistry, params);
+        emit Initialized(_systemRegistry, params);
 
         rewarder = address(_rewarder);
     }

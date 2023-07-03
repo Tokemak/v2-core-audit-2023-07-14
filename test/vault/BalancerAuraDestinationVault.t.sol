@@ -47,8 +47,7 @@ import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
 contract BalancerAuraDestinationVaultTests is Test {
     address private constant LP_TOKEN_WHALE = BAL_WSTETH_WETH_WHALE; //~20
 
-    uint256 mainnetFork;
-    address private testUser1;
+    uint256 private _mainnetFork;
 
     SystemRegistry private _systemRegistry;
     AccessController private _accessController;
@@ -56,7 +55,7 @@ contract BalancerAuraDestinationVaultTests is Test {
     DestinationVaultRegistry private _destinationVaultRegistry;
     DestinationRegistry private _destinationTemplateRegistry;
 
-    ILMPVaultRegistry _lmpVaultRegistry;
+    ILMPVaultRegistry private _lmpVaultRegistry;
     IRootPriceOracle private _rootPriceOracle;
 
     IWETH9 private _asset;
@@ -70,8 +69,8 @@ contract BalancerAuraDestinationVaultTests is Test {
     BalancerV2Swap private balSwapper;
 
     function setUp() public {
-        mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"), 17_586_885);
-        vm.selectFork(mainnetFork);
+        _mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"), 17_586_885);
+        vm.selectFork(_mainnetFork);
 
         vm.label(address(this), "testContract");
 

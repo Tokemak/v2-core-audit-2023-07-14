@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+/* solhint-disable func-name-mixedcase */
+
 import { IwstEth } from "src/interfaces/external/lido/IwstEth.sol";
 import { Test, StdCheats, StdUtils } from "forge-std/Test.sol";
 import { SystemRegistry } from "src/SystemRegistry.sol";

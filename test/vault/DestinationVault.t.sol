@@ -2,6 +2,8 @@
 // Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity >=0.8.7;
 
+/* solhint-disable func-name-mixedcase */
+
 import { ISystemComponent } from "src/interfaces/ISystemComponent.sol";
 import { Errors } from "src/utils/Errors.sol";
 import { Test, StdCheats, StdUtils } from "forge-std/Test.sol";
