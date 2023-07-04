@@ -79,4 +79,9 @@ interface ISystemRegistry {
     /// @notice Get the curve resolver for this system
     /// @return resolver instance of the curve resolver for this system
     function curveResolver() external view returns (ICurveResolver resolver);
+
+    /// @notice Verify if given address is registered as Reward Token
+    /// @param rewardToken token address to verify
+    /// @return bool that indicates true if token is registered and false if not
+    function isRewardToken(address rewardToken) external view returns (bool);
 }

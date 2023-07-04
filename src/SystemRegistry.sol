@@ -29,6 +29,7 @@ import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IE
 /// @dev All contracts in this instance of the system should be reachable from this contract
 contract SystemRegistry is ISystemRegistry, Ownable2Step {
     using EnumerableSet for EnumerableSet.Bytes32Set;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     /* ******************************** */
     /* State Variables                  */
@@ -50,6 +51,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     mapping(bytes32 => ILMPVaultFactory) private _lmpVaultFactoryByType;
     EnumerableSet.Bytes32Set private _lmpVaultFactoryTypes;
     IStatsCalculatorRegistry private _statsCalculatorRegistry;
+    EnumerableSet.AddressSet private _rewardTokens;
 
     /* ******************************** */
     /* Events                           */
@@ -68,6 +70,8 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     event AsyncSwapperRegistrySet(address newAddress);
     event SwapRouterSet(address swapRouter);
     event CurveResolverSet(address curveResolver);
+    event RewardTokenAdded(address rewardToken);
+    event RewardTokenRemoved(address rewardToken);
 
     /* ******************************** */
     /* Errors                           */
@@ -340,6 +344,31 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
 
         // Has no other dependencies in the system so no call
         // to verifySystemsAgree
+    }
+
+    // TODO natspec + test
+    function addRewardToken(address rewardToken) external onlyOwner {
+        Errors.verifyNotZero(rewardToken, "rewardToken");
+        bool success = _rewardTokens.add(rewardToken);
+        if (!success) {
+            revert Errors.ItemExists();
+        }
+        emit RewardTokenAdded(rewardToken);
+    }
+
+    // TODO natspec + test
+    function removeRewardToken(address rewardToken) external onlyOwner {
+        Errors.verifyNotZero(rewardToken, "rewardToken");
+        bool success = _rewardTokens.remove(rewardToken);
+        if (!success) {
+            revert Errors.ItemNotFound();
+        }
+        emit RewardTokenRemoved(rewardToken);
+    }
+
+    /// @inheritdoc ISystemRegistry
+    function isRewardToken(address rewardToken) external view onlyOwner returns (bool) {
+        return _rewardTokens.contains(rewardToken);
     }
 
     /* ******************************** */

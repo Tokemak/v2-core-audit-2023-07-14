@@ -94,6 +94,9 @@ abstract contract AbstractRewarder is IBaseRewarder, SecurityBase {
         Errors.verifyNotZero(_rewardToken, "_rewardToken");
 
         systemRegistry = _systemRegistry;
+        if (!systemRegistry.isRewardToken(_rewardToken)) {
+            revert Errors.InvalidParam("_rewardToken");
+        }
         rewardToken = _rewardToken;
         stakeTracker = IStakeTracking(_stakeTracker);
         newRewardRatio = _newRewardRate;
