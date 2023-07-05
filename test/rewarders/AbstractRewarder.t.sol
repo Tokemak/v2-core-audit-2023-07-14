@@ -123,6 +123,11 @@ contract AbstractRewarderTest is Test {
 
         rewardToken = new ERC20Mock("MAIN_REWARD", "MAIN_REWARD", address(this), 0);
 
+        // We use mock since this function is called not from owner and
+        // SystemRegistry.addRewardToken is not accessible from the ownership perspective
+        vm.mockCall(
+            address(systemRegistry), abi.encodeWithSelector(ISystemRegistry.isRewardToken.selector), abi.encode(true)
+        );
         rewarder = new Rewarder(
             systemRegistry,
             address(stakeTracker),

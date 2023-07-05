@@ -121,6 +121,11 @@ contract BaseTest is Test {
     }
 
     function createMainRewarder(address asset, address lmpVault) public returns (MainRewarder) {
+        // We use mock since this function is called not from owner and
+        // SystemRegistry.addRewardToken is not accessible from the ownership perspective
+        vm.mockCall(
+            address(systemRegistry), abi.encodeWithSelector(ISystemRegistry.isRewardToken.selector), abi.encode(true)
+        );
         return new MainRewarder(
             systemRegistry, // registry
             lmpVault, // stakeTracker

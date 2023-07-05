@@ -8,6 +8,7 @@ import { ERC20Mock } from "openzeppelin-contracts/mocks/ERC20Mock.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { MainRewarder } from "src/rewarders/MainRewarder.sol";
 import { ExtraRewarder } from "src/rewarders/ExtraRewarder.sol";
+import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { StakeTrackingMock } from "test/mocks/StakeTrackingMock.sol";
 import { IStakeTracking } from "src/interfaces/rewarders/IStakeTracking.sol";
 import { Roles } from "src/libs/Roles.sol";
@@ -56,6 +57,13 @@ contract MainRewarderTest is BaseTest {
         deployGpToke();
 
         stakeTracker = new StakeTrackingMock();
+
+        // We use mock since this function is called not from owner and
+        // SystemRegistry.addRewardToken is not accessible from the ownership perspective
+        vm.mockCall(
+            address(systemRegistry), abi.encodeWithSelector(ISystemRegistry.isRewardToken.selector), abi.encode(true)
+        );
+
         mainRewardVault = new MainRewarder(
             systemRegistry,
             address(stakeTracker),

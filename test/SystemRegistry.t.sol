@@ -480,6 +480,63 @@ contract SystemRegistryTest is Test {
     }
 
     /* ******************************** */
+    /* Reward Token Registry
+    /* ******************************** */
+
+    function testRewardTokenRegistryAddZeroAddrValue() public {
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "rewardToken"));
+        _systemRegistry.addRewardToken(address(0));
+    }
+
+    function testRewardTokenRegistrySetOnce() public {
+        address rewardToken = vm.addr(1);
+        _systemRegistry.addRewardToken(rewardToken);
+        assertTrue(_systemRegistry.isRewardToken(rewardToken));
+    }
+
+    function testRewardTokenRegistrySetMultiple() public {
+        address rewardToken1 = vm.addr(1);
+
+        _systemRegistry.addRewardToken(rewardToken1);
+        assertTrue(_systemRegistry.isRewardToken(rewardToken1));
+
+        address rewardToken2 = vm.addr(2);
+        _systemRegistry.addRewardToken(rewardToken2);
+        assertTrue(_systemRegistry.isRewardToken(rewardToken2));
+    }
+
+    function testRewardTokenRegistrySetDuplicate() public {
+        address rewardToken = vm.addr(1);
+
+        _systemRegistry.addRewardToken(rewardToken);
+        assertTrue(_systemRegistry.isRewardToken(rewardToken));
+
+        vm.expectRevert(abi.encodeWithSelector(Errors.AddressAlreadySet.selector, rewardToken));
+        _systemRegistry.addRewardToken(rewardToken);
+    }
+
+    function testRewardTokenRegistryRemoveZeroAddrValue() public {
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "rewardToken"));
+        _systemRegistry.removeRewardToken(address(0));
+    }
+
+    function testRewardTokenRegistryRemoveValue() public {
+        address rewardToken = vm.addr(1);
+
+        _systemRegistry.addRewardToken(rewardToken);
+        assertTrue(_systemRegistry.isRewardToken(rewardToken));
+
+        _systemRegistry.removeRewardToken(rewardToken);
+        assertFalse(_systemRegistry.isRewardToken(rewardToken));
+    }
+
+    function testRewardTokenRegistryRemoveNonExistingValue() public {
+        address rewardToken = vm.addr(123);
+        vm.expectRevert(abi.encodeWithSelector(Errors.ItemNotFound.selector));
+        _systemRegistry.removeRewardToken(rewardToken);
+    }
+
+    /* ******************************** */
     /* Helpers
     /* ******************************** */
 

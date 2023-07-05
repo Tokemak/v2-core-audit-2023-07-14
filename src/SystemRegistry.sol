@@ -346,17 +346,17 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         // to verifySystemsAgree
     }
 
-    // TODO natspec + test
+    /// @inheritdoc ISystemRegistry
     function addRewardToken(address rewardToken) external onlyOwner {
         Errors.verifyNotZero(rewardToken, "rewardToken");
         bool success = _rewardTokens.add(rewardToken);
         if (!success) {
-            revert Errors.ItemExists();
+            revert Errors.AddressAlreadySet(rewardToken);
         }
         emit RewardTokenAdded(rewardToken);
     }
 
-    // TODO natspec + test
+    /// @inheritdoc ISystemRegistry
     function removeRewardToken(address rewardToken) external onlyOwner {
         Errors.verifyNotZero(rewardToken, "rewardToken");
         bool success = _rewardTokens.remove(rewardToken);

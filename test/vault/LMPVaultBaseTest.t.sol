@@ -13,7 +13,6 @@ import { ILMPVaultRegistry, LMPVaultRegistry } from "src/vault/LMPVaultRegistry.
 import { ILMPVaultFactory, LMPVaultFactory } from "src/vault/LMPVaultFactory.sol";
 import { ILMPVaultRouter, LMPVaultRouter } from "src/vault/LMPVaultRouter.sol";
 import { ILMPVault, LMPVault } from "src/vault/LMPVault.sol";
-import { IMainRewarder, MainRewarder } from "src/rewarders/MainRewarder.sol";
 import { IStrategy } from "src/interfaces/strategy/IStrategy.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
 import { Errors, SystemRegistry } from "src/SystemRegistry.sol";
@@ -61,6 +60,12 @@ contract LMPVaultBaseTest is BaseTest {
         // create test lmpVault
         ILMPVaultFactory vaultFactory = systemRegistry.getLMPVaultFactoryByType(VaultTypes.LST);
         accessController.grantRole(Roles.CREATE_POOL_ROLE, address(vaultFactory));
+
+        // We use mock since this function is called not from owner and
+        // SystemRegistry.addRewardToken is not accessible from the ownership perspective
+        vm.mockCall(
+            address(systemRegistry), abi.encodeWithSelector(SystemRegistry.isRewardToken.selector), abi.encode(true)
+        );
         lmpVault = LMPVault(vaultFactory.createVault(address(baseAsset), address(0), ""));
 
         assert(systemRegistry.lmpVaultRegistry().isVault(address(lmpVault)));
