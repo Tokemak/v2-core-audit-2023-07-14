@@ -42,11 +42,11 @@ contract MainRewarder is AbstractRewarder, IMainRewarder, ReentrancyGuard {
         extraRewards.push(reward);
     }
 
-    function clearExtraRewards() external stakeTrackerOnly {
+    function clearExtraRewards() external onlyStakeTracker {
         delete extraRewards;
     }
 
-    function withdraw(address account, uint256 amount, bool claim) public stakeTrackerOnly {
+    function withdraw(address account, uint256 amount, bool claim) public onlyStakeTracker {
         _updateReward(account);
         _withdraw(account, amount);
 
@@ -61,7 +61,7 @@ contract MainRewarder is AbstractRewarder, IMainRewarder, ReentrancyGuard {
         }
     }
 
-    function stake(address account, uint256 amount) public stakeTrackerOnly {
+    function stake(address account, uint256 amount) public onlyStakeTracker {
         _updateReward(account);
         _stake(account, amount);
 

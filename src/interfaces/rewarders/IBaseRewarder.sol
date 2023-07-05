@@ -16,6 +16,8 @@ interface IBaseRewarder {
     event QueuedRewardsUpdated(uint256 queuedRewards);
     event RewardDurationUpdated(uint256 rewardDuration);
     event NewRewardRateUpdated(uint256 newRewardRate);
+    event AddedToWhitelist(address indexed wallet);
+    event RemovedFromWhitelist(address indexed wallet);
 
     event TokeLockDurationUpdated(uint256 newDuration);
 

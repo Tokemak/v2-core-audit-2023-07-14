@@ -73,6 +73,7 @@ contract UniV3Swap is BaseAdapter {
      */
     function _decodePath(bytes memory path) private pure returns (address sellAddress, address buyAddress) {
         bool hasMultiplePools = path.hasMultiplePools();
+        // slither-disable-next-line unused-return
         (sellAddress, buyAddress,) = path.decodeFirstPool();
 
         while (hasMultiplePools) {
@@ -81,6 +82,7 @@ contract UniV3Swap is BaseAdapter {
 
             // We can only determine the last token in the path when there are no more pools left
             if (!hasMultiplePools) {
+                // slither-disable-next-line unused-return
                 (, address tokenOut,) = path.decodeFirstPool();
                 buyAddress = tokenOut;
             }

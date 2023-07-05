@@ -19,6 +19,11 @@ import { Errors } from "src/utils/Errors.sol";
 
 import { PRANK_ADDRESS, RANDOM } from "test/utils/Addresses.sol";
 
+/**
+ * @notice This contract is an integration test suite for the MainRewarder.sol and ExtraRewarder.sol contracts.
+ * It aims to test the interaction between these contracts.
+ * Detailed unit tests for common functionalities of rewarder types are performed in the AbstractRewarderTest.
+ */
 contract MainRewarderTest is BaseTest {
     address private operator;
 
@@ -81,18 +86,23 @@ contract MainRewarderTest is BaseTest {
             durationInBlock
         );
 
-        mainReward.mint(address(mainRewardVault), amount);
-        extraReward1.mint(address(extraReward1Vault), amount);
-        extraReward2.mint(address(extraReward2Vault), amount);
+        mainReward.mint(liquidator, amount);
+        extraReward1.mint(liquidator, amount * 10);
+        extraReward2.mint(liquidator, amount * 10);
 
         // make sure only liquidator has access to `queueNewRewards`
-        vm.startPrank(operator);
         vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
+        vm.prank(operator);
         mainRewardVault.queueNewRewards(amount);
 
         vm.startPrank(liquidator);
+        IERC20(mainReward).approve(address(mainRewardVault), amount);
         mainRewardVault.queueNewRewards(amount);
+
+        IERC20(extraReward1).approve(address(extraReward1Vault), amount);
         extraReward1Vault.queueNewRewards(amount);
+
+        IERC20(extraReward2).approve(address(extraReward2Vault), amount);
         extraReward2Vault.queueNewRewards(amount);
 
         vm.startPrank(operator);
@@ -100,6 +110,13 @@ contract MainRewarderTest is BaseTest {
         mainRewardVault.addExtraReward(address(extraReward2Vault));
 
         vm.stopPrank();
+
+        vm.label(operator, "operator");
+        vm.label(liquidator, "liquidator");
+        vm.label(address(toke), "toke");
+        vm.label(address(mainRewardVault), "mainRewardVault");
+        vm.label(address(extraReward1Vault), "extraReward1Vault");
+        vm.label(address(extraReward2Vault), "extraReward2Vault");
     }
 
     function test_getAllRewards() public {
@@ -126,10 +143,6 @@ contract MainRewarderTest is BaseTest {
         assertEq(extraReward1BalanceAfter - extraReward1BalanceBefore, amount);
         assertEq(extraReward2BalanceAfter - extraReward2BalanceBefore, amount);
     }
-
-    /* ---------------------------------------------------------------- */
-    /*  TODO: add a set of failure tests! @adrienbarreau                */
-    /* ---------------------------------------------------------------- */
 
     function test_toke_autoStakeRewards() public {
         _runTokeStakingTest(30 days, 0, true);
@@ -159,9 +172,11 @@ contract MainRewarderTest is BaseTest {
         tokeRewarder.setTokeLockDuration(stakeDuration);
 
         // load available rewards
-        deal(address(toke), address(tokeRewarder), 100_000);
-        vm.prank(liquidator);
+        deal(address(toke), liquidator, 100_000_000_000);
+        vm.startPrank(liquidator);
+        IERC20(address(toke)).approve(address(tokeRewarder), amount);
         tokeRewarder.queueNewRewards(amount);
+        vm.stopPrank();
 
         vm.prank(address(stakeTracker));
         tokeRewarder.stake(RANDOM, amount);
