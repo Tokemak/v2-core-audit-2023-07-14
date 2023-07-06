@@ -50,6 +50,8 @@ contract DestinationVaultFactoryBaseTests is Test {
 
         _fakeUnderlyer = vm.addr(10);
         _fakeTracked = new address[](0);
+
+        _systemRegistry.addRewardToken(address(8));
     }
 
     function testRequiresValidRegistry() public {

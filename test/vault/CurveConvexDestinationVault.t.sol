@@ -84,6 +84,8 @@ contract CurveConvexDestinationVaultTests is Test {
 
         _asset = IWETH9(WETH_MAINNET);
 
+        _systemRegistry.addRewardToken(WETH_MAINNET);
+
         _curveResolver = new CurveResolverMainnet(ICurveMetaRegistry(CURVE_META_REGISTRY_MAINNET));
         _systemRegistry.setCurveResolver(address(_curveResolver));
 

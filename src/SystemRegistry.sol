@@ -367,7 +367,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     }
 
     /// @inheritdoc ISystemRegistry
-    function isRewardToken(address rewardToken) external view onlyOwner returns (bool) {
+    function isRewardToken(address rewardToken) external view returns (bool) {
         return _rewardTokens.contains(rewardToken);
     }
 

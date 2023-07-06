@@ -63,6 +63,7 @@ contract LMPVaultMintingTests is Test {
         // Setup the LMP Vault
 
         _asset = new TestERC20("asset", "asset");
+        _systemRegistry.addRewardToken(address(_asset));
         vm.label(address(_asset), "asset");
 
         _lmpVault = new LMPVaultMinting(_systemRegistry, address(_asset));

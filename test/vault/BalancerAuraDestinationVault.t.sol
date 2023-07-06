@@ -81,6 +81,8 @@ contract BalancerAuraDestinationVaultTests is Test {
 
         _asset = IWETH9(WETH_MAINNET);
 
+        _systemRegistry.addRewardToken(WETH_MAINNET);
+
         // Setup swap router
 
         swapRouter = new SwapRouter(_systemRegistry);
