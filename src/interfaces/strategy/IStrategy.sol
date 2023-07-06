@@ -47,8 +47,6 @@ interface IStrategy {
         uint256 amountOut
     ) external;
 
-    /// @notice rebalance the LMP from the tokenOut (decrease) to the tokenIn (increase)
-    /// This uses a flash loan to receive the tokenOut to reduce the working capital requirements of the swapper
     /// @param receiver The contract receiving the tokens, needs to implement the
     /// `onFlashLoan(address user, address token, uint256 amount, uint256 fee, bytes calldata)` interface
     /// @param destinationIn The address / lp token of the destination vault that will increase
@@ -57,17 +55,21 @@ interface IStrategy {
     /// @param destinationOut The address of the destination vault that will decrease
     /// @param tokenOut The address of the underlyer token that will be received by the swapper
     /// @param amountOut The amount of the tokenOut that will be received by the swapper
+    struct FlashRebalanceParams {
+        IERC3156FlashBorrower receiver;
+        address destinationIn;
+        address tokenIn;
+        uint256 amountIn;
+        address destinationOut;
+        address tokenOut;
+        uint256 amountOut;
+    }
+
+    /// @notice rebalance the LMP from the tokenOut (decrease) to the tokenIn (increase)
+    /// This uses a flash loan to receive the tokenOut to reduce the working capital requirements of the swapper
+    /// @param rebalanceParams Parameters by which to perform the rebalance
     /// @param data A data parameter to be passed on to the `receiver` for any custom use
-    function flashRebalance(
-        IERC3156FlashBorrower receiver,
-        address destinationIn,
-        address tokenIn,
-        uint256 amountIn,
-        address destinationOut,
-        address tokenOut,
-        uint256 amountOut,
-        bytes calldata data
-    ) external;
+    function flashRebalance(FlashRebalanceParams calldata rebalanceParams, bytes calldata data) external;
 
     /// @notice verify that a rebalance (swap between destinations) meets all the strategy constraints
     /// @param destinationIn The address of the destination vault that will increase

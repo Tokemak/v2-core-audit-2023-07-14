@@ -445,8 +445,6 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
                     break;
                 }
             }
-
-            // NOTE: if we still have a deficit, user gets whatever was available for retrieval
         }
 
         // At this point should have all the funds we need sitting in in the vault
@@ -462,9 +460,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
             totalDebt -= info.debtDecrease;
         }
 
-        //
         // do the actual withdrawal (going off of total # requested)
-        //
         uint256 allowed = allowance(owner, msg.sender);
         if (msg.sender != owner && allowed != type(uint256).max) {
             if (shares > allowed) revert AmountExceedsAllowance(shares, allowed);
@@ -509,14 +505,6 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         _bulkMoveTokens(tokens, amounts, _destinations, false);
 
         emit TokensRecovered(tokens, amounts, _destinations);
-    }
-
-    function updateDebt(uint256 newDebt) public virtual override hasRole(Roles.REBALANCER_ROLE) {
-        // update debt
-        uint256 oldDebt = totalDebt;
-        totalDebt = newDebt;
-
-        emit DebtUpdated(oldDebt, newDebt);
     }
 
     function _bulkMoveTokens(
@@ -629,94 +617,8 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         return totalAssets() > 0 || totalSupply() == 0;
     }
 
-    function updateDebtReporting(
-        address[] calldata _destinations,
-        bool[] calldata _claimRewards
-    ) external nonReentrant {
-        // TODO: Access control
-        // TODO: Decide if we need to enforce all destinations to be processed as a set
-        uint256 nDest = _destinations.length;
-        Errors.verifyNotZero(nDest, "_destinations.length");
-        Errors.verifyArrayLengths(nDest, _claimRewards.length, "dest+claims");
-
-        uint256 idleIncrease = 0;
-        uint256 prevNTotalDebt = 0;
-        uint256 afterNTotalDebt = 0;
-
-        for (uint256 i = 0; i < nDest; ++i) {
-            IDestinationVault destVault = IDestinationVault(_destinations[i]);
-            bool shouldClaimRewards = _claimRewards[i];
-
-            if (!destinations.contains(address(destVault))) {
-                revert Errors.ItemNotFound(); // TODO: Add in the address to the error, maybe use different error
-            }
-
-            // Figure out how much our debt is currently worth
-            uint256 currentShareBalance = destVault.balanceOf(address(this));
-            uint256 dvDebtValue = destVault.debtValue(currentShareBalance);
-
-            // Get the reward value we've earned. DV rewards are always in terms of base asset
-            // We track the gas used purely for off-chain stats purposes
-            // Main rewarder on DV's store the earned and liquidated rewards
-            // Any extra rewarders would not be taken into account here as they still need liquidated
-            uint256 claimGasUsed = gasleft();
-            uint256 beforeBaseAsset = _asset.balanceOf(address(this));
-            IMainRewarder(destVault.rewarder()).getReward();
-            uint256 claimedRewardValue = _asset.balanceOf(address(this)) - beforeBaseAsset;
-            claimGasUsed -= gasleft();
-            idleIncrease += claimedRewardValue;
-
-            // Figure out what to back out of our totalDebt number: info.prevNTotalDebt
-            // We could have had withdraws since the last snapshot which means our
-            // cached currentDebt number should be decreased based on the remaining shares
-            // totalDebt is decreased using the same proportion of shares method during withdrawals
-            // so this should represent whatever is remaining.
-            uint256 currentDebt = (destinationInfo[address(destVault)].currentDebt * currentShareBalance)
-                / Math.max(destinationInfo[address(destVault)].ownedShares, 1);
-            prevNTotalDebt += currentDebt;
-
-            afterNTotalDebt += dvDebtValue;
-            destinationInfo[address(destVault)].currentDebt = dvDebtValue;
-            destinationInfo[address(destVault)].lastReport = block.timestamp;
-            destinationInfo[address(destVault)].ownedShares = currentShareBalance;
-
-            emit DestinationDebtReporting(address(destVault), claimedRewardValue, shouldClaimRewards, claimGasUsed);
-        }
-
-        uint256 idle = totalIdle + idleIncrease;
-        uint256 debt = totalDebt - prevNTotalDebt + afterNTotalDebt;
-
-        totalIdle = idle;
-        totalDebt = debt;
-
-        // Figure out if we need to take fee's
-        // TODO: Retool to always track the high water mark so that setting a sink later doesn't pickupt he backlog
-        address sink = feeSink;
-        uint256 fees = 0;
-        uint256 shares = 0;
-        uint256 profit = 0;
-        if (sink != address(0)) {
-            uint256 totalSupply = totalSupply();
-            uint256 currentNavPerShare = ((idle + debt) * MAX_FEE_BPS) / totalSupply;
-            uint256 effectiveNavPerShareHighMark = navPerShareHighMark; // TODO: Add in any decay we want here
-
-            if (currentNavPerShare > effectiveNavPerShareHighMark) {
-                // TODO: Evaluate the rounding that's happened in these nav -> supply calcs
-                profit = (currentNavPerShare - effectiveNavPerShareHighMark) * totalSupply;
-                fees = profit.mulDiv(performanceFeeBps, (MAX_FEE_BPS ** 2), Math.Rounding.Up);
-                if (fees > 0) {
-                    shares = _convertToShares(fees, Math.Rounding.Up);
-                    _mint(sink, shares);
-                    rewarder.stake(sink, shares);
-                    emit Deposit(address(this), sink, fees, shares);
-                }
-
-                // Set our new high water mark
-                navPerShareHighMark = currentNavPerShare;
-                navPerShareHighMarkTimestamp = block.timestamp;
-            }
-        }
-        emit FeeCollected(fees, sink, shares, profit);
+    function updateDebtReporting(address[] calldata _destinations) external nonReentrant {
+        _updateDebtReporting(_destinations);
     }
 
     //////////////////////////////////////////////////////////////////////////
@@ -860,9 +762,11 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         address tokenOut,
         uint256 amountOut
     ) public nonReentrant hasRole(Roles.SOLVER_ROLE) {
-        address swapper = msg.sender;
         uint256 debtDecrease = 0;
         uint256 debtIncrease = 0;
+        uint256 idleDecrease = 0;
+        uint256 idle = totalIdle;
+        uint256 debt = totalDebt;
 
         // make sure there's something to do
         if (amountIn == 0 && amountOut == 0) {
@@ -875,134 +779,204 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         }
 
         // make sure we have a valid path
-        (bool success, string memory message) =
-            LMPStrategy.verifyRebalance(destinationIn, tokenIn, amountIn, destinationOut, tokenOut, amountOut);
-        if (!success) {
-            revert RebalanceFailed(message);
-        }
-
-        // If we are transferring the base asset out, we need to decrement
-        // our totalIdle by the same amount so that later mints are valued correctly
-        // Two writes to totalIdle here but it's very unlikely we'd ever execute both together
-        if (amountOut > 0 && tokenOut == address(_asset)) {
-            totalIdle -= amountOut;
-        }
-        if (amountIn > 0 && tokenIn == address(_asset)) {
-            totalIdle += amountIn;
+        {
+            (bool success, string memory message) =
+                LMPStrategy.verifyRebalance(destinationIn, tokenIn, amountIn, destinationOut, tokenOut, amountOut);
+            if (!success) {
+                revert RebalanceFailed(message);
+            }
         }
 
         // Handle decrease (shares going "Out", cashing in shares and sending underlying back to swapper)
         // If the tokenOut is _asset we assume they are taking idle
         // which is already in the contract
-        if (amountOut > 0 && tokenOut != address(_asset)) {
-            // withdraw underlying from dv
-            IDestinationVault dvOut = IDestinationVault(destinationOut);
+        (debtDecrease, debtIncrease, idleDecrease) =
+            _handleRebalanceOut(msg.sender, destinationOut, amountOut, tokenOut);
 
-            // slither-disable-next-line unused-return
-            dvOut.withdrawUnderlying(amountOut, swapper);
-
-            // Update the last snapshot info for the destination vault
-            uint256 dvShares = dvOut.balanceOf(address(this));
-            uint256 newDebtValue = dvOut.debtValue(dvShares);
-            debtDecrease = destinationInfo[address(dvOut)].currentDebt;
-            debtIncrease = newDebtValue + IMainRewarder(dvOut.rewarder()).earned(address(this));
-            destinationInfo[address(dvOut)].currentDebt = debtIncrease;
-            destinationInfo[address(dvOut)].lastReport = block.timestamp;
-            destinationInfo[address(dvOut)].ownedShares = dvShares;
-            destinationInfo[address(dvOut)].debtBasis = newDebtValue;
-        }
-
-        //
         // Handle increase (shares coming "In", getting underlying from the swapper and trading for new shares)
-        //
         if (amountIn > 0) {
             // transfer dv underlying lp from swapper to here
-            IERC20(tokenIn).safeTransferFrom(swapper, address(this), amountIn);
+            IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
 
             // deposit to dv (already checked in `verifyRebalance` so no need to check return of deposit)
 
             if (tokenIn != address(_asset)) {
-                if (!IERC20(tokenIn).approve(destinationIn, amountIn)) revert Errors.ApprovalFailed(tokenIn);
-
                 IDestinationVault dvIn = IDestinationVault(destinationIn);
-                // slither-disable-next-line unused-return
-                dvIn.depositUnderlying(amountIn);
-                uint256 dvShares = dvIn.balanceOf(address(this));
-                uint256 newDebtValue = dvIn.debtValue(dvShares);
-                uint256 rewardValue = IMainRewarder(dvIn.rewarder()).earned(address(this));
-                debtDecrease += destinationInfo[address(dvIn)].currentDebt;
-                debtIncrease += newDebtValue + rewardValue;
-                destinationInfo[address(dvIn)].currentDebt = newDebtValue + rewardValue;
-                destinationInfo[address(dvIn)].lastReport = block.timestamp;
-                destinationInfo[address(dvIn)].ownedShares = dvShares;
-                destinationInfo[address(dvIn)].debtBasis = newDebtValue;
+                (uint256 debtDecreaseIn, uint256 debtIncreaseIn) = _handleRebalanceIn(dvIn, tokenIn, amountIn);
+                debtDecrease += debtDecreaseIn;
+                debtIncrease += debtIncreaseIn;
+            } else {
+                idle += amountIn;
             }
+        }
+
+        if (debtDecrease > 0 || debtIncrease > 0) {
+            debt = debt + debtIncrease - debtDecrease;
+        }
+
+        totalIdle = idle - idleDecrease;
+        totalDebt = debt;
+
+        _collectFees(idle - idleDecrease, debt);
+    }
+
+    /// @inheritdoc IStrategy
+    function flashRebalance(
+        FlashRebalanceParams memory rebalanceParams,
+        bytes calldata data
+    ) public nonReentrant hasRole(Roles.SOLVER_ROLE) {
+        uint256 debtDecrease = 0;
+        uint256 debtIncrease = 0;
+        uint256 idleDecrease = 0;
+        uint256 idleIncrease = 0;
+
+        // make sure there's something to do
+        if (rebalanceParams.amountIn == 0 && rebalanceParams.amountOut == 0) {
+            revert Errors.InvalidParams();
+        }
+
+        if (rebalanceParams.destinationIn == rebalanceParams.destinationOut) {
+            // TODO: Use different error
+            revert Errors.InvalidParams();
+        }
+
+        // make sure we have a valid path
+        {
+            (bool success, string memory message) = LMPStrategy.verifyRebalance(
+                rebalanceParams.destinationIn,
+                rebalanceParams.tokenIn,
+                rebalanceParams.amountIn,
+                rebalanceParams.destinationOut,
+                rebalanceParams.tokenOut,
+                rebalanceParams.amountOut
+            );
+            if (!success) {
+                revert RebalanceFailed(message);
+            }
+        }
+
+        // Handle decrease (shares going "Out", cashing in shares and sending underlying back to swapper)
+        // If the tokenOut is _asset we assume they are taking idle
+        // which is already in the contract
+        (debtDecrease, debtIncrease, idleDecrease) = _handleRebalanceOut(
+            address(rebalanceParams.receiver),
+            rebalanceParams.destinationOut,
+            rebalanceParams.amountOut,
+            rebalanceParams.tokenOut
+        );
+
+        // Handle increase (shares coming "In", getting underlying from the swapper and trading for new shares)
+        if (rebalanceParams.amountIn > 0) {
+            IDestinationVault dvIn = IDestinationVault(rebalanceParams.destinationIn);
+
+            // get "before" counts
+            uint256 tokenInBalanceBefore = IERC20(rebalanceParams.tokenIn).balanceOf(address(this));
+
+            // Give control back to the solver so they can make use of the "out" assets
+            // and get our "in" asset
+            bytes32 flashResult = rebalanceParams.receiver.onFlashLoan(
+                msg.sender, rebalanceParams.tokenIn, rebalanceParams.amountIn, 0, data
+            );
+
+            // We assume the solver will send us the assets
+            uint256 tokenInBalanceAfter = IERC20(rebalanceParams.tokenIn).balanceOf(address(this));
+
+            // Make sure the call was successful and verify we have at least the assets we think
+            // we were getting
+            if (
+                flashResult != keccak256("ERC3156FlashBorrower.onFlashLoan")
+                    || tokenInBalanceAfter < tokenInBalanceBefore + rebalanceParams.amountIn
+            ) {
+                revert Errors.FlashLoanFailed(rebalanceParams.tokenIn, rebalanceParams.amountIn);
+            }
+
+            if (rebalanceParams.tokenIn != address(_asset)) {
+                (uint256 debtDecreaseIn, uint256 debtIncreaseIn) =
+                    _handleRebalanceIn(dvIn, rebalanceParams.tokenIn, tokenInBalanceAfter);
+                debtDecrease += debtDecreaseIn;
+                debtIncrease += debtIncreaseIn;
+            } else {
+                idleIncrease += tokenInBalanceAfter - tokenInBalanceBefore;
+            }
+        }
+
+        if (idleDecrease > 0 || idleIncrease > 0) {
+            totalIdle = totalIdle + idleIncrease - idleDecrease;
         }
 
         if (debtDecrease > 0 || debtIncrease > 0) {
             totalDebt = totalDebt + debtIncrease - debtDecrease;
         }
 
-        // TODO: Removing all snapshotting except debtBasis and just call into updateDebtReporting
+        _collectFees(totalIdle, totalDebt);
     }
 
-    /// @inheritdoc IStrategy
-    function flashRebalance(
-        IERC3156FlashBorrower receiver,
-        address destinationIn,
+    /// @notice Perform deposit and debt info update for the "in" destination during a rebalance
+    /// @dev This "in" function performs less validations than its "out" version
+    /// @param dvIn The "in" destination vault
+    /// @param tokenIn The underlyer for dvIn
+    /// @param depositAmount The amount of tokenIn that will be deposited
+    /// @return debtDecrease The previous amount of debt dvIn accounted for in totalDebt
+    /// @return debtIncrease The current amount of debt dvIn should account for in totalDebt
+    function _handleRebalanceIn(
+        IDestinationVault dvIn,
         address tokenIn,
-        uint256 amountIn,
+        uint256 depositAmount
+    ) private returns (uint256 debtDecrease, uint256 debtIncrease) {
+        IERC20(tokenIn).safeApprove(address(dvIn), depositAmount);
+
+        // Snapshot our current shares so we know how much to back out
+        uint256 originalShareBal = dvIn.balanceOf(address(this));
+
+        // deposit to dv
+        uint256 newShares = dvIn.depositUnderlying(depositAmount);
+
+        // Update the debt info snapshot
+        (uint256 totalDebtDecrease, uint256 totalDebtIncrease) =
+            _recalculateDestInfo(dvIn, originalShareBal, originalShareBal + newShares, true);
+        debtDecrease = totalDebtDecrease;
+        debtIncrease = totalDebtIncrease;
+    }
+
+    /// @notice Perform withdraw and debt info update for the "out" destination during a rebalance
+    /// @dev This "out" function performs more validations and handles idle as opposed to "in" which does not
+    /// @param receiver Address that will received the withdrawn underlyer
+    /// @param destinationOut The "out" destination vault
+    /// @param amountOut The amount of tokenOut that will be withdrawn
+    /// @param tokenOut The underlyer for destinationOut
+    /// @return debtDecrease The previous amount of debt destinationOut accounted for in totalDebt
+    /// @return debtIncrease The current amount of debt destinationOut should account for in totalDebt
+    /// @return idleDecrease Amount of baseAsset that was sent from the vault. > 0 only when tokenOut == baseAsset
+    function _handleRebalanceOut(
+        address receiver,
         address destinationOut,
-        address tokenOut,
         uint256 amountOut,
-        bytes calldata data
-    ) public hasRole(Roles.SOLVER_ROLE) {
-        address swapper = msg.sender;
-
-        // make sure there's something to do
-        if (amountIn == 0 && amountOut == 0) {
-            revert Errors.InvalidParams();
-        }
-
-        // make sure we have a valid path
-        (bool success, string memory message) =
-            LMPStrategy.verifyRebalance(destinationIn, tokenIn, amountIn, destinationOut, tokenOut, amountOut);
-        if (!success) {
-            revert RebalanceFailed(message);
-        }
-
-        //
-        // Handle "Out"
-        //
+        address tokenOut
+    ) private returns (uint256 debtDecrease, uint256 debtIncrease, uint256 idleDecrease) {
+        // Handle decrease (shares going "Out", cashing in shares and sending underlying back to swapper)
+        // If the tokenOut is _asset we assume they are taking idle
+        // which is already in the contract
         if (amountOut > 0) {
-            // withdraw underlying from dv
-            // slither-disable-next-line unused-return
-            IDestinationVault(destinationOut).withdrawUnderlying(amountOut, address(receiver));
-        }
+            if (tokenOut != address(_asset)) {
+                IDestinationVault dvOut = IDestinationVault(destinationOut);
 
-        //
-        // Handle "In"
-        //
-        if (amountIn > 0) {
-            // get "before" counts
-            // uint256 dvSharesBefore = IERC20(destinationIn).balanceOf(address(this));
-            uint256 tokenInBalanceBefore = IERC20(tokenIn).balanceOf(address(this));
+                // Snapshot our current shares so we know how much to back out
+                uint256 originalShareBal = dvOut.balanceOf(address(this));
 
-            // flash loan (and verify that vault balance of underlyerIn increased)
-            if (
-                receiver.onFlashLoan(swapper, tokenIn, amountIn, 0, data)
-                    != keccak256("ERC3156FlashBorrower.onFlashLoan")
-                    || IERC20(tokenIn).balanceOf(address(this)) < tokenInBalanceBefore + amountIn
-            ) {
-                revert Errors.FlashLoanFailed(tokenIn, amountIn);
+                // withdraw underlying from dv
+                // slither-disable-next-line unused-return
+                dvOut.withdrawUnderlying(amountOut, receiver);
+
+                // Update the debt info snapshot
+                (debtDecrease, debtIncrease) =
+                    _recalculateDestInfo(dvOut, originalShareBal, originalShareBal - amountOut, true);
+            } else {
+                // Working with idle baseAsset which should be in the vault already
+                // Just send it out
+                IERC20(tokenOut).safeTransfer(receiver, amountOut);
+                idleDecrease = amountOut;
             }
-
-            // deposit to dv
-            if (!IERC20(tokenIn).approve(destinationIn, amountIn)) revert Errors.ApprovalFailed(tokenIn);
-            // slither-disable-next-line unused-return
-            IDestinationVault(destinationIn).depositUnderlying(amountIn);
         }
-        // TODO: Update flashRebalance with debtBasis logic and call updateDebtReporting
     }
 
     /// @inheritdoc IStrategy
@@ -1016,6 +990,119 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
     ) public view virtual returns (bool success, string memory message) {
         (success, message) =
             LMPStrategy.verifyRebalance(destinationIn, tokenIn, amountIn, destinationOut, tokenOut, amountOut);
+    }
+
+    function _updateDebtReporting(address[] memory _destinations) private {
+        // TODO: Access control
+        // TODO: Decide if we need to enforce all destinations to be processed as a set
+        uint256 nDest = _destinations.length;
+
+        uint256 idleIncrease = 0;
+        uint256 prevNTotalDebt = 0;
+        uint256 afterNTotalDebt = 0;
+
+        for (uint256 i = 0; i < nDest; ++i) {
+            IDestinationVault destVault = IDestinationVault(_destinations[i]);
+
+            if (!destinations.contains(address(destVault))) {
+                revert Errors.ItemNotFound(); // TODO: Add in the address to the error, maybe use different error
+            }
+
+            // Get the reward value we've earned. DV rewards are always in terms of base asset
+            // We track the gas used purely for off-chain stats purposes
+            // Main rewarder on DV's store the earned and liquidated rewards
+            // Any extra rewarders would not be taken into account here as they still need liquidated
+            uint256 claimGasUsed = gasleft();
+            uint256 beforeBaseAsset = _asset.balanceOf(address(this));
+            IMainRewarder(destVault.rewarder()).getReward();
+            uint256 claimedRewardValue = _asset.balanceOf(address(this)) - beforeBaseAsset;
+            claimGasUsed -= gasleft();
+            idleIncrease += claimedRewardValue;
+
+            // Recalculate the debt info figuring out the change in
+            // total debt value we can roll up later
+            (uint256 totalDebtDecrease, uint256 totalDebtIncrease) = _recalculateDestInfo(destVault, false);
+            prevNTotalDebt += totalDebtDecrease;
+            afterNTotalDebt += totalDebtIncrease;
+
+            emit DestinationDebtReporting(address(destVault), totalDebtIncrease, claimedRewardValue, claimGasUsed);
+        }
+
+        uint256 idle = totalIdle + idleIncrease;
+        uint256 debt = totalDebt - prevNTotalDebt + afterNTotalDebt;
+
+        totalIdle = idle;
+        totalDebt = debt;
+
+        _collectFees(idle, debt);
+    }
+
+    function _collectFees(uint256 idle, uint256 debt) private {
+        // TODO: Retool to always track the high water mark so that setting a sink later doesn't pickup the backlog
+        address sink = feeSink;
+        uint256 fees = 0;
+        uint256 shares = 0;
+        uint256 profit = 0;
+        if (sink != address(0)) {
+            uint256 totalSupply = totalSupply();
+            uint256 currentNavPerShare = ((idle + debt) * MAX_FEE_BPS) / totalSupply;
+            uint256 effectiveNavPerShareHighMark = navPerShareHighMark; // TODO: Add in any decay we want here
+
+            if (currentNavPerShare > effectiveNavPerShareHighMark) {
+                // TODO: Evaluate the rounding that's happened in these nav -> supply calcs
+                profit = (currentNavPerShare - effectiveNavPerShareHighMark) * totalSupply;
+                fees = profit.mulDiv(performanceFeeBps, (MAX_FEE_BPS ** 2), Math.Rounding.Up);
+                if (fees > 0) {
+                    shares = _convertToShares(fees, Math.Rounding.Up);
+                    _mint(sink, shares);
+                    rewarder.stake(sink, shares);
+                    emit Deposit(address(this), sink, fees, shares);
+                }
+
+                // Set our new high water mark
+                navPerShareHighMark = currentNavPerShare;
+                navPerShareHighMarkTimestamp = block.timestamp;
+            }
+        }
+        emit FeeCollected(fees, sink, shares, profit);
+    }
+
+    function _recalculateDestInfo(
+        IDestinationVault destVault,
+        bool resetDebtBasis
+    ) private returns (uint256 totalDebtDecrease, uint256 totalDebtIncrease) {
+        uint256 currentShareBalance = destVault.balanceOf(address(this));
+        (totalDebtDecrease, totalDebtIncrease) =
+            _recalculateDestInfo(destVault, currentShareBalance, currentShareBalance, resetDebtBasis);
+    }
+
+    function _recalculateDestInfo(
+        IDestinationVault destVault,
+        uint256 originalShares,
+        uint256 currentShares,
+        bool resetDebtBasis
+    ) private returns (uint256 totalDebtDecrease, uint256 totalDebtIncrease) {
+        // Figure out what to back out of our totalDebt number.
+        // We could have had withdraws since the last snapshot which means our
+        // cached currentDebt number should be decreased based on the remaining shares
+        // totalDebt is decreased using the same proportion of shares method during withdrawals
+        // so this should represent whatever is remaining.
+
+        // Figure out how much our debt is currently worth
+        uint256 dvDebtValue = destVault.debtValue(currentShares);
+
+        // Calculate what we're backing out based on the original shares
+        uint256 currentDebt = (destinationInfo[address(destVault)].currentDebt * originalShares)
+            / Math.max(destinationInfo[address(destVault)].ownedShares, 1);
+        destinationInfo[address(destVault)].currentDebt = dvDebtValue;
+        destinationInfo[address(destVault)].lastReport = block.timestamp;
+        destinationInfo[address(destVault)].ownedShares = currentShares;
+        if (resetDebtBasis) {
+            destinationInfo[address(destVault)].debtBasis = dvDebtValue;
+        }
+
+        totalDebtDecrease = currentDebt;
+        totalDebtIncrease = dvDebtValue;
     }
 }
 

@@ -208,7 +208,16 @@ contract LMPVaultBaseTest is BaseTest {
         vm.prank(unauthorizedUser);
         address x = address(1);
         vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
-        lmpVault.flashRebalance(IERC3156FlashBorrower(address(this)), x, x, 1, x, x, 1, "");
+        IStrategy.FlashRebalanceParams memory params = IStrategy.FlashRebalanceParams({
+            receiver: IERC3156FlashBorrower(address(this)),
+            destinationIn: x,
+            tokenIn: x,
+            amountIn: 1,
+            destinationOut: x,
+            tokenOut: x,
+            amountOut: 1
+        });
+        lmpVault.flashRebalance(params, "");
     }
 
     // @dev Callback support from lmpVault to provide underlying for the "IN"

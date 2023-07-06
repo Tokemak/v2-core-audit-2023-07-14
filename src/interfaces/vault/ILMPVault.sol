@@ -15,7 +15,7 @@ interface ILMPVault is IERC4626, IERC20Permit {
     event TokensRecovered(address[] tokens, uint256[] amounts, address[] destinations);
     event DebtUpdated(uint256 oldDebt, uint256 newDebt);
     event RewarderSet(address rewarder);
-    event DestinationDebtReporting(address destination, uint256 claimed, bool claimPerformed, uint256 claimGasUsed);
+    event DestinationDebtReporting(address destination, uint256 debtValue, uint256 claimed, uint256 claimGasUsed);
     event FeeCollected(uint256 fees, address feeSink, uint256 mintedShares, uint256 profit);
 
     /* ******************************** */
@@ -43,9 +43,6 @@ interface ILMPVault is IERC4626, IERC20Permit {
 
     /// @notice Allow token recoverer to collect dust / unintended transfers (non-tracked assets only)
     function recover(address[] calldata tokens, uint256[] calldata amounts, address[] calldata destinations) external;
-
-    /// @notice Used by rebalancer to update pending debt total
-    function updateDebt(uint256 newDebt) external;
 
     /// @notice Migrate user assets to a new vault
     function migrateVault(uint256 amount, address newLmpVault) external;

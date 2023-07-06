@@ -131,11 +131,12 @@ abstract contract DestinationVault is SecurityBase, ERC20, Initializable, IDesti
 
     /// @inheritdoc IDestinationVault
     function debtValue(uint256 shares) external virtual returns (uint256 value) {
-        uint256 ts = totalSupply();
-        if (ts == 0 || shares == 0) {
+        if (shares == 0) {
             return 0;
         }
-        value = (debtValue() * shares) / ts;
+        uint256 price = _systemRegistry.rootPriceOracle().getPriceInEth(_underlying);
+        uint256 ethValue = (price * shares) / (10 ** _underlyingDecimals);
+        value = getTokenPriceInBaseAsset(ethValue);
     }
 
     /// @inheritdoc IDestinationVault

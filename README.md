@@ -28,14 +28,13 @@ A fairly strict and opinionated Foundry-based template for developing Solidity s
 -   ~~Figure out how the veOGV rewarder works and add it in~~
 -   Ensure rewarder + lmp vault is working and setup correctly
 -   Consider switching rewarders to initializable so we can copy cheaply
--   Figure out Curve V2 pool oracle
--   Verify support for Curve -ng pools, tricrypto and steth/eth
+-   ~~Figure out Curve V2 pool oracle~~
+-   ~~Verify support for Curve -ng pools, and steth/eth~~
 -   ~~Pricing for Curve -ng pools~~
 -   ~~Add weth + toke to system registry constructor. Refactor dependencies to use it~~
--   Do a Curve-but-not-Convex Destination Vault
 -   Ensure current Curve DV supports Curve V2
 -   ~~Do we need a UniV3 on-chain swapper?~~
--   Ensure oracles are covered for native lst's
+-   ~~Ensure oracles are covered for native lst's~~
 -   What winding down an LMP or DV looks like
 -   ~~Registry for allowed reward tokens~~
 -   ~~LMP -> Destination Vault extra reward permissions~~
@@ -44,7 +43,11 @@ A fairly strict and opinionated Foundry-based template for developing Solidity s
 -   Add rewarder events
 -   Stats calculator for the destination vault
 -   Add our own oracle setup
--   frxETH from Oracle - Parker
+-   frxETH backing tracker - Parker
+-   frxETH price Oracle
+-   LMP deposit limits
+-   Consider LMP withdrawal short circuits
+-   Do not allow nav changing operations and non-nav changing operations in the same tx
 
 ## What are you getting
 
