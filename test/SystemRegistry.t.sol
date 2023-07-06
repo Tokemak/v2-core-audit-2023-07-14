@@ -511,7 +511,7 @@ contract SystemRegistryTest is Test {
         _systemRegistry.addRewardToken(rewardToken);
         assertTrue(_systemRegistry.isRewardToken(rewardToken));
 
-        vm.expectRevert(abi.encodeWithSelector(Errors.AddressAlreadySet.selector, rewardToken));
+        vm.expectRevert(abi.encodeWithSelector(Errors.ItemExists.selector));
         _systemRegistry.addRewardToken(rewardToken);
     }
 

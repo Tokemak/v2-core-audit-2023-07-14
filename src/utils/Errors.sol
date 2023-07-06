@@ -19,7 +19,6 @@ library Errors {
     error InvalidParam(string paramName);
     error InvalidParams();
     error AlreadySet(string param);
-    error AddressAlreadySet(address addr);
     error SlippageExceeded(uint256 expected, uint256 actual);
     error ArrayLengthMismatch(uint256 length1, uint256 length2, string details);
 

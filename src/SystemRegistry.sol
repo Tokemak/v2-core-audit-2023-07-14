@@ -351,7 +351,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         Errors.verifyNotZero(rewardToken, "rewardToken");
         bool success = _rewardTokens.add(rewardToken);
         if (!success) {
-            revert Errors.AddressAlreadySet(rewardToken);
+            revert Errors.ItemExists();
         }
         emit RewardTokenAdded(rewardToken);
     }
