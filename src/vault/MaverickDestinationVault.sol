@@ -86,7 +86,7 @@ contract MaverickDestinationVault is DestinationVault, ReentrancyGuard {
     }
 
     function debtValue() public override returns (uint256 value) {
-        value = totalLpAmount() * _getTokenPriceInBaseAsset(address(stakingToken));
+        value = totalLpAmount() * _getTokenPriceInBaseAsset(address(stakingToken)) / 10 ** 18;
     }
 
     function rewardValue() public override returns (uint256 value) {
@@ -106,7 +106,7 @@ contract MaverickDestinationVault is DestinationVault, ReentrancyGuard {
     function _getTokenPriceInBaseAsset(address token) private returns (uint256 value) {
         //slither-disable-start calls-loop
         IRootPriceOracle priceOracle = systemRegistry.rootPriceOracle();
-        uint256 tokenPriceInEth = priceOracle.getPriceInEth(token);
+        uint256 tokenPriceInEth = priceOracle.getPriceInEth(token) * 10 ** 18;
         if (keccak256(abi.encodePacked(baseAsset.symbol())) == keccak256(abi.encodePacked("WETH"))) {
             value = tokenPriceInEth;
         } else {
