@@ -699,7 +699,8 @@ contract LMPVaultMintingTests is Test {
         // Now lets introduce reward value. Deposit rewards, something normally
         // only the liquidator will do, into the DV1's rewarder
         _accessController.grantRole(Roles.LIQUIDATOR_ROLE, address(this));
-        _asset.mint(_destVaultOne.rewarder(), 10_000);
+        _asset.mint(address(this), 10_000);
+        _asset.approve(address(_destVaultOne.rewarder()), 10_000);
         IMainRewarder(_destVaultOne.rewarder()).queueNewRewards(10_000);
 
         // Roll blocks forward and verify the LMP has earned something

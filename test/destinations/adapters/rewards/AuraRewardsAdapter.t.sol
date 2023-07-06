@@ -38,6 +38,15 @@ contract AuraRewardsAdapterTest is Test {
         vm.warp(block.timestamp + 7 days);
     }
 
+    function test_claimRewards_Revert_If() public {
+        address gauge = 0xbD5445402B0a287cbC77cb67B2a52e2FC635dce4;
+
+        bytes4 selector = bytes4(keccak256(bytes("getReward(address,bool)")));
+        vm.mockCall(gauge, abi.encodeWithSelector(selector, address(this), true), abi.encode(false));
+        vm.expectRevert(RewardAdapter.ClaimRewardsFailed.selector);
+        AuraRewards.claimRewards(gauge, AURA_MAINNET);
+    }
+
     function test_Revert_IfAddressZero() public {
         vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "gauge"));
         AuraRewards.claimRewards(address(0), AURA_MAINNET);

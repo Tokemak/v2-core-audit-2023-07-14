@@ -6,7 +6,7 @@ pragma solidity 0.8.17;
 library RewardAdapter {
     error ClaimRewardsFailed();
 
-    event RewardsClaimed(address[], uint256[]);
+    event RewardsClaimed(address[] tokens, uint256[] amounts);
 
     /// @notice Emit RewardsClaimed(address[],uint256[]) event common to all reward claim libraries
     /// @param tokens reward token addresses claimed
