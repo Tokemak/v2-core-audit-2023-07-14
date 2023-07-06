@@ -113,11 +113,11 @@ contract CurveV1PoolNoRebasingStatsCalculatorTest is Test {
         bytes memory initData = getInitData(TARGET_POOL);
 
         mockResolveWithLpToken(TARGET_POOL, buildCoinsArray(RETH_MAINNET, WSTETH_MAINNET), 2, TARGET_POOL);
-        mockGetCalculator(depAprIds[0], mockRethStats);
-        mockStatsAddress(mockRethStats, WSTETH_MAINNET);
+        mockGetCalculator(depAprIds[0], mockWstethStats); // resolve to the wrong stats address
+        mockStatsAddress(mockWstethStats, WSTETH_MAINNET);
 
         vm.expectRevert(
-            abi.encodeWithSelector(Stats.CalculatorAssetMismatch.selector, depAprIds[0], mockRethStats, RETH_MAINNET)
+            abi.encodeWithSelector(Stats.CalculatorAssetMismatch.selector, depAprIds[0], mockWstethStats, RETH_MAINNET)
         );
         calculator.initialize(depAprIds, initData);
     }
@@ -130,7 +130,7 @@ contract CurveV1PoolNoRebasingStatsCalculatorTest is Test {
         assertEq(calculator.lastSnapshotTimestamp(), TARGET_BLOCK_TIMESTAMP);
         assertEq(calculator.lastVirtualPrice(), TARGET_BLOCK_VIRTUAL_PRICE);
 
-        assertEq(calculator.numReserveTokens(), 2);
+        assertEq(calculator.numTokens(), 2);
 
         assertEq(calculator.dependentLSTAprIds(0), keccak256(abi.encode(RETH_MAINNET)));
         assertEq(calculator.dependentLSTAprIds(1), keccak256(abi.encode(WSTETH_MAINNET)));

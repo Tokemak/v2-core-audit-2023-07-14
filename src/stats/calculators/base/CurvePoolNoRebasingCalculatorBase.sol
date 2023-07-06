@@ -14,9 +14,7 @@ import { IStatsCalculatorRegistry } from "src/interfaces/stats/IStatsCalculatorR
 import { ILSTStats } from "src/interfaces/stats/ILSTStats.sol";
 import { ICurveResolver } from "src/interfaces/utils/ICurveResolver.sol";
 import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
-
-// using one method that is shared across all pool types; perhaps extract it out
-import { ICurveV1StableSwap } from "src/interfaces/external/curve/ICurveV1StableSwap.sol";
+import { IPool } from "src/interfaces/external/curve/IPool.sol";
 
 abstract contract CurvePoolNoRebasingCalculatorBase is IDexLSTStats, BaseStatsCalculator, Initializable {
     IRootPriceOracle public immutable pricer;
@@ -24,7 +22,7 @@ abstract contract CurvePoolNoRebasingCalculatorBase is IDexLSTStats, BaseStatsCa
     bytes32[] public dependentLSTAprIds;
     ILSTStats[] public lstStats;
     address[] public reserveTokens;
-    uint256 public numReserveTokens;
+    uint256 public numTokens;
 
     bytes32 private _aprId;
     address public poolAddress;
@@ -62,14 +60,9 @@ abstract contract CurvePoolNoRebasingCalculatorBase is IDexLSTStats, BaseStatsCa
         poolAddress = decodedInitData.poolAddress;
 
         ICurveResolver curveResolver = systemRegistry.curveResolver();
-        (address[8] memory _reserveTokens, uint256 numTokens, address _lpToken,) =
-            curveResolver.resolveWithLpToken(poolAddress);
+        (reserveTokens, numTokens, lpToken,) = curveResolver.resolveWithLpToken(poolAddress);
 
-        Errors.verifyNotZero(_lpToken, "lpToken");
-        // slither will not stop complaining that lpToken wasn't zero checked
-        // slither-disable-next-line missing-zero-check
-        lpToken = _lpToken;
-
+        Errors.verifyNotZero(lpToken, "lpToken");
         if (numTokens == 0) {
             revert InvalidPool(poolAddress);
         }
@@ -85,7 +78,7 @@ abstract contract CurvePoolNoRebasingCalculatorBase is IDexLSTStats, BaseStatsCa
         for (uint256 i = 0; i < numTokens; i++) {
             bytes32 dependentAprId = dependentAprIds[i];
             if (dependentAprId != Stats.NOOP_APR_ID) {
-                address coin = _reserveTokens[i];
+                address coin = reserveTokens[i];
 
                 IStatsCalculator calculator = registry.getCalculator(dependentAprId);
 
@@ -103,10 +96,6 @@ abstract contract CurvePoolNoRebasingCalculatorBase is IDexLSTStats, BaseStatsCa
         // need this later to determine if a stats should be skipped on processing
         dependentLSTAprIds = dependentAprIds;
 
-        // needed for reserve pricing
-        reserveTokens = _reserveTokens;
-        numReserveTokens = numTokens;
-
         lastSnapshotTimestamp = block.timestamp;
         lastVirtualPrice = getVirtualPrice();
     }
@@ -119,17 +108,15 @@ abstract contract CurvePoolNoRebasingCalculatorBase is IDexLSTStats, BaseStatsCa
 
     /// @inheritdoc IDexLSTStats
     function current() external returns (DexLSTStatsData memory) {
-        uint256 numStats = dependentLSTAprIds.length;
-        ILSTStats.LSTStatsData[] memory lstStatsData = new ILSTStats.LSTStatsData[](numStats);
+        ILSTStats.LSTStatsData[] memory lstStatsData = new ILSTStats.LSTStatsData[](numTokens);
 
-        uint256[] memory reservesInEth = new uint256[](numStats);
-        uint256[] memory reserves = getReserves();
+        uint256[] memory reservesInEth = new uint256[](numTokens);
 
         // no-op stats do not get pushed into the lstStats array, so we have to track it separately
         uint256 y = 0;
-        for (uint256 i = 0; i < numStats; i++) {
+        for (uint256 i = 0; i < numTokens; i++) {
             bytes32 dependentAprId = dependentLSTAprIds[i];
-            reservesInEth[i] = pricer.getPriceInEth(reserveTokens[i]) * reserves[i] / 1e18;
+            reservesInEth[i] = pricer.getPriceInEth(reserveTokens[i]) * IPool(poolAddress).balances(i) / 1e18;
 
             if (dependentAprId != Stats.NOOP_APR_ID) {
                 lstStatsData[i] = lstStats[y].current();
@@ -157,13 +144,6 @@ abstract contract CurvePoolNoRebasingCalculatorBase is IDexLSTStats, BaseStatsCa
         lastSnapshotTimestamp = block.timestamp;
         lastVirtualPrice = currentVirtualPrice;
         feeApr = newFeeApr;
-    }
-
-    function getReserves() internal view returns (uint256[] memory reserves) {
-        reserves = new uint256[](numReserveTokens);
-        for (uint256 i = 0; i < numReserveTokens; i++) {
-            reserves[i] = ICurveV1StableSwap(poolAddress).balances(i);
-        }
     }
 
     function getVirtualPrice() internal virtual returns (uint256 virtualPrice);
