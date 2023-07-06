@@ -15,7 +15,7 @@ import { ICurveOwner } from "src/interfaces/external/curve/ICurveOwner.sol";
 contract CurveV1PoolNoRebasingStatsCalculator is CurvePoolNoRebasingCalculatorBase {
     constructor(ISystemRegistry _systemRegistry) CurvePoolNoRebasingCalculatorBase(_systemRegistry) { }
 
-    function getVirtualPrice() internal override returns (uint256 virtualPrice) {
+    function getVirtualPrice() internal view override returns (uint256 virtualPrice) {
         // TODO: deal with reentrancy in a different contract
         return ICurveV1StableSwap(poolAddress).get_virtual_price();
     }

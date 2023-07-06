@@ -44,7 +44,7 @@ contract ProxyLSTCalculator is ILSTStats, BaseStatsCalculator, Initializable {
         revert NoSnapshotTaken();
     }
 
-    function shouldSnapshot() external pure returns (bool takeSnapshot) {
+    function shouldSnapshot() public pure override returns (bool takeSnapshot) {
         return false;
     }
 

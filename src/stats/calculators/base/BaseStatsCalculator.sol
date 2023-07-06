@@ -33,10 +33,16 @@ abstract contract BaseStatsCalculator is IStatsCalculator, SecurityBase {
 
     /// @inheritdoc IStatsCalculator
     function snapshot() external override onlyStatsSnapshot {
+        if (!shouldSnapshot()) {
+            revert NoSnapshotTaken();
+        }
         _snapshot();
     }
 
     /// @notice Capture stat data about this setup
     /// @dev This is protected by the STATS_SNAPSHOT_ROLE
     function _snapshot() internal virtual;
+
+    /// @inheritdoc IStatsCalculator
+    function shouldSnapshot() public view virtual returns (bool takeSnapshot);
 }

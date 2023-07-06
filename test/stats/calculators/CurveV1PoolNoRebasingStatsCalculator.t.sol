@@ -55,16 +55,12 @@ contract CurveV1PoolNoRebasingStatsCalculatorTest is Test {
         accessController.grantRole(Roles.STATS_SNAPSHOT_ROLE, address(this));
         curveResolver = new CurveResolverMainnet(ICurveMetaRegistry(CURVE_META_REGISTRY));
 
-        mockGetRootPriceOracle(); // bypass systemRegistry
         calculator = new CurveV1PoolNoRebasingStatsCalculator(systemRegistry);
 
         vm.clearMockedCalls();
         mockGetCurveResolver(); // bypass systemRegistry
         mockStatsRegistry(); // bypass systemRegistry
-    }
-
-    function testConstructorShouldSetPricer() public {
-        assertEq(address(calculator.pricer()), mockPricer);
+        mockGetRootPriceOracle(); // bypass systemRegistry
     }
 
     function testInitializeRevertIfPoolAddressIsZero() public {
@@ -131,9 +127,6 @@ contract CurveV1PoolNoRebasingStatsCalculatorTest is Test {
         assertEq(calculator.lastVirtualPrice(), TARGET_BLOCK_VIRTUAL_PRICE);
 
         assertEq(calculator.numTokens(), 2);
-
-        assertEq(calculator.dependentLSTAprIds(0), keccak256(abi.encode(RETH_MAINNET)));
-        assertEq(calculator.dependentLSTAprIds(1), keccak256(abi.encode(WSTETH_MAINNET)));
 
         assertEq(address(calculator.lstStats(0)), mockRethStats);
         assertEq(address(calculator.lstStats(1)), mockWstethStats);

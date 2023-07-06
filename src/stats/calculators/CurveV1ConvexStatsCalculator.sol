@@ -98,14 +98,14 @@ contract CurveV1ConvexStatsCalculator is IDexLSTStats, BaseStatsCalculator, Init
     }
 
     /// @inheritdoc IDexLSTStats
-    function current() external view override returns (DexLSTStatsData memory) {
+    function current() external pure override returns (DexLSTStatsData memory) {
         ILSTStats.LSTStatsData[] memory lstStatsData = new ILSTStats.LSTStatsData[](0);
         uint256[] memory reservesInEth = new uint256[](0);
         return DexLSTStatsData({ feeApr: 0, lstStatsData: lstStatsData, reservesInEth: reservesInEth });
     }
 
     /// @inheritdoc IStatsCalculator
-    function shouldSnapshot() external pure returns (bool takeSnapshot) {
+    function shouldSnapshot() public pure override returns (bool takeSnapshot) {
         // TODO: implement real snapshot logic
         return true;
     }

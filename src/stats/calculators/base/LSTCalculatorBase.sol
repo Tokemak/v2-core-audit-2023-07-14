@@ -73,7 +73,6 @@ abstract contract LSTCalculatorBase is ILSTStats, BaseStatsCalculator, Initializ
 
     function _snapshot() internal override {
         uint256 currentEthPerToken = calculateEthPerToken();
-        bool snapshotTaken = false;
         if (_timeForAprSnapshot()) {
             uint256 currentApr = Stats.calculateAnnualizedChangeMinZero(
                 lastBaseAprSnapshotTimestamp, lastBaseAprEthPerToken, block.timestamp, currentEthPerToken
@@ -92,7 +91,6 @@ abstract contract LSTCalculatorBase is ILSTStats, BaseStatsCalculator, Initializ
             baseApr = newBaseApr;
             lastBaseAprEthPerToken = currentEthPerToken;
             lastBaseAprSnapshotTimestamp = block.timestamp;
-            snapshotTaken = true;
         }
 
         if (_hasSlashingOccurred(currentEthPerToken)) {
@@ -107,23 +105,17 @@ abstract contract LSTCalculatorBase is ILSTStats, BaseStatsCalculator, Initializ
 
             lastSlashingEthPerToken = currentEthPerToken;
             lastSlashingSnapshotTimestamp = block.timestamp;
-            snapshotTaken = true;
         } else if (_timeForSlashingSnapshot()) {
             emit SlashingSnapshotTaken(
                 lastSlashingEthPerToken, lastSlashingSnapshotTimestamp, currentEthPerToken, block.timestamp
             );
             lastSlashingEthPerToken = currentEthPerToken;
             lastSlashingSnapshotTimestamp = block.timestamp;
-            snapshotTaken = true;
-        }
-
-        if (!snapshotTaken) {
-            revert NoSnapshotTaken();
         }
     }
 
     /// @inheritdoc IStatsCalculator
-    function shouldSnapshot() external view returns (bool) {
+    function shouldSnapshot() public view override returns (bool) {
         uint256 currentEthPerToken = calculateEthPerToken();
         if (_timeForAprSnapshot()) {
             return true;

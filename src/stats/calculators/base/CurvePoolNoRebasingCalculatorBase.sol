@@ -17,9 +17,6 @@ import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { IPool } from "src/interfaces/external/curve/IPool.sol";
 
 abstract contract CurvePoolNoRebasingCalculatorBase is IDexLSTStats, BaseStatsCalculator, Initializable {
-    IRootPriceOracle public immutable pricer;
-
-    bytes32[] public dependentLSTAprIds;
     ILSTStats[] public lstStats;
     address[] public reserveTokens;
     uint256 public numTokens;
@@ -39,9 +36,7 @@ abstract contract CurvePoolNoRebasingCalculatorBase is IDexLSTStats, BaseStatsCa
     error DependentAprIdsMismatchTokens(uint256 numDependentAprIds, uint256 numCoins);
     error InvalidPool(address poolAddress);
 
-    constructor(ISystemRegistry _systemRegistry) BaseStatsCalculator(_systemRegistry) {
-        pricer = systemRegistry.rootPriceOracle();
-    }
+    constructor(ISystemRegistry _systemRegistry) BaseStatsCalculator(_systemRegistry) { }
 
     /// @inheritdoc IStatsCalculator
     function getAddressId() external view returns (address) {
@@ -75,6 +70,7 @@ abstract contract CurvePoolNoRebasingCalculatorBase is IDexLSTStats, BaseStatsCa
         _aprId = Stats.generateCurvePoolIdentifier(poolAddress);
 
         IStatsCalculatorRegistry registry = systemRegistry.statsCalculatorRegistry();
+        lstStats = new ILSTStats[](numTokens);
         for (uint256 i = 0; i < numTokens; i++) {
             bytes32 dependentAprId = dependentAprIds[i];
             if (dependentAprId != Stats.NOOP_APR_ID) {
@@ -89,38 +85,32 @@ abstract contract CurvePoolNoRebasingCalculatorBase is IDexLSTStats, BaseStatsCa
                     revert Stats.CalculatorAssetMismatch(dependentAprId, address(calculator), coin);
                 }
 
-                lstStats.push(ILSTStats(address(calculator)));
+                lstStats[i] = ILSTStats(address(calculator));
             }
         }
-
-        // need this later to determine if a stats should be skipped on processing
-        dependentLSTAprIds = dependentAprIds;
 
         lastSnapshotTimestamp = block.timestamp;
         lastVirtualPrice = getVirtualPrice();
     }
 
     /// @inheritdoc IStatsCalculator
-    function shouldSnapshot() public view returns (bool) {
+    function shouldSnapshot() public view override returns (bool) {
         // slither-disable-next-line timestamp
         return block.timestamp >= lastSnapshotTimestamp + Stats.DEX_FEE_APR_SNAPSHOT_INTERVAL;
     }
 
     /// @inheritdoc IDexLSTStats
     function current() external returns (DexLSTStatsData memory) {
+        IRootPriceOracle pricer = systemRegistry.rootPriceOracle();
         ILSTStats.LSTStatsData[] memory lstStatsData = new ILSTStats.LSTStatsData[](numTokens);
 
         uint256[] memory reservesInEth = new uint256[](numTokens);
 
-        // no-op stats do not get pushed into the lstStats array, so we have to track it separately
-        uint256 y = 0;
         for (uint256 i = 0; i < numTokens; i++) {
-            bytes32 dependentAprId = dependentLSTAprIds[i];
             reservesInEth[i] = pricer.getPriceInEth(reserveTokens[i]) * IPool(poolAddress).balances(i) / 1e18;
 
-            if (dependentAprId != Stats.NOOP_APR_ID) {
-                lstStatsData[i] = lstStats[y].current();
-                ++y;
+            if (address(lstStats[i]) != address(0)) {
+                lstStatsData[i] = lstStats[i].current();
             }
         }
         return DexLSTStatsData({ feeApr: feeApr, lstStatsData: lstStatsData, reservesInEth: reservesInEth });
@@ -129,10 +119,6 @@ abstract contract CurvePoolNoRebasingCalculatorBase is IDexLSTStats, BaseStatsCa
     /// @notice Capture stat data about this setup
     /// @dev This is protected by the STATS_SNAPSHOT_ROLE
     function _snapshot() internal override {
-        if (!shouldSnapshot()) {
-            revert NoSnapshotTaken();
-        }
-
         uint256 currentVirtualPrice = getVirtualPrice();
 
         uint256 currentFeeApr = Stats.calculateAnnualizedChangeMinZero(
