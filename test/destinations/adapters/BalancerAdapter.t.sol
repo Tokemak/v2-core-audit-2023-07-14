@@ -34,7 +34,7 @@ contract BalancerAdapterTest is Test {
     IVault private vault;
 
     function setUp() public {
-        mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"));
+        mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"), 17_536_359);
         vm.selectFork(mainnetFork);
         assertEq(vm.activeFork(), mainnetFork);
 
