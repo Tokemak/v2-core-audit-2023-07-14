@@ -28,7 +28,9 @@ import { TestableVM } from "../../../src/solver/test/TestableVM.sol";
 import { SolverCaller } from "../../../src/solver/test/SolverCaller.sol";
 import { ReadPlan } from "../../../test/utils/ReadPlan.sol";
 
-contract CurveV2FactoryCryptoAdapterWrapper is SolverCaller, CurveV2FactoryCryptoAdapter { }
+contract CurveV2FactoryCryptoAdapterWrapper is SolverCaller, CurveV2FactoryCryptoAdapter {
+    constructor(address _weth) CurveV2FactoryCryptoAdapter(_weth) { }
+}
 
 contract CurveV2FactoryCryptoAdapterTest is Test {
     uint256 public mainnetFork;
@@ -46,8 +48,7 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         vm.selectFork(mainnetFork);
         assertEq(vm.activeFork(), mainnetFork);
 
-        adapter = new CurveV2FactoryCryptoAdapterWrapper();
-        adapter.initialize(WETH_MAINNET);
+        adapter = new CurveV2FactoryCryptoAdapterWrapper(WETH_MAINNET);
         solver = new TestableVM();
     }
 
@@ -56,8 +57,7 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         uint256 forkId = vm.createFork(endpoint);
         vm.selectFork(forkId);
         assertEq(vm.activeFork(), forkId);
-        adapter = new CurveV2FactoryCryptoAdapterWrapper();
-        adapter.initialize(WETH_ARBITRUM);
+        adapter = new CurveV2FactoryCryptoAdapterWrapper(WETH_ARBITRUM);
     }
 
     function forkOptimism() private {
@@ -65,46 +65,24 @@ contract CurveV2FactoryCryptoAdapterTest is Test {
         uint256 forkId = vm.createFork(endpoint, 101_774_971);
         vm.selectFork(forkId);
         assertEq(vm.activeFork(), forkId);
-        adapter = new CurveV2FactoryCryptoAdapterWrapper();
-        adapter.initialize(WETH9_OPTIMISM);
+        adapter = new CurveV2FactoryCryptoAdapterWrapper(WETH9_OPTIMISM);
     }
 
     function testInitializeWithValidWethAddressOnEth() public {
-        adapter = new CurveV2FactoryCryptoAdapterWrapper();
-        adapter.initialize(WETH_MAINNET);
+        adapter = new CurveV2FactoryCryptoAdapterWrapper(WETH_MAINNET);
         assertEq(address(adapter.weth()), WETH_MAINNET);
     }
 
     function testInitializeWithValidWethAddressOnArb() public {
         forkArbitrum();
-        adapter = new CurveV2FactoryCryptoAdapterWrapper();
-        adapter.initialize(WETH_ARBITRUM);
+        adapter = new CurveV2FactoryCryptoAdapterWrapper(WETH_ARBITRUM);
         assertEq(address(adapter.weth()), WETH_ARBITRUM);
     }
 
     function testInitializeWithValidWethAddressOnOpt() public {
         forkOptimism();
-        adapter = new CurveV2FactoryCryptoAdapterWrapper();
-        adapter.initialize(WETH9_OPTIMISM);
+        adapter = new CurveV2FactoryCryptoAdapterWrapper(WETH9_OPTIMISM);
         assertEq(address(adapter.weth()), WETH9_OPTIMISM);
-    }
-
-    function testRevertOnInitializeWithNonContractAsWethAddress() public {
-        adapter = new CurveV2FactoryCryptoAdapterWrapper();
-        vm.expectRevert(CurveV2FactoryCryptoAdapter.InvalidWethAddress.selector);
-        adapter.initialize(RANDOM);
-    }
-
-    function testRevertOnInitializeWithWrongContractAsWethAddress() public {
-        adapter = new CurveV2FactoryCryptoAdapterWrapper();
-        vm.expectRevert(CurveV2FactoryCryptoAdapter.InvalidWethAddress.selector);
-        adapter.initialize(0xB90B9B1F91a01Ea22A182CD84C1E22222e39B415);
-    }
-
-    function testRevertOnInitializeWithWrongErc20AsWethAddress() public {
-        adapter = new CurveV2FactoryCryptoAdapterWrapper();
-        vm.expectRevert(CurveV2FactoryCryptoAdapter.InvalidWethAddress.selector);
-        adapter.initialize(SETH_MAINNET);
     }
 
     function testAddLiquidityWethStEth() public {

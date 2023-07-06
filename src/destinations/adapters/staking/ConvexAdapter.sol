@@ -4,12 +4,12 @@ pragma solidity 0.8.17;
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
-import { IBaseRewardPool } from "../../../interfaces/external/convex/IBaseRewardPool.sol";
-import { IConvexBooster } from "../../../interfaces/external/convex/IConvexBooster.sol";
-import { IStakingAdapter } from "../../../interfaces/destinations/IStakingAdapter.sol";
-import { LibAdapter } from "../../../libs/LibAdapter.sol";
+import { IBaseRewardPool } from "src/interfaces/external/convex/IBaseRewardPool.sol";
+import { IConvexBooster } from "src/interfaces/external/convex/IConvexBooster.sol";
+import { IStakingAdapter } from "src/interfaces/destinations/IStakingAdapter.sol";
+import { LibAdapter } from "src/libs/LibAdapter.sol";
 
-contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
+library ConvexStaking {
     event DeployLiquidity(address lpToken, address staking, uint256 poolId, uint256 amount);
     event WithdrawLiquidity(address lpToken, address staking, uint256 amount);
 
@@ -17,6 +17,15 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
     error DepositAndStakeFailed();
     error PoolIdLpTokenMismatch();
     error PoolIdStakingMismatch();
+
+    error MustBeMoreThanZero();
+    error ArraysLengthMismatch();
+    error BalanceMustIncrease();
+    error MinLpAmountNotReached();
+    error LpTokenAmountMismatch();
+    error NoNonZeroAmountProvided();
+    error InvalidBalanceChange();
+    error InvalidAddress(address);
 
     /**
      * @notice Deposits and stakes Curve LP tokens to Convex
@@ -33,11 +42,13 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
         address staking,
         uint256 poolId,
         uint256 amount
-    ) public nonReentrant {
+    ) public {
         if (address(booster) == address(0)) revert InvalidAddress(address(booster));
         if (lpToken == address(0)) revert InvalidAddress(address(lpToken));
         if (staking == address(0)) revert InvalidAddress(address(staking));
         if (amount == 0) revert MustBeMoreThanZero();
+
+        emit DeployLiquidity(lpToken, staking, poolId, amount);
 
         _validatePoolInfo(booster, poolId, lpToken, staking);
 
@@ -51,8 +62,6 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
         if (rewards.balanceOf(address(this)) - rewardsBeforeBalance != amount) {
             revert BalanceMustIncrease();
         }
-
-        emit DeployLiquidity(lpToken, staking, poolId, amount);
     }
 
     /**
@@ -63,7 +72,7 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
      * @param staking Convex reward contract associated with the Curve LP token
      * @param amount Quantity of Curve LP token to withdraw
      */
-    function withdrawStake(address lpToken, address staking, uint256 amount) public nonReentrant {
+    function withdrawStake(address lpToken, address staking, uint256 amount) public {
         // slither-disable-start incorrect-equality
         if (lpToken == address(0)) revert InvalidAddress(lpToken);
         if (staking == address(0)) revert InvalidAddress(staking);
@@ -75,6 +84,8 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
 
         IBaseRewardPool rewards = IBaseRewardPool(staking);
 
+        emit WithdrawLiquidity(lpToken, staking, amount);
+
         bool success = rewards.withdrawAndUnwrap(amount, false);
         if (!success) revert withdrawStakeFailed();
 
@@ -82,8 +93,6 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
         if (updatedLpBalance - beforeLpBalance != amount) {
             revert BalanceMustIncrease();
         }
-
-        emit WithdrawLiquidity(lpToken, staking, amount);
     }
 
     /// @dev Separate function to avoid stack-too-deep errors
@@ -93,7 +102,7 @@ contract ConvexAdapter is IStakingAdapter, ReentrancyGuard {
     }
 
     /// @dev Separate function to avoid stack-too-deep errors
-    function _validatePoolInfo(IConvexBooster booster, uint256 poolId, address lpToken, address staking) private {
+    function _validatePoolInfo(IConvexBooster booster, uint256 poolId, address lpToken, address staking) private view {
         // Partial return values are intentionally ignored. This call provides the most efficient way to get the data.
         // slither-disable-next-line unused-return
         (address poolLpToken,,, address crvRewards,,) = booster.poolInfo(poolId);

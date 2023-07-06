@@ -5,25 +5,31 @@ import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { DestinationVault } from "src/vault/DestinationVault.sol";
 import { IERC20, ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { IMainRewarder } from "src/interfaces/rewarders/IMainRewarder.sol";
 import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 
 contract TestDestinationVault is DestinationVault {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     uint256 private _debtVault;
-    uint256 private _rewardValue;
     uint256 private _claimVested;
     uint256 private _reclaimDebtAmount;
     uint256 private _reclaimDebtLoss;
-    EnumerableSet.AddressSet private _trackedTokens;
 
-    constructor(address token) {
-        initialize(ISystemRegistry(address(0)), IERC20Metadata(token), "ABC", abi.encode(""));
+    constructor(
+        ISystemRegistry systemRegistry,
+        address rewarder,
+        address token,
+        address underlyer
+    ) DestinationVault(systemRegistry) {
+        initialize(
+            IERC20Metadata(token), IERC20Metadata(underlyer), IMainRewarder(rewarder), new address[](0), abi.encode("")
+        );
     }
 
     function underlying() public view override returns (address) {
         // just return the test baseasset for now (ignore extra level of wrapping)
-        return address(baseAsset);
+        return address(_baseAsset);
     }
 
     function mint(address to, uint256 amount) public {
@@ -34,24 +40,16 @@ contract TestDestinationVault is DestinationVault {
         return _debtVault;
     }
 
-    function rewardValue() public view override returns (uint256 value) {
-        return _rewardValue;
+    function exchangeName() external pure override returns (string memory) {
+        return "test";
     }
 
-    function claimVested_() internal view override returns (uint256 amount) {
-        return _claimVested;
-    }
-
-    function reclaimDebt_(uint256, uint256) internal view override returns (uint256 amount, uint256 loss) {
-        return (_reclaimDebtAmount, _reclaimDebtLoss);
+    function underlyingTokens() external pure override returns (address[] memory) {
+        return new address[](0);
     }
 
     function setDebtValue(uint256 val) public {
         _debtVault = val;
-    }
-
-    function setRewardValue(uint256 val) public {
-        _rewardValue = val;
     }
 
     function setClaimVested(uint256 val) public {
@@ -67,8 +65,31 @@ contract TestDestinationVault is DestinationVault {
     }
 
     function setDebt(uint256 val) public {
-        debt = val;
+        //debt = val;
     }
+
+    function _burnUnderlyer(uint256)
+        internal
+        virtual
+        override
+        returns (address[] memory tokens, uint256[] memory amounts)
+    {
+        tokens = new address[](1);
+        tokens[0] = address(0);
+
+        amounts = new uint256[](1);
+        amounts[0] = 0;
+    }
+
+    function _ensureLocalUnderlyingBalance(uint256 amount) internal virtual override { }
+
+    function _onDeposit(uint256 amount) internal virtual override { }
+
+    function balanceOfUnderlying() public pure override returns (uint256) {
+        return 0;
+    }
+
+    function collectRewards() external override returns (uint256[] memory amounts, address[] memory tokens) { }
 
     function reset() external { }
 }

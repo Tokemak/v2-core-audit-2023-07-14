@@ -1,8 +1,10 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
 import { IBaseAssetVault } from "./IBaseAssetVault.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
+import { IMainRewarder } from "src/interfaces/rewarders/IMainRewarder.sol";
 import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 interface IDestinationVault is IBaseAssetVault, IERC20 {
@@ -10,16 +12,24 @@ interface IDestinationVault is IBaseAssetVault, IERC20 {
     /* View                             */
     /* ******************************** */
 
-    /// @notice Amount of baseAsset sitting in contract
-    /// @dev In terms of the baseAsset
-    function idle() external view returns (uint256);
-
-    /// @notice Debt we have sent out to underlying destination
-    /// @dev In terms of the baseAsset
-    function debt() external view returns (uint256);
-
-    /// @notice Underlying lp asset
+    /// @notice The asset that is deposited into the vault
     function underlying() external view returns (address);
+
+    /// @notice The asset that rewards and withdrawals to LMP is done in
+    /// @inheritdoc IBaseAssetVault
+    function baseAsset() external view override returns (address);
+
+    /// @notice Balance of underlying asset wherever it may be staked
+    function balanceOfUnderlying() external view returns (uint256);
+
+    /// @notice Rewarder for this vault
+    function rewarder() external view returns (address);
+
+    /// @notice Exchange this destination vault points to
+    function exchangeName() external view returns (string memory);
+
+    /// @notice Tokens that base asset can be swapped into
+    function underlyingTokens() external view returns (address[] memory);
 
     /* ******************************** */
     /* Events                           */
@@ -41,15 +51,17 @@ interface IDestinationVault is IBaseAssetVault, IERC20 {
     /* ******************************** */
 
     /// @notice Setup the contract. These will be cloned so no constructor
-    /// @param systemRegistry The system this vault will be used in
-    /// @param _baseAsset Base asset of the system. WETH/USDC/etc
-    /// @param baseName Name of the DEX pool this vault proxies
-    /// @param params Any parameters needed to setup the contract
+    /// @param baseAsset_ Base asset of the system. WETH/USDC/etc
+    /// @param underlyer_ Underlying asset the vault will wrap
+    /// @param rewarder_ Reward tracker for this vault
+    /// @param additionalTrackedTokens_ Additional tokens that should be considered 'tracked'
+    /// @param params_ Any extra parameters needed to setup the contract
     function initialize(
-        ISystemRegistry systemRegistry,
-        IERC20 _baseAsset,
-        string memory baseName,
-        bytes memory params
+        IERC20 baseAsset_,
+        IERC20 underlyer_,
+        IMainRewarder rewarder_,
+        address[] memory additionalTrackedTokens_,
+        bytes memory params_
     ) external;
 
     /// @notice Calculates the current value of our debt
@@ -57,42 +69,40 @@ interface IDestinationVault is IBaseAssetVault, IERC20 {
     /// @return value The current value of our debt in terms of the baseAsset
     function debtValue() external returns (uint256 value);
 
-    /// @notice Calculates the current value of any vested-but-not-realized rewards
-    /// @return value The current value of our rewards in terms of the baseAsset
-    function rewardValue() external returns (uint256 value);
+    /// @notice Calculates the current value of a portion of the debt based on shares
+    /// @dev Queries the current value of all tokens we have deployed, whether its a single place, multiple, staked, etc
+    /// @param shares The number of shares to value
+    /// @return value The current value of our debt in terms of the baseAsset
+    function debtValue(uint256 shares) external returns (uint256 value);
 
-    /// @notice Claims any rewards that have been previously claimed and are vesting
-    /// @return amount The amount claimed in terms of the baseAsset
-    function claimVested() external returns (uint256 amount);
+    /// @notice Collects any earned rewards from staking, incentives, etc. Transfers to sender
+    /// @dev Should be limited to LIQUIDATOR_ROLE. Rewards must be collected before claimed
+    /// @return amounts amount of rewards claimed for each token
+    /// @return tokens tokens claimed
+    function collectRewards() external returns (uint256[] memory amounts, address[] memory tokens);
 
-    /// @notice Deposit some amount of the base asset
+    /// @notice Deposit specified amount of the underlying asset
     /// @dev Receives no token or share in response
-    /// @param amount Amount of base asset to deposit
+    /// @param amount Amount of underlying asset to deposit
     function donate(uint256 amount) external;
-
-    /// @notice Deposit underlying to receive destination vault shares
-    /// @param amount Amount of base lp asset to deposit
-    function depositUnderlying(uint256 amount) external returns (uint256 shares);
-
-    /// @notice Withdraw underlying by burning destination vault shares
-    /// @param shares Amount of destination vault shares to burn
-    function withdrawUnderlying(uint256 shares) external returns (uint256 amount);
-
-    /// @notice Attempt to withdraw the target amount of the baseAsset
-    /// @dev Partial amounts may be returned. Pct numbers must be of the same precision.
-    /// @param targetAmount Desired amount of baseAsset
-    /// @param ownerPctNumerator Numerator of the pct of caller shares we're allowed to burn in the event of a deficit
-    /// @param ownerPctDenominator Denominator of the pct of caller shares we're allowed to burn in the event of a
-    /// deficit
-    /// @return amount Actual amount of baseAsset returned
-    /// @return loss Loss realized as part of the operation
-    function withdrawBaseAsset(
-        uint256 targetAmount,
-        uint256 ownerPctNumerator,
-        uint256 ownerPctDenominator
-    ) external returns (uint256 amount, uint256 loss);
 
     /// @notice Pull any non-tracked token to the specified destination
     /// @dev Should be limited to TOKEN_RECOVERY_ROLE
     function recover(address[] calldata tokens, uint256[] calldata amounts, address[] calldata destinations) external;
+
+    /// @notice Deposit underlying to receive destination vault shares
+    /// @param amount amount of base lp asset to deposit
+    function depositUnderlying(uint256 amount) external returns (uint256 shares);
+
+    /// @notice Withdraw underlying by burning destination vault shares
+    /// @param shares amount of destination vault shares to burn
+    /// @param to destination of the underlying asset
+    /// @return amount underlyer amount 'to' received
+    function withdrawUnderlying(uint256 shares, address to) external returns (uint256 amount);
+
+    /// @notice Burn specified shares for underlyer swapped to base asset
+    /// @param shares amount of vault shares to burn
+    /// @param to destination of the base asset
+    /// @return amount base asset amount 'to' received
+    function withdrawBaseAsset(uint256 shares, address to) external returns (uint256 amount);
 }

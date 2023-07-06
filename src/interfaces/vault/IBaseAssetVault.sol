@@ -6,5 +6,5 @@ import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/ext
 interface IBaseAssetVault {
     /// @notice Asset that this Vault primarily manages
     /// @dev Vault decimals should be the same as the baseAsset
-    function baseAsset() external view returns (IERC20);
+    function baseAsset() external view returns (address);
 }

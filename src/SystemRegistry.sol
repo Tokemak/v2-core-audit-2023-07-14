@@ -338,7 +338,8 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
 
         _curveResolver = ICurveResolver(resolver);
 
-        _verifySystemsAgree(resolver);
+        // Has no other dependencies in the system so no call
+        // to verifySystemsAgree
     }
 
     /* ******************************** */

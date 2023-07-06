@@ -3,193 +3,201 @@
 pragma solidity 0.8.17;
 
 import { Errors } from "src/utils/Errors.sol";
-import { Math } from "openzeppelin-contracts/utils/math/Math.sol";
-import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
-import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
-
-import { DestinationVault } from "src/vault/DestinationVault.sol";
-import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
-import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { MainRewarder } from "src/rewarders/MainRewarder.sol";
-import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
-import { IVault } from "src/interfaces/external/balancer/IVault.sol";
-import { IBalancerPool } from "src/interfaces/external/balancer/IBalancerPool.sol";
-import { AuraAdapter } from "src/destinations/adapters/staking/AuraAdapter.sol";
+import { DestinationVault } from "src/vault/DestinationVault.sol";
 import { BalancerUtilities } from "src/libs/BalancerUtilities.sol";
+import { IVault } from "src/interfaces/external/balancer/IVault.sol";
+import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
+import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import { IMainRewarder } from "src/interfaces/rewarders/IMainRewarder.sol";
+import { AuraStaking } from "src/destinations/adapters/staking/AuraAdapter.sol";
+import { IConvexBooster } from "src/interfaces/external/convex/IConvexBooster.sol";
+import { IBalancerPool } from "src/interfaces/external/balancer/IBalancerPool.sol";
+import { AuraRewards } from "src/destinations/adapters/rewards/AuraRewardsAdapter.sol";
 import { BalancerBeethovenAdapter } from "src/destinations/adapters/BalancerBeethovenAdapter.sol";
+import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-contract BalancerAuraDestinationVault is AuraAdapter, DestinationVault {
-    using SafeERC20 for IERC20;
-    using EnumerableSet for EnumerableSet.AddressSet;
+/// @title Destination Vault to proxy a Balancer Pool that goes into Aura
+contract BalancerAuraDestinationVault is DestinationVault {
+    /// @notice Only used to initialize the vault
+    struct InitParams {
+        /// @notice Pool and LP token this vault proxies
+        address balancerPool;
+        /// @notice Aura reward contract
+        address auraStaking;
+        /// @notice Aura Booster contract
+        address auraBooster;
+        /// @notice Numeric pool id used to reference Balancer pool
+        uint256 auraPoolId;
+    }
 
-    error NothingToClaim();
-    error NoDebtReclaimed();
+    string internal constant EXCHANGE_NAME = "balancer";
+
+    /// @notice Balancer Vault
+    IVault public immutable balancerVault;
+
+    /// @notice Token minted during reward claiming. Specific to Convex-style rewards. Aura in this case.
+    address public immutable defaultStakingRewardToken;
 
     /* ******************************** */
     /* State Variables                  */
     /* ******************************** */
 
-    MainRewarder public rewarder;
-    ISwapRouter public swapper;
+    IERC20[] internal poolTokens;
 
-    IERC20[] public poolTokens;
+    /// @notice Pool and LP token this vault proxies
+    address public balancerPool;
 
-    IVault public balancerVault;
-    address public staking;
-    address public pool;
+    /// @notice Aura reward contract
+    address public auraStaking;
 
+    /// @notice Aura Booster contract
+    address public auraBooster;
+
+    /// @notice Numeric pool id used to reference balancer pool
+    uint256 public auraPoolId;
+
+    /// @notice Whether the balancePool is a ComposableStable pool. false -> MetaStable
+    bool public isComposable;
+
+    constructor(
+        ISystemRegistry sysRegistry,
+        address _balancerVault,
+        address _defaultStakingRewardToken
+    ) DestinationVault(sysRegistry) {
+        Errors.verifyNotZero(_balancerVault, "_balancerVault");
+        Errors.verifyNotZero(_defaultStakingRewardToken, "_defaultStakingRewardToken");
+
+        // Both are checked above
+        // slither-disable-next-line missing-zero-check
+        balancerVault = IVault(_balancerVault);
+        // slither-disable-next-line missing-zero-check
+        defaultStakingRewardToken = _defaultStakingRewardToken;
+    }
+
+    /// @inheritdoc DestinationVault
     function initialize(
-        ISystemRegistry _systemRegistry,
-        IERC20Metadata _baseAsset,
-        string memory baseName,
-        bytes memory data,
-        IVault _balancerVault,
-        MainRewarder _rewarder,
-        ISwapRouter _swapper,
-        address _staking,
-        address _pool
-    ) public initializer {
-        //slither-disable-start missing-zero-check
-        DestinationVault.initialize(_systemRegistry, _baseAsset, baseName, data);
+        IERC20Metadata baseAsset_,
+        IERC20Metadata underlyer_,
+        IMainRewarder rewarder_,
+        address[] memory additionalTrackedTokens_,
+        bytes memory params_
+    ) public virtual override {
+        // Base class has the initializer() modifier to prevent double-setup
+        // If you don't call the base initialize, make sure you protect this call
+        super.initialize(baseAsset_, underlyer_, rewarder_, additionalTrackedTokens_, params_);
 
-        Errors.verifyNotZero(address(_rewarder), "_rewarder");
-        Errors.verifyNotZero(address(_swapper), "_swapper");
-        Errors.verifyNotZero(address(_balancerVault), "_balancerVault");
-        Errors.verifyNotZero(address(_staking), "_staking");
-        Errors.verifyNotZero(address(_pool), "_pool");
+        // Decode the init params, validate, and save off
+        InitParams memory initParams = abi.decode(params_, (InitParams));
+        Errors.verifyNotZero(initParams.balancerPool, "balancerPool");
+        Errors.verifyNotZero(initParams.auraStaking, "auraStaking");
+        Errors.verifyNotZero(initParams.auraBooster, "auraBooster");
+        Errors.verifyNotZero(initParams.auraPoolId, "auraPoolId");
 
-        rewarder = _rewarder;
-        swapper = _swapper;
-        balancerVault = _balancerVault;
-        staking = _staking;
-        pool = _pool;
+        balancerPool = initParams.balancerPool;
+        auraStaking = initParams.auraStaking;
+        auraBooster = initParams.auraBooster;
+        auraPoolId = initParams.auraPoolId;
+        isComposable = BalancerUtilities.isComposablePool(initParams.balancerPool);
 
-        bytes32 poolId = IBalancerPool(pool).getPoolId();
-
+        // Tokens that are used by the proxied pool cannot be removed from the vault
+        // via recover(). Make sure we track those tokens here.
+        bytes32 poolId = IBalancerPool(initParams.balancerPool).getPoolId();
         // Partial return values are intentionally ignored. This call provides the most efficient way to get the data.
         // slither-disable-next-line unused-return
         (IERC20[] memory balancerPoolTokens,,) = balancerVault.getPoolTokens(poolId);
         if (balancerPoolTokens.length == 0) revert ArrayLengthMismatch();
         poolTokens = balancerPoolTokens;
-
-        //slither-disable-next-line unused-return
-        trackedTokens.add(_pool);
-
+        // TODO: Filter BPT token
         for (uint256 i = 0; i < balancerPoolTokens.length; ++i) {
-            //slither-disable-next-line unused-return
-            trackedTokens.add(address(balancerPoolTokens[i]));
+            _addTrackedToken(address(balancerPoolTokens[i]));
         }
-        //slither-disable-end missing-zero-check
     }
 
+    /// @notice Get the balance of underlyer currently staked in Aura
+    /// @return Balance of underlyer currently staked in Aura
     function auraBalance() public view returns (uint256) {
-        return IERC20(staking).balanceOf(address(this));
+        return IERC20(auraStaking).balanceOf(address(this));
     }
 
+    /// @notice Get the balance of underlyer currently in this Destination Vault directly
+    /// @return Balance of underlyer currently in this Destination Vault directly
     function balancerBalance() public view returns (uint256) {
-        return IERC20(pool).balanceOf(address(this));
+        return IERC20(balancerPool).balanceOf(address(this));
     }
 
-    function totalLpAmount() public view returns (uint256) {
+    /// @inheritdoc DestinationVault
+    function balanceOfUnderlying() public view override returns (uint256) {
         return auraBalance() + balancerBalance();
     }
 
-    function debtValue() public override returns (uint256 value) {
-        uint256 lpTokenAmount = auraBalance() + balancerBalance();
-        value = lpTokenAmount * _getTokenPriceInBaseAsset(pool);
+    /// @inheritdoc DestinationVault
+    function exchangeName() external pure override returns (string memory) {
+        return EXCHANGE_NAME;
     }
 
-    function rewardValue() public override returns (uint256 value) {
-        value = rewarder.earned(address(this));
-
-        //slither-disable-start calls-loop
-        for (uint256 i = 0; i < rewarder.extraRewardsLength(); ++i) {
-            address rewardToken = rewarder.extraRewards(i);
-            uint256 rewardAmount = IERC20(rewardToken).balanceOf(address(this));
-            value += rewardAmount * _getTokenPriceInBaseAsset(rewardToken);
-        }
-        //slither-disable-end calls-loop
+    /// @inheritdoc DestinationVault
+    function underlyingTokens() external view override returns (address[] memory) {
+        return _convertToAddresses(poolTokens);
     }
 
-    /// @notice If base asset is not WETH (which is a case for our MVP)
-    /// we should figure out price of the given token in terms of base asset
-    function _getTokenPriceInBaseAsset(address token) private returns (uint256 value) {
-        //slither-disable-start calls-loop
-        IRootPriceOracle priceOracle = systemRegistry.rootPriceOracle();
-        uint256 tokenPriceInEth = priceOracle.getPriceInEth(token);
-        if (keccak256(abi.encodePacked(baseAsset.symbol())) == keccak256(abi.encodePacked("WETH"))) {
-            value = tokenPriceInEth;
-        } else {
-            uint256 baseAssetPriceInEth = priceOracle.getPriceInEth(address(baseAsset));
-            value = tokenPriceInEth / baseAssetPriceInEth;
-        }
-        //slither-disable-end calls-loop
+    /// @inheritdoc DestinationVault
+    function _onDeposit(uint256 amount) internal virtual override {
+        AuraStaking.depositAndStake(IConvexBooster(auraBooster), _underlying, auraStaking, auraPoolId, amount);
     }
 
-    function claimVested_() internal virtual override nonReentrant returns (uint256 amount) {
-        uint256 balanceBefore = baseAsset.balanceOf(address(this));
-        rewarder.getReward();
-        amount = baseAsset.balanceOf(address(this)) - balanceBefore;
-        // slither-disable-next-line incorrect-equality
-        if (amount == 0) revert NothingToClaim();
-    }
-
-    function reclaimDebt_(
-        uint256 pctNumerator,
-        uint256 pctDenominator
-    ) internal virtual override nonReentrant returns (uint256 amount, uint256 loss) {
-        // defining total amount we want to burn in base asset value
-        uint256 totalBurnAmount = Math.mulDiv(debt, pctNumerator, pctDenominator, Math.Rounding.Down);
-        // defining total amount we want to burn in terms of LP quantity
-        uint256 totalLpBurnAmount = Math.mulDiv(totalLpAmount(), pctNumerator, pctDenominator, Math.Rounding.Down);
-
-        // 1) withdraw Aura if we cannot cover all (we prefer not to pull Aura to stake as long as we can)
-        uint256 auraLpBurnAmount = 0;
+    /// @inheritdoc DestinationVault
+    function _ensureLocalUnderlyingBalance(uint256 amount) internal virtual override {
+        // We should almost always have our balance of LP tokens in Aura.
+        // The exception being a donation we've made.
+        // Withdraw from Aura back to this vault for use in a withdrawal
         uint256 balancerLpBalance = balancerBalance();
-        if (totalLpBurnAmount > balancerLpBalance) {
-            auraLpBurnAmount = totalLpBurnAmount - balancerLpBalance;
-            withdrawStake(pool, staking, auraLpBurnAmount);
+        if (amount > balancerLpBalance) {
+            AuraStaking.withdrawStake(balancerPool, auraStaking, amount - balancerLpBalance);
         }
+    }
 
-        // 2) withdraw Balancer
-        // all minAmounts are 0, we set the burn LP amount and don't specify the amounts we expect by each token
+    /// @inheritdoc DestinationVault
+    function collectRewards() external virtual override returns (uint256[] memory amounts, address[] memory tokens) {
+        (amounts, tokens) = AuraRewards.claimRewards(auraStaking, defaultStakingRewardToken, msg.sender);
+    }
+
+    /// @inheritdoc DestinationVault
+    function _burnUnderlyer(uint256 underlyerAmount)
+        internal
+        virtual
+        override
+        returns (address[] memory tokens, uint256[] memory amounts)
+    {
+        // Min amounts are intentionally 0. This fn is only called during a
+        // user initiated withdrawal where they've accounted for slippage
+        // at the router or otherwise
         uint256[] memory minAmounts = new uint256[](poolTokens.length);
-        uint256[] memory sellAmounts = BalancerUtilities.isComposablePool(address(pool))
+        tokens = _convertToAddresses(poolTokens);
+        amounts = isComposable
             ? BalancerBeethovenAdapter.removeLiquidityComposableImbalance(
                 balancerVault,
-                address(pool),
-                totalLpBurnAmount,
+                balancerPool,
+                underlyerAmount,
                 BalancerUtilities._convertERC20sToAddresses(poolTokens),
                 minAmounts,
-                0
+                0 // TODO: Make this configurable in initialization so we can target WETH and avoid a swap
             )
             : BalancerBeethovenAdapter.removeLiquidityImbalance(
                 balancerVault,
-                address(pool),
-                totalLpBurnAmount,
+                balancerPool,
+                underlyerAmount,
                 BalancerUtilities._convertERC20sToAddresses(poolTokens),
                 minAmounts
             );
+    }
 
-        // 3) swap what we receive
-        for (uint256 i = 0; i < poolTokens.length; ++i) {
-            uint256 sellAmount = sellAmounts[i];
-            if (sellAmount != 0) {
-                address sellToken = address(poolTokens[i]);
-                IERC20(sellToken).safeApprove(address(swapper), sellAmount);
-                amount += swapper.swapForQuote(sellToken, sellAmount, address(baseAsset), 0);
-            }
+    function _convertToAddresses(IERC20[] memory tokens) internal pure returns (address[] memory assets) {
+        //slither-disable-start assembly
+        //solhint-disable-next-line no-inline-assembly
+        assembly {
+            assets := tokens
         }
-
-        // 4) check amount and loss
-        // slither-disable-next-line incorrect-equality
-        if (amount == 0) {
-            revert NoDebtReclaimed();
-        }
-        if (amount < totalBurnAmount) {
-            loss = totalBurnAmount - amount;
-        }
+        //slither-disable-end assembly
     }
 }

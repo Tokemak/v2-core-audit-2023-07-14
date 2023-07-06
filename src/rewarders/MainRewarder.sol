@@ -42,6 +42,10 @@ contract MainRewarder is AbstractRewarder, IMainRewarder, ReentrancyGuard {
         extraRewards.push(reward);
     }
 
+    function getExtraRewarder(uint256 index) external view returns (IExtraRewarder rewarder) {
+        return IExtraRewarder(extraRewards[index]);
+    }
+
     function clearExtraRewards() external onlyStakeTracker {
         delete extraRewards;
     }
@@ -50,11 +54,9 @@ contract MainRewarder is AbstractRewarder, IMainRewarder, ReentrancyGuard {
         _updateReward(account);
         _withdraw(account, amount);
 
-        // slither-disable-start calls-loop
         for (uint256 i = 0; i < extraRewards.length; ++i) {
             IExtraRewarder(extraRewards[i]).withdraw(account, amount);
         }
-        // slither-disable-end calls-loop
 
         if (claim) {
             getReward(account, true);
@@ -65,11 +67,9 @@ contract MainRewarder is AbstractRewarder, IMainRewarder, ReentrancyGuard {
         _updateReward(account);
         _stake(account, amount);
 
-        // slither-disable-start calls-loop
         for (uint256 i = 0; i < extraRewards.length; ++i) {
             IExtraRewarder(extraRewards[i]).stake(account, amount);
         }
-        // slither-disable-end calls-loop
     }
 
     function getReward(address account, bool claimExtras) public nonReentrant {
@@ -79,9 +79,7 @@ contract MainRewarder is AbstractRewarder, IMainRewarder, ReentrancyGuard {
         //also get rewards from linked rewards
         if (claimExtras) {
             for (uint256 i = 0; i < extraRewards.length; ++i) {
-                // slither-disable-start calls-loop
                 IExtraRewarder(extraRewards[i]).getReward(account);
-                // slither-disable-end calls-loop
             }
         }
     }

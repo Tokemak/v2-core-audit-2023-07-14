@@ -25,14 +25,14 @@ contract CurveV1StableSwapTest is Test {
         uint256 forkId = vm.createFork(endpoint, 16_728_070);
         vm.selectFork(forkId);
 
-        adapter = new CurveV1StableSwap(address(this));
+        adapter = new CurveV1StableSwap(address(this), WETH_MAINNET);
 
         // route WETH_MAINNET -> STETH_MAINNET
         route = ISwapRouter.SwapData({
             token: STETH_MAINNET,
             pool: 0x828b154032950C8ff7CF8085D841723Db2696056,
             swapper: adapter,
-            data: abi.encode(0, 1)
+            data: abi.encode(0, 1, false)
         });
     }
 

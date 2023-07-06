@@ -1,11 +1,12 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
 
-import { IConvexRewardPool, RewardType } from "../../../interfaces/external/convex/IConvexRewardPool.sol";
-import { IClaimableRewardsAdapter } from "../../../interfaces/destinations/IClaimableRewardsAdapter.sol";
+import { IConvexRewardPool, RewardType } from "src/interfaces/external/convex/IConvexRewardPool.sol";
+import { IClaimableRewardsAdapter } from "src/interfaces/destinations/IClaimableRewardsAdapter.sol";
 
 contract ConvexArbitrumRewardsAdapter is IClaimableRewardsAdapter, ReentrancyGuard {
     /**
@@ -30,6 +31,7 @@ contract ConvexArbitrumRewardsAdapter is IClaimableRewardsAdapter, ReentrancyGua
             rewardTokens[i] = token;
             balancesBefore[i] = token.balanceOf(account);
         }
+        // TODO: Check if it mints CVX by default
 
         // claim rewards
         rewardPool.getReward(account);

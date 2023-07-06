@@ -1,5 +1,8 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
+
+import { IStakeTracking } from "src/interfaces/rewarders/IStakeTracking.sol";
 
 interface IBaseRewarder {
     event RewardAdded(
@@ -32,6 +35,12 @@ interface IBaseRewarder {
      * @param amount The amount of tokens to stake.
      */
     function stake(address account, uint256 amount) external;
+
+    /**
+     * @notice Token that is tracked as the deposit token
+     * @dev Rewards don't actually take possession of token
+     */
+    function stakeTracker() external view returns (IStakeTracking);
 
     /**
      * @notice Calculate the earned rewards for an account.
@@ -87,4 +96,10 @@ interface IBaseRewarder {
      * @param newRewards The amount of new rewards to be queued.
      */
     function queueNewRewards(uint256 newRewards) external;
+
+    /**
+     * @notice Token distributed as rewards
+     * @return reward token address
+     */
+    function rewardToken() external view returns (address);
 }

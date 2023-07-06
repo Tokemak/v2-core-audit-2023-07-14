@@ -2,170 +2,213 @@
 // Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
-import { Math } from "openzeppelin-contracts/utils/math/Math.sol";
-import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
-import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
-
+import { Errors } from "src/utils/Errors.sol";
 import { DestinationVault } from "src/vault/DestinationVault.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
-import { MainRewarder } from "src/rewarders/MainRewarder.sol";
-import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
-import { ConvexAdapter } from "src/destinations/adapters/staking/ConvexAdapter.sol";
+import { ICurveResolver } from "src/interfaces/utils/ICurveResolver.sol";
+import { IMainRewarder } from "src/interfaces/rewarders/IMainRewarder.sol";
+import { IConvexBooster } from "src/interfaces/external/convex/IConvexBooster.sol";
+import { ConvexStaking } from "src/destinations/adapters/staking/ConvexAdapter.sol";
+import { IBaseRewardPool } from "src/interfaces/external/convex/IBaseRewardPool.sol";
+import { ConvexRewards } from "src/destinations/adapters/rewards/ConvexRewardsAdapter.sol";
 import { CurveV2FactoryCryptoAdapter } from "src/destinations/adapters/CurveV2FactoryCryptoAdapter.sol";
-import { Errors } from "src/utils/Errors.sol";
+import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-contract CurveConvexDestinationVault is ConvexAdapter, CurveV2FactoryCryptoAdapter, DestinationVault {
-    using SafeERC20 for IERC20;
-    using EnumerableSet for EnumerableSet.AddressSet;
+// TODO: Verify that supporting claim below
 
-    error NothingToClaim();
-    error NoDebtReclaimed();
+/// @notice Destination Vault to proxy a Curve Pool that goes into Convex
+/// @dev Supports Curve V1 StableSwap, Curve V2 CryptoSwap, and Curve-ng pools
+contract CurveConvexDestinationVault is CurveV2FactoryCryptoAdapter, DestinationVault {
+    /// @notice Only used to initialize the vault
+    struct InitParams {
+        /// @notice Pool this vault proxies
+        address curvePool;
+        /// @notice Convex reward contract
+        address convexStaking;
+        /// @notice Convex Booster contract
+        address convexBooster;
+        /// @notice Numeric pool id used to reference Curve pool
+        uint256 convexPoolId;
+        /// @notice Coin index of token we'll perform withdrawals to
+        uint256 baseAssetBurnTokenIndex;
+    }
+
+    string private constant EXCHANGE_NAME = "curve";
+
+    /// @notice Coin index of token we'll perform withdrawals to
+    address public immutable defaultStakingRewardToken;
+
+    /// @notice Invalid coin index was provided for withdrawal
+    error InvalidBaseTokenBurnIndex(uint256 provided, uint256 numTokens);
 
     /* ******************************** */
     /* State Variables                  */
     /* ******************************** */
 
-    MainRewarder public rewarder;
-    ISwapRouter public swapper;
-
-    IERC20 public lpToken;
-    IERC20[] public poolTokens;
-
-    address public staking;
+    /// @notice Pool this vault proxies
     address public curvePool;
 
-    ///@notice In `_trackedTokens` LP token must be at first position
+    /// @notice LP token this vault proxies
+    /// @dev May be same as curvePool, depends on the pool type
+    address public curveLpToken;
+
+    /// @notice Convex reward contract
+    address public convexStaking;
+
+    /// @notice Convex Booster contract
+    address public convexBooster;
+
+    /// @notice Numeric pool id used to reference Curve pool
+    uint256 public convexPoolId;
+
+    /// @notice Coin index of token we'll perform withdrawals to
+    uint256 public baseAssetBurnTokenIndex;
+
+    /// @dev Tokens that make up the LP token. Meta tokens not broken up
+    address[] private constituentTokens;
+
+    /// @dev Always 0, used as min amounts during withdrawals
+    uint256[] private minAmounts;
+
+    constructor(
+        ISystemRegistry sysRegistry,
+        address _weth,
+        /// TODO: Remove this and pull from registry after Curve library refactor
+        address _defaultStakingRewardToken
+    ) DestinationVault(sysRegistry) CurveV2FactoryCryptoAdapter(_weth) {
+        // Zero is valid here if no default token is minted by the reward system
+        // slither-disable-next-line missing-zero-check
+        defaultStakingRewardToken = _defaultStakingRewardToken;
+    }
+
+    /// @inheritdoc DestinationVault
     function initialize(
-        ISystemRegistry _systemRegistry,
-        IERC20Metadata _baseAsset,
-        string memory baseName,
-        bytes memory data,
-        address payable _weth,
-        MainRewarder _rewarder,
-        ISwapRouter _swapper,
-        address _staking,
-        address _curvePool,
-        IERC20 _lpToken,
-        IERC20[] memory _poolTokens
-    ) public initializer {
-        //slither-disable-start missing-zero-check
-        DestinationVault.initialize(_systemRegistry, _baseAsset, baseName, data);
-        CurveV2FactoryCryptoAdapter.initialize(_weth);
+        IERC20 baseAsset_,
+        IERC20 underlyer_,
+        IMainRewarder rewarder_,
+        address[] memory additionalTrackedTokens_,
+        bytes memory params_
+    ) public virtual override {
+        // Base class has the initializer() modifier to prevent double-setup
+        // If you don't call the base initialize, make sure you protect this call
+        super.initialize(baseAsset_, underlyer_, rewarder_, additionalTrackedTokens_, params_);
 
-        Errors.verifyNotZero(address(_rewarder), "_rewarder");
-        Errors.verifyNotZero(address(_swapper), "_swapper");
-        Errors.verifyNotZero(_staking, "_staking");
-        Errors.verifyNotZero(_curvePool, "_curvePool");
-        Errors.verifyNotZero(address(_lpToken), "_lpToken");
+        // We must configure a the curve resolver to setup the vault
+        ICurveResolver curveResolver = _systemRegistry.curveResolver();
+        Errors.verifyNotZero(address(curveResolver), "curveResolver");
 
-        rewarder = _rewarder;
-        swapper = _swapper;
-        staking = _staking;
-        curvePool = _curvePool;
-        lpToken = _lpToken;
+        // Decode the init params, validate, and save off
+        InitParams memory initParams = abi.decode(params_, (InitParams));
+        Errors.verifyNotZero(initParams.curvePool, "curvePool");
+        Errors.verifyNotZero(initParams.convexStaking, "convexStaking");
+        Errors.verifyNotZero(initParams.convexBooster, "convexBooster");
+        Errors.verifyNotZero(initParams.convexPoolId, "convexPoolId");
 
-        if (_poolTokens.length == 0) revert ArrayLengthMismatch();
-        poolTokens = _poolTokens;
+        curvePool = initParams.curvePool;
+        convexStaking = initParams.convexStaking;
+        convexBooster = initParams.convexBooster;
+        convexPoolId = initParams.convexPoolId;
+        baseAssetBurnTokenIndex = initParams.baseAssetBurnTokenIndex;
 
-        //slither-disable-next-line unused-return
-        trackedTokens.add(address(_lpToken));
+        // Setup pool tokens as tracked. If we want to handle meta pools and their tokens
+        // we will pass them in as additional, not currently a use case
+        // slither-disable-next-line unused-return
+        (address[8] memory tokens, uint256 numTokens, address lpToken,) =
+            curveResolver.resolveWithLpToken(initParams.curvePool);
+        Errors.verifyNotZero(lpToken, "lpToken");
+        Errors.verifyNotZero(numTokens, "numTokens");
 
-        for (uint256 i = 0; i < poolTokens.length; ++i) {
-            //slither-disable-next-line unused-return
-            trackedTokens.add(address(poolTokens[i]));
+        for (uint256 i = 0; i < numTokens; ++i) {
+            // TODO: Reference 0xEee from library once refactored
+            address token =
+                tokens[i] == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE ? address(_systemRegistry.weth()) : tokens[i];
+            _addTrackedToken(token);
+            constituentTokens.push(token);
         }
-        //slither-disable-end missing-zero-check
+
+        if (baseAssetBurnTokenIndex > numTokens - 1) {
+            revert InvalidBaseTokenBurnIndex(baseAssetBurnTokenIndex, numTokens);
+        }
+
+        // Initialize our min amounts for withdrawals to 0 for all tokens
+        minAmounts = new uint256[](numTokens);
+
+        // Checked above
+        // slither-disable-next-line missing-zero-check
+        curveLpToken = lpToken;
     }
 
+    /// @notice Get the balance of underlyer currently staked in Convex
+    /// @return Balance of underlyer currently staked in Convex
     function convexBalance() public view returns (uint256) {
-        return IERC20(staking).balanceOf(address(this));
+        return IBaseRewardPool(convexStaking).balanceOf(address(this));
     }
 
+    /// @notice Get the balance of underlyer currently in this Destination Vault directly
+    /// @return Balance of underlyer currently in this Destination Vault directly
     function curveBalance() public view returns (uint256) {
-        return IERC20(lpToken).balanceOf(address(this));
+        return IERC20(_underlying).balanceOf(address(this));
     }
 
-    function totalLpAmount() public view returns (uint256) {
+    /// @inheritdoc DestinationVault
+    function balanceOfUnderlying() public view override returns (uint256) {
         return convexBalance() + curveBalance();
     }
 
-    function debtValue() public view override returns (uint256 value) {
-        // solhint-disable-next-line no-unused-vars
-        uint256 convexCurrentBalance = convexBalance();
-        // solhint-disable-next-line no-unused-vars
-        uint256 curveLpAmount = curveBalance();
-        // TODO: integrate pricing:
-        // value += lpAmountPrice;
+    /// @inheritdoc DestinationVault
+    function exchangeName() external pure override returns (string memory) {
+        return EXCHANGE_NAME;
     }
 
-    function rewardValue() public view override returns (uint256 value) {
-        value = rewarder.earned(address(this));
-
-        //slither-disable-start calls-loop
-        for (uint256 i = 0; i < rewarder.extraRewardsLength(); ++i) {
-            IERC20 rewardToken = IERC20(rewarder.extraRewards(i));
-            // solhint-disable-next-line no-unused-vars
-            uint256 rewardAmount = rewardToken.balanceOf(address(this));
-            // TODO: integrate pricing:
-            // value += rewardPrice;
+    /// @inheritdoc DestinationVault
+    function underlyingTokens() external view override returns (address[] memory result) {
+        uint256 len = constituentTokens.length;
+        result = new address[](len);
+        for (uint256 i = 0; i < len; ++i) {
+            result[i] = constituentTokens[i];
         }
-        //slither-disable-end calls-loop
     }
 
-    function claimVested_() internal virtual override nonReentrant returns (uint256 amount) {
-        uint256 balanceBefore = baseAsset.balanceOf(address(this));
-        rewarder.getReward();
-        amount = baseAsset.balanceOf(address(this)) - balanceBefore;
-        // slither-disable-next-line incorrect-equality
-        if (amount == 0) revert NothingToClaim();
+    /// @notice Callback during a deposit after the sender has been minted shares (if applicable)
+    /// @dev Should be used for staking tokens into protocols, etc
+    /// @param amount underlying tokens received
+    function _onDeposit(uint256 amount) internal virtual override {
+        ConvexStaking.depositAndStake(IConvexBooster(convexBooster), _underlying, convexStaking, convexPoolId, amount);
     }
 
-    function reclaimDebt_(
-        uint256 pctNumerator,
-        uint256 pctDenominator
-    ) internal virtual override nonReentrant returns (uint256 amount, uint256 loss) {
-        // defining total amount we want to burn in base asset value
-        uint256 totalBurnAmount = Math.mulDiv(debt, pctNumerator, pctDenominator, Math.Rounding.Down);
-        // defining total amount we want to burn in terms of LP quantity
-        uint256 totalLpBurnAmount = Math.mulDiv(totalLpAmount(), pctNumerator, pctDenominator, Math.Rounding.Down);
-
-        // 1) withdraw Convex if we cannot cover all (we prefer not to pull Convex to stake as long as we can)
-        uint256 convexLpBurnAmount = 0;
+    /// @inheritdoc DestinationVault
+    function _ensureLocalUnderlyingBalance(uint256 amount) internal virtual override {
+        // We should almost always have our balance of LP tokens in Convex.
+        // The exception being a donation we've made.
+        // Withdraw from Convex back to this vault for use in a withdrawal
         uint256 curveLpBalance = curveBalance();
-        if (totalLpBurnAmount > curveLpBalance) {
-            convexLpBurnAmount = totalLpBurnAmount - curveLpBalance;
-            withdrawStake(address(lpToken), staking, convexLpBurnAmount);
+        if (amount > curveLpBalance) {
+            ConvexStaking.withdrawStake(_underlying, convexStaking, amount - curveLpBalance);
         }
+    }
 
-        // 2) withdraw Curve
-        uint256 curveLpBurnAmount = totalLpBurnAmount - convexLpBurnAmount;
+    /// @inheritdoc DestinationVault
+    function collectRewards() external virtual override returns (uint256[] memory amounts, address[] memory tokens) {
+        (amounts, tokens) = ConvexRewards.claimRewards(convexStaking, defaultStakingRewardToken, msg.sender);
+    }
 
-        // using any coin with the 0-index so it's working for any-sized pools
-        uint256 coinIndex = 0;
+    /// @inheritdoc DestinationVault
+    function _burnUnderlyer(uint256 underlyerAmount)
+        internal
+        virtual
+        override
+        returns (address[] memory tokens, uint256[] memory amounts)
+    {
+        // We withdraw everything in one coin to ease swapping
+        // re: minAmount == 0, this call is only made during a user initiated withdraw where slippage is
+        // controlled for at the router
 
-        // we withdraw everything in one coin to ease swapping
-        (uint256 sellAmount, address sellToken) = removeLiquidityOneCoin(curvePool, curveLpBurnAmount, coinIndex, 0);
-
-        // we should swap pre-wrapped WETH if pool is returning ETH
-        // slither-disable-next-line incorrect-equality
-        if (sellToken == CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
-            // get WETH address corresponding to the operated chain
-            sellToken = address(weth);
-        }
-
-        // 3) swap what we receive
-        // slither-disable-next-line incorrect-equality
-        if (sellAmount == 0) {
-            revert NoDebtReclaimed();
-        }
-        IERC20(sellToken).safeApprove(address(swapper), sellAmount);
-        amount += swapper.swapForQuote(sellToken, sellAmount, address(baseAsset), 0);
-
-        // 4) calculating the possible loss
-        if (amount < totalBurnAmount) {
-            loss = totalBurnAmount - amount;
-        }
+        // We always want our tokens back in WETH so useEth false
+        // TODO: Once we convert the Curve adapter to a library, we'll have to make this receive() 'able
+        (tokens, amounts) = removeLiquidityTyped(
+            minAmounts,
+            underlyerAmount,
+            CurveExtraParams({ poolAddress: curvePool, lpTokenAddress: curveLpToken, useEth: false })
+        );
     }
 }

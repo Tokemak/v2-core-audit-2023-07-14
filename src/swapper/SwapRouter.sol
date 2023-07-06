@@ -11,11 +11,10 @@ import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
 
-contract SwapRouter is ISwapRouter, SecurityBase, ReentrancyGuard {
+contract SwapRouter is SystemComponent, ISwapRouter, SecurityBase, ReentrancyGuard {
     using SafeERC20 for IERC20;
-
-    ISystemRegistry private immutable systemRegistry;
 
     // 5/16/2023: open issue https://github.com/crytic/slither/issues/456
     // slither-disable-next-line uninitialized-state
@@ -27,9 +26,10 @@ contract SwapRouter is ISwapRouter, SecurityBase, ReentrancyGuard {
         _;
     }
 
-    constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
-        systemRegistry = _systemRegistry;
-    }
+    constructor(ISystemRegistry _systemRegistry)
+        SystemComponent(_systemRegistry)
+        SecurityBase(address(_systemRegistry.accessController()))
+    { }
 
     /// @inheritdoc ISwapRouter
     function setSwapRoute(address assetToken, SwapData[] calldata _swapRoute) external onlyOwner {

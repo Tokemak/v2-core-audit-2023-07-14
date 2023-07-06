@@ -5,38 +5,33 @@ import { Test } from "forge-std/Test.sol";
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 
-import { ConvexAdapter } from "../../../../src/destinations/adapters/staking/ConvexAdapter.sol";
-import { IConvexBooster } from "../../../../src/interfaces/external/convex/IConvexBooster.sol";
-import { IBaseRewardPool } from "../../../../src/interfaces/external/convex/IBaseRewardPool.sol";
-import { CONVEX_BOOSTER } from "../../../utils/Addresses.sol";
+import { ConvexStaking } from "src/destinations/adapters/staking/ConvexAdapter.sol";
+import { IConvexBooster } from "src/interfaces/external/convex/IConvexBooster.sol";
+import { IBaseRewardPool } from "src/interfaces/external/convex/IBaseRewardPool.sol";
+import { CONVEX_BOOSTER } from "test/utils/Addresses.sol";
 
 // solhint-disable func-name-mixedcase
 contract ConvexAdapterTest is Test {
-    ConvexAdapter private adapter;
-
     IConvexBooster private convexBooster = IConvexBooster(CONVEX_BOOSTER);
 
     function setUp() public {
         string memory endpoint = vm.envString("MAINNET_RPC_URL");
         uint256 forkId = vm.createFork(endpoint, 16_728_070);
         vm.selectFork(forkId);
-
-        adapter = new ConvexAdapter();
     }
 
     function transferCurveLpTokenAndDepositToConvex(
         address curveLp,
         address convexPool,
         uint256 balance,
-        address from,
-        address to
+        address from
     ) private {
         vm.prank(from);
-        IERC20(curveLp).transfer(to, balance);
+        IERC20(curveLp).transfer(address(this), balance);
 
         uint256 pid = IBaseRewardPool(convexPool).pid();
 
-        adapter.depositAndStake(convexBooster, curveLp, convexPool, pid, balance);
+        ConvexStaking.depositAndStake(convexBooster, curveLp, convexPool, pid, balance);
 
         // Move 7 days later
         vm.roll(block.number + 7200 * 7);
@@ -52,11 +47,11 @@ contract ConvexAdapterTest is Test {
 
         // Deposit
         uint256 balance = IERC20(curveLp).balanceOf(curveLpWhale);
-        transferCurveLpTokenAndDepositToConvex(curveLp, gauge, balance, curveLpWhale, address(adapter));
+        transferCurveLpTokenAndDepositToConvex(curveLp, gauge, balance, curveLpWhale);
 
         // Withdraw
-        adapter.withdrawStake(curveLp, gauge, balance);
-        assertEq(balance, IERC20(curveLp).balanceOf(address(adapter)));
+        ConvexStaking.withdrawStake(curveLp, gauge, balance);
+        assertEq(balance, IERC20(curveLp).balanceOf(address(this)));
     }
 
     // Pool rETH-wstETH
@@ -67,11 +62,11 @@ contract ConvexAdapterTest is Test {
 
         // Deposit
         uint256 balance = IERC20(curveLp).balanceOf(curveLpWhale);
-        transferCurveLpTokenAndDepositToConvex(curveLp, gauge, balance, curveLpWhale, address(adapter));
+        transferCurveLpTokenAndDepositToConvex(curveLp, gauge, balance, curveLpWhale);
 
         // Withdraw
-        adapter.withdrawStake(curveLp, gauge, balance);
-        assertEq(balance, IERC20(curveLp).balanceOf(address(adapter)));
+        ConvexStaking.withdrawStake(curveLp, gauge, balance);
+        assertEq(balance, IERC20(curveLp).balanceOf(address(this)));
     }
 
     // Pool stETH-ETH
@@ -82,11 +77,11 @@ contract ConvexAdapterTest is Test {
 
         // Deposit
         uint256 balance = IERC20(curveLp).balanceOf(curveLpWhale);
-        transferCurveLpTokenAndDepositToConvex(curveLp, gauge, balance, curveLpWhale, address(adapter));
+        transferCurveLpTokenAndDepositToConvex(curveLp, gauge, balance, curveLpWhale);
 
         // Withdraw
-        adapter.withdrawStake(curveLp, gauge, balance);
-        assertEq(balance, IERC20(curveLp).balanceOf(address(adapter)));
+        ConvexStaking.withdrawStake(curveLp, gauge, balance);
+        assertEq(balance, IERC20(curveLp).balanceOf(address(this)));
     }
 
     // Pool sETH-ETH
@@ -97,10 +92,10 @@ contract ConvexAdapterTest is Test {
 
         // Deposit
         uint256 balance = IERC20(curveLp).balanceOf(curveLpWhale);
-        transferCurveLpTokenAndDepositToConvex(curveLp, gauge, balance, curveLpWhale, address(adapter));
+        transferCurveLpTokenAndDepositToConvex(curveLp, gauge, balance, curveLpWhale);
 
         // Withdraw
-        adapter.withdrawStake(curveLp, gauge, balance);
-        assertEq(balance, IERC20(curveLp).balanceOf(address(adapter)));
+        ConvexStaking.withdrawStake(curveLp, gauge, balance);
+        assertEq(balance, IERC20(curveLp).balanceOf(address(this)));
     }
 }

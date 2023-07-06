@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-//import { console } from "forge-std/console.sol";
-
 import { SFRXETH_MAINNET } from "test/utils/Addresses.sol";
 import { Test, StdCheats, StdUtils } from "forge-std/Test.sol";
 import { ISfrxEth } from "src/interfaces/external/frax/ISfrxEth.sol";

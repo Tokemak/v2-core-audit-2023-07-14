@@ -1,81 +1,95 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
-import { Math } from "openzeppelin-contracts/utils/math/Math.sol";
-import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
-import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
-import { Initializable } from "openzeppelin-contracts/proxy/utils/Initializable.sol";
-import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
-
-import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
-import { IDestinationVault } from "src/interfaces/vault/IDestinationVault.sol";
 import { Roles } from "src/libs/Roles.sol";
 import { Errors } from "src/utils/Errors.sol";
+import { SecurityBase } from "src/security/SecurityBase.sol";
+import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
+import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
+import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
+import { IMainRewarder } from "src/interfaces/rewarders/IMainRewarder.sol";
+import { IDestinationVault } from "src/interfaces/vault/IDestinationVault.sol";
+import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
+import { Initializable } from "openzeppelin-contracts/proxy/utils/Initializable.sol";
+import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
+import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-// TODO: Ensure that baseAsset decimals are the same as the Vaults decimals
-// TODO: Evaluate the conditions to burn destination vault shares
-// TODO: Restrict function visibility so only LMP Vault could access
-abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
-    using SafeERC20 for ERC20;
+abstract contract DestinationVault is SecurityBase, ERC20, Initializable, IDestinationVault {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    event ClaimedVested(uint256 indexed amount);
     event Recovered(address[] tokens, uint256[] amounts, address[] destinations);
+    event UnderlyingWithdraw(uint256 amount, address owner, address to);
+    event BaseAssetWithdraw(uint256 amount, address owner, address to);
+    event UnderlyingDeposited(uint256 amount, address sender);
 
     error ArrayLengthMismatch();
     error PullingNonTrackedToken(address token);
     error RecoveringTrackedToken(address token);
     error RecoveringMoreThanAvailable(address token, uint256 amount, uint256 availableAmount);
+    error DuplicateToken(address token);
+
+    ISystemRegistry internal immutable _systemRegistry;
 
     /* ******************************** */
     /* State Variables                  */
     /* ******************************** */
 
-    string private _name;
-    string private _symbol;
+    string internal _name;
+    string internal _symbol;
+    uint8 internal _underlyingDecimals;
 
-    IERC20 public baseAsset;
+    address internal _baseAsset;
+    address internal _underlying;
 
-    EnumerableSet.AddressSet internal trackedTokens;
+    IMainRewarder internal _rewarder;
 
-    /// @notice Amount of baseAsset sitting in contract
-    uint256 public idle = 0;
+    EnumerableSet.AddressSet internal _trackedTokens;
 
-    /// @notice Debt we have sent out to underlying destination
-    uint256 public debt = 0;
-
-    ISystemRegistry public systemRegistry;
-
-    constructor() ERC20("", "") { }
+    constructor(ISystemRegistry sysRegistry) SecurityBase(address(sysRegistry.accessController())) ERC20("", "") {
+        _systemRegistry = sysRegistry;
+    }
 
     modifier onlyOperator() {
+        // TODO: Fix access control
         // if (!_hasRole(Roles.DESTINATION_VAULT_OPERATOR_ROLE, msg.sender)) revert Errors.AccessDenied();
         _;
     }
 
-    function initialize(
-        ISystemRegistry _systemRegistry,
-        IERC20 _baseAsset,
-        string memory baseName,
-        bytes memory
-    ) public initializer {
-        _name = string.concat("gpDV", baseName);
-        _symbol = string.concat("gpDV", _baseAsset.symbol());
-
-        Errors.verifyNotZero(address(_baseAsset), "_baseAsset");
-
-        systemRegistry = _systemRegistry;
-        baseAsset = _baseAsset;
-
-        //slither-disable-next-line unused-return
-        trackedTokens.add(address(_baseAsset));
+    modifier onlyLMPVault() {
+        if (!_systemRegistry.lmpVaultRegistry().isVault(msg.sender)) {
+            revert Errors.AccessDenied();
+        }
+        _;
     }
 
-    /// @inheritdoc IDestinationVault
-    function underlying() public view virtual returns (address) {
-        revert Errors.NotImplemented();
+    function initialize(
+        IERC20 baseAsset_,
+        IERC20 underlyer_,
+        IMainRewarder rewarder_,
+        address[] memory additionalTrackedTokens_,
+        bytes memory
+    ) public virtual initializer {
+        Errors.verifyNotZero(address(baseAsset_), "baseAsset_");
+        Errors.verifyNotZero(address(underlyer_), "underlyer_");
+        Errors.verifyNotZero(address(rewarder_), "rewarder_");
+
+        _name = string.concat("Tokemak-", baseAsset_.name(), "-", underlyer_.name());
+        _symbol = string.concat("toke-", baseAsset_.symbol(), "-", underlyer_.symbol());
+        _underlyingDecimals = underlyer_.decimals();
+
+        _baseAsset = address(baseAsset_);
+        _underlying = address(underlyer_);
+        _rewarder = rewarder_;
+
+        // Setup the tracked tokens
+        _addTrackedToken(address(baseAsset_));
+        _addTrackedToken(address(underlyer_));
+        uint256 attLen = additionalTrackedTokens_.length;
+        for (uint256 i = 0; i < attLen; ++i) {
+            _addTrackedToken(additionalTrackedTokens_[i]);
+        }
     }
 
     /// @inheritdoc ERC20
@@ -89,236 +103,178 @@ abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
     }
 
     /// @inheritdoc IDestinationVault
-    function debtValue() public virtual override returns (uint256 value);
+    function baseAsset() external view virtual override returns (address) {
+        return _baseAsset;
+    }
 
     /// @inheritdoc IDestinationVault
-    function rewardValue() public virtual returns (uint256 value);
+    function underlying() external view virtual override returns (address) {
+        return _underlying;
+    }
 
     /// @inheritdoc IDestinationVault
-    function claimVested() public virtual onlyOperator returns (uint256 amount) {
-        amount = claimVested_();
-        idle += amount;
-        emit ClaimedVested(amount);
+    function rewarder() external view virtual override returns (address) {
+        return address(_rewarder);
+    }
+
+    /// @inheritdoc ERC20
+    function decimals() public view virtual override(ERC20, IERC20) returns (uint8) {
+        return _underlyingDecimals;
+    }
+
+    /// @inheritdoc IDestinationVault
+    function debtValue() public virtual override returns (uint256 value) {
+        uint256 price = _systemRegistry.rootPriceOracle().getPriceInEth(_underlying);
+        uint256 ethValue = (price * (balanceOfUnderlying())) / (10 ** _underlyingDecimals);
+        value = getTokenPriceInBaseAsset(ethValue);
+    }
+
+    /// @inheritdoc IDestinationVault
+    function debtValue(uint256 shares) external virtual returns (uint256 value) {
+        uint256 ts = totalSupply();
+        if (ts == 0 || shares == 0) {
+            return 0;
+        }
+        value = (debtValue() * shares) / ts;
+    }
+
+    /// @inheritdoc IDestinationVault
+    function exchangeName() external view virtual override returns (string memory);
+
+    /// @inheritdoc IDestinationVault
+    function underlyingTokens() external view virtual override returns (address[] memory);
+
+    /// @inheritdoc IDestinationVault
+    function collectRewards() external virtual override returns (uint256[] memory amounts, address[] memory tokens);
+
+    /// @notice Figure out price in terms of the base asset
+    function getTokenPriceInBaseAsset(uint256 currentEthValue) internal returns (uint256 value) {
+        // If the base asset is WETH then we know its 1:1 to ETH so we'll just return the current value
+        if (address(_baseAsset) == address(_systemRegistry.weth())) {
+            return currentEthValue;
+        }
+
+        // Otherwise get the price of the base asset and convert
+        uint256 baseAssetPriceInEth = _systemRegistry.rootPriceOracle().getPriceInEth(address(_baseAsset));
+
+        // slither-disable-next-line divide-before-multiply
+        value = currentEthValue * 1e18 / baseAssetPriceInEth;
+    }
+
+    function trackedTokens() public view virtual returns (address[] memory trackedTokensArr) {
+        uint256 arLen = _trackedTokens.length();
+        trackedTokensArr = new address[](arLen);
+        for (uint256 i = 0; i < arLen; ++i) {
+            trackedTokensArr[i] = _trackedTokens.at(i);
+        }
     }
 
     /// @notice Checks if given token is tracked by Vault
     /// @param token Address to verify
     /// @return bool True if token is within Vault's tracked assets
-    function isTrackedToken(address token) public view returns (bool) {
-        return trackedTokens.contains(token);
+    function isTrackedToken(address token) public view virtual returns (bool) {
+        return _trackedTokens.contains(token);
     }
-
-    /// @notice Claims any rewards that have been previously claimed and are vesting
-    /// @dev Should not update idle
-    /// @return amount The amount claimed in terms of the baseAsset
-    function claimVested_() internal virtual returns (uint256 amount);
-
-    /// @notice Burns a percent of the shares we hold for our debt
-    /// @param pctNumerator Numerator in the number that make up the pct to burn
-    /// @param pctDenominator Denominator in the number that make up the pct to burn
-    /// @return amount Amount of baseAsset reclaimed
-    /// @return loss Amount of baseAsset lost
-    function reclaimDebt(
-        uint256 pctNumerator,
-        uint256 pctDenominator
-    ) internal onlyOperator returns (uint256 amount, uint256 loss) {
-        (amount, loss) = reclaimDebt_(pctNumerator, pctDenominator);
-        debt -= Math.mulDiv(debt, pctNumerator, pctDenominator, Math.Rounding.Up);
-    }
-
-    /// @notice Burns a percent of the shares we hold for our debt
-    /// @dev Should burn from all sources according to the same pct. Should swap to baseAsset. Should not update debt
-    /// @param pctNumerator Numerator in the number that make up the pct to burn
-    /// @param pctDenominator Denominator in the number that make up the pct to burn
-    /// @return amount Amount of baseAsset reclaimed
-    /// @return loss Amount of baseAsset lost
-    function reclaimDebt_(
-        uint256 pctNumerator,
-        uint256 pctDenominator
-    ) internal virtual returns (uint256 amount, uint256 loss);
 
     /// @inheritdoc IDestinationVault
     function donate(uint256 amount) external onlyOperator {
-        idle += amount;
-
         emit Donated(msg.sender, amount);
 
-        // Safe transfer of base asset from caller
-        baseAsset.safeTransferFrom(msg.sender, address(this), amount);
+        IERC20(_underlying).safeTransferFrom(msg.sender, address(this), amount);
+
+        _onDeposit(amount);
     }
 
-    /// @notice Attempt to sideline enough assets to cover the requested amount from idle, rewards, debt, etc.
-    /// @dev Specified amount should already be validated as available to the user
-    /// @param amount Amount of assets to attempt to retrieve
-    /// @return totalActual Actual amount of asset available
-    /// @return loss How much loss was incurred in the recovery process
-    /// @return fromIdle Amount of asset that was recovered from idle (includes claimed rewards)
-    /// @return fromDebt Amount of asset that was recovered by burning debt
-    function freeUpAssets(uint256 amount)
-        internal
-        virtual
-        onlyOperator
-        returns (uint256 totalActual, uint256 loss, uint256 fromIdle, uint256 fromDebt)
-    {
-        // Now we figure out where to take it from.
-        uint256 remaining = amount;
-
-        // Easiest is to pull fully from idle so we try there first
-        if (idle >= amount) {
-            idle -= amount;
-            remaining -= amount;
-            fromIdle += amount;
-        }
-
-        // If there are vested rewards we could claim, claim them and try idle again
-        // This will move assets to idle if any were claimed
-        if (remaining > 0) {
-            claimVested();
-
-            if (idle >= amount) {
-                idle -= amount;
-                remaining -= amount;
-                fromIdle += amount;
-            }
-        }
-
-        // Partially from idle?
-        if (remaining > 0 && idle > 0) {
-            remaining -= idle;
-            fromIdle += idle;
-            idle = 0;
-        }
-
-        // If idle didn't do it for us, we have to try LP
-        if (remaining > 0) {
-            uint256 currentDebtValue = debtValue();
-
-            // If our take is greater than the entire debt value, tweak the numbers so we take it all
-            // If currentDebtValue is used in any way than just passing it to reclaimDebt re-evaluate
-            // this operation as it probably won't make sense. reclaimDebt uses the numbers as a ratio
-            // and we want it to 1:1
-            if (remaining > currentDebtValue) {
-                currentDebtValue = remaining;
-            }
-
-            // TODO: Should we short circuit on some threshold of loss?
-            (uint256 reclaimAmount, uint256 reclaimedLoss) = reclaimDebt(remaining, currentDebtValue);
-
-            loss = reclaimedLoss;
-
-            if (reclaimAmount > 0) {
-                // It's possible we end up getting more then we need
-                // from reclaim so make sure we only take what we're owed putting the rest into idle
-                if (reclaimAmount > remaining) {
-                    uint256 amtForIdle = reclaimAmount - remaining;
-                    idle += amtForIdle;
-                    reclaimAmount = remaining;
-                }
-                remaining -= reclaimAmount;
-                fromDebt = reclaimAmount;
-            }
-        }
-
-        totalActual = amount - remaining;
-    }
-
-    /// @dev 1:1 ratio is assumed
     /// @inheritdoc IDestinationVault
-    function depositUnderlying(uint256 amount) public returns (uint256 shares) {
-        // transfer underlying
-        IERC20(underlying()).safeTransferFrom(msg.sender, address(this), amount);
-        // mint shares
+    function depositUnderlying(uint256 amount) external onlyLMPVault returns (uint256 shares) {
+        Errors.verifyNotZero(amount, "amount");
+
+        IERC20(_underlying).safeTransferFrom(msg.sender, address(this), amount);
         _mint(msg.sender, amount);
 
-        return amount;
+        emit UnderlyingDeposited(amount, msg.sender);
+
+        _onDeposit(amount);
+
+        shares = amount;
     }
 
-    /// @dev 1:1 ratio is assumed
     /// @inheritdoc IDestinationVault
-    function withdrawUnderlying(uint256 shares) public returns (uint256 amount) {
-        // make sure there's enough
-        if (balanceOf(msg.sender) < shares) revert Errors.InsufficientBalance(address(this));
+    function withdrawUnderlying(uint256 shares, address to) external onlyLMPVault returns (uint256 amount) {
+        Errors.verifyNotZero(shares, "shares");
+        Errors.verifyNotZero(to, "to");
 
-        // burn shares
+        // Does a balance check, will revert if trying to burn too much
         _burn(msg.sender, shares);
 
-        // transfer underlying
-        IERC20(underlying()).safeTransfer(msg.sender, shares);
+        amount = shares;
 
-        return shares;
+        emit UnderlyingWithdraw(amount, msg.sender, to);
+
+        _ensureLocalUnderlyingBalance(amount);
+
+        IERC20(_underlying).safeTransfer(to, amount);
     }
 
     /// @inheritdoc IDestinationVault
-    function withdrawBaseAsset(
-        uint256 targetAmount,
-        uint256 ownerPctNumerator,
-        uint256 ownerPctDenominator
-    ) external virtual onlyOperator returns (uint256 amount, uint256 loss) {
-        uint256 originalTarget = targetAmount;
-        uint256 sharesCanBurn = balanceOf(msg.sender);
-        if (sharesCanBurn == 0) {
-            // TODO: Revert?
-            return (0, 0);
-        }
+    function balanceOfUnderlying() public view virtual override returns (uint256 shares);
 
-        // To figure out how much we're allowed to take we need to figure
-        // out if there are any losses, which will tell us how much we can burn
-        uint256 debtVal = debtValue();
-        uint256 ourLoss = 0;
-        uint256 totalSupply = totalSupply();
-        if (debtVal < debt) {
-            // We only need to take our portion of the loss
-            ourLoss = Math.mulDiv(
-                (debt - debtVal), sharesCanBurn * ownerPctNumerator, totalSupply * ownerPctDenominator, Math.Rounding.Up
-            );
+    /// @notice Ensure that we have the specified balance of the underlyer in the vault itself
+    /// @param amount amount of token
+    function _ensureLocalUnderlyingBalance(uint256 amount) internal virtual;
 
-            // We have a loss so we can only burn the portion that the user
-            // owns at the lmp level to ensure we don't lock in a loss
-            // for everyone or take more of the loss than required
-            sharesCanBurn = Math.mulDiv(sharesCanBurn, ownerPctNumerator, ownerPctDenominator, Math.Rounding.Down);
+    /// @notice Callback during a deposit after the sender has been minted shares (if applicable)
+    /// @dev Should be used for staking tokens into protocols, etc
+    /// @param amount underlying tokens received
+    function _onDeposit(uint256 amount) internal virtual;
 
-            // Take our loss out of our target amount, we don't get that now
-            if (targetAmount < ourLoss) {
-                targetAmount = 0;
+    /// @inheritdoc IDestinationVault
+    function withdrawBaseAsset(uint256 shares, address to) external returns (uint256 amount) {
+        Errors.verifyNotZero(shares, "shares");
+
+        // Does a balance check, will revert if trying to burn too much
+        _burn(msg.sender, shares);
+
+        emit BaseAssetWithdraw(shares, msg.sender, to);
+
+        // Accounts for shares that may be staked
+        _ensureLocalUnderlyingBalance(shares);
+
+        (address[] memory tokens, uint256[] memory amounts) = _burnUnderlyer(shares);
+
+        uint256 nTokens = tokens.length;
+        Errors.verifyArrayLengths(nTokens, amounts.length, "tokens", "amounts");
+
+        // Swap what we receive if not already in base asset
+        // This fn is only called during a users withdrawal. The user should be making this
+        // call via the LMP Router, or through one of the other routes where
+        // slippage is controlled for. 0 min amount is expected here.
+        ISwapRouter swapRouter = _systemRegistry.swapRouter();
+        for (uint256 i = 0; i < nTokens; i++) {
+            address token = tokens[i];
+
+            if (token == _baseAsset) {
+                amount += amounts[i];
             } else {
-                targetAmount -= ourLoss;
+                IERC20(token).safeApprove(address(swapRouter), amounts[i]);
+                amount += swapRouter.swapForQuote(token, amounts[i], _baseAsset, 0);
             }
         }
 
-        // Now we figure out the Vaults NAV so we know we how what the max amt is
-        // we can withdraw.
-        uint256 maxWithdraw = ((idle + debtVal + rewardValue()) * sharesCanBurn) / totalSupply;
-
-        // Check if the loss so high that we have nothing to do
-        if (ourLoss >= maxWithdraw) {
-            _burn(msg.sender, sharesCanBurn);
-            return (0, ourLoss);
-        }
-
-        // Nothing to take, nothing to do
-        if (maxWithdraw == 0) {
-            // TODO: Should we burn any shares if there is nothing to take?
-            _burn(msg.sender, sharesCanBurn);
-            return (0, ourLoss);
-        }
-
-        // Can't take more than we're allowed, so change the target
-        if (maxWithdraw < targetAmount) {
-            targetAmount = maxWithdraw;
-        }
-
-        // Now we know how much we can get, so lets go get it
-        (uint256 totalActual, uint256 claimLoss, uint256 fromIdle, uint256 fromDebt) = freeUpAssets(targetAmount);
-
-        amount = totalActual;
-        loss = ourLoss + claimLoss;
-
-        emit Withdraw(originalTarget, amount, ourLoss, claimLoss, fromIdle, fromDebt);
-
-        if (totalActual > 0) {
-            baseAsset.safeTransfer(msg.sender, totalActual);
+        if (amount > 0) {
+            IERC20(_baseAsset).safeTransfer(to, amount);
         }
     }
+
+    /// @notice Burn the specified amount of underlyer for the constituent tokens
+    /// @dev May return one or multiple assets. Be as efficient as you can here.
+    /// @param underlyerAmount amount of underlyer to burn
+    /// @return tokens the tokens to swap for base asset
+    /// @return amounts the amounts we have to swap
+    function _burnUnderlyer(uint256 underlyerAmount)
+        internal
+        virtual
+        returns (address[] memory tokens, uint256[] memory amounts);
 
     function recover(
         address[] calldata tokens,
@@ -331,7 +287,6 @@ abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
         }
         emit Recovered(tokens, amounts, destinations);
 
-        //slither-disable-start calls-loop
         for (uint256 i = 0; i < tokens.length; ++i) {
             IERC20 token = IERC20(tokens[i]);
 
@@ -343,6 +298,10 @@ abstract contract DestinationVault is ERC20, Initializable, IDestinationVault {
 
             token.safeTransfer(destinations[i], amounts[i]);
         }
-        //slither-disable-end calls-loop
+    }
+
+    function _addTrackedToken(address token) internal {
+        //slither-disable-next-line unused-return
+        _trackedTokens.add(token);
     }
 }

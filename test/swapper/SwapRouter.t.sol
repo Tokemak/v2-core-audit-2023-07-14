@@ -60,7 +60,7 @@ contract SwapRouterTest is Test {
         // setup swap router
         swapRouter = new SwapRouter(systemRegistry);
         balSwapper = new BalancerV2Swap(address(swapRouter), BALANCER_VAULT);
-        curveSwapper = new CurveV1StableSwap(address(swapRouter));
+        curveSwapper = new CurveV1StableSwap(address(swapRouter), WETH_MAINNET);
 
         // setup input for Balancer 1-hop WETH -> WSTETH
         ISwapRouter.SwapData[] memory balSwapRoute = new ISwapRouter.SwapData[](1);
@@ -78,7 +78,7 @@ contract SwapRouterTest is Test {
             token: STETH_MAINNET,
             pool: 0x828b154032950C8ff7CF8085D841723Db2696056,
             swapper: curveSwapper,
-            data: abi.encode(0, 1)
+            data: abi.encode(0, 1, false)
         });
         swapRouter.setSwapRoute(WETH_MAINNET, curveOneHopRoute);
 
@@ -89,7 +89,7 @@ contract SwapRouterTest is Test {
             token: FRXETH_MAINNET,
             pool: 0x4d9f9D15101EEC665F77210cB999639f760F831E,
             swapper: curveSwapper,
-            data: abi.encode(0, 1)
+            data: abi.encode(0, 1, false)
         });
         swapRouter.setSwapRoute(WETH_MAINNET, curveTwoHopRoute);
     }
@@ -102,7 +102,7 @@ contract SwapRouterTest is Test {
     }
 
     function test_setSwapRoute_Revert_WhenVerifyNotZeroError() public {
-        CurveV1StableSwap swapper = new CurveV1StableSwap(address(swapRouter));
+        CurveV1StableSwap swapper = new CurveV1StableSwap(address(swapRouter), WETH_MAINNET);
 
         ISwapRouter.SwapData[] memory swapRoute = new ISwapRouter.SwapData[](1);
 
