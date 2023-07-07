@@ -102,4 +102,23 @@ interface IBaseRewarder {
      * @return reward token address
      */
     function rewardToken() external view returns (address);
+
+    /**
+     * @notice Add an address to the whitelist.
+     * @param wallet The address to be added to the whitelist.
+     */
+    function addToWhitelist(address wallet) external;
+
+    /**
+     * @notice Remove an address from the whitelist.
+     * @param wallet The address to be removed from the whitelist.
+     */
+    function removeFromWhitelist(address wallet) external;
+
+    /**
+     * @notice Check if an address is whitelisted.
+     * @param wallet The address to be checked.
+     * @return bool indicating if the address is whitelisted.
+     */
+    function isWhitelisted(address wallet) external view returns (bool);
 }

@@ -197,8 +197,8 @@ contract BalancerAuraDestinationVaultTests is Test {
 
         // We gave the lp token a value of 2 ETH
         assertEq(_destVault.debtValue(), 20e18);
-        assertEq(_destVault.auraBalance(), 5e18);
-        assertEq(_destVault.balancerBalance(), 5e18);
+        assertEq(_destVault.externalBalance(), 5e18);
+        assertEq(_destVault.internalBalance(), 5e18);
     }
 
     function test_depositUnderlying_TokensGoToAura() public {
@@ -214,7 +214,7 @@ contract BalancerAuraDestinationVaultTests is Test {
         _destVault.depositUnderlying(10e18);
 
         // Ensure the funds went to Aura
-        assertEq(_destVault.auraBalance(), 10e18);
+        assertEq(_destVault.externalBalance(), 10e18);
     }
 
     function test_collectRewards_ReturnsAllTokensAndAmounts() public {
@@ -273,14 +273,14 @@ contract BalancerAuraDestinationVaultTests is Test {
         _destVault.depositUnderlying(10e18);
 
         // Ensure the funds went to Convex
-        assertEq(_destVault.auraBalance(), 10e18);
+        assertEq(_destVault.externalBalance(), 10e18);
 
         address receiver = vm.addr(555);
         uint256 received = _destVault.withdrawUnderlying(10e18, receiver);
 
         assertEq(received, 10e18);
         assertEq(_underlyer.balanceOf(receiver), 10e18);
-        assertEq(_destVault.auraBalance(), 0e18);
+        assertEq(_destVault.externalBalance(), 0e18);
     }
 
     function test_withdrawBaseAsset_ReturnsAppropriateAmount() public {

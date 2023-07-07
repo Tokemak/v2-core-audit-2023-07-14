@@ -20,6 +20,12 @@ interface IDestinationVault is IBaseAssetVault, IERC20 {
     /// @inheritdoc IBaseAssetVault
     function baseAsset() external view override returns (address);
 
+    /// @notice Balance of underlying asset that resides in the contract
+    function internalBalance() external view returns (uint256);
+
+    /// @notice Balance of underlying asset that has been staked externally
+    function externalBalance() external view returns (uint256);
+
     /// @notice Balance of underlying asset wherever it may be staked
     function balanceOfUnderlying() external view returns (uint256);
 

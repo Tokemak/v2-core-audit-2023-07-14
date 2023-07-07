@@ -203,7 +203,7 @@ contract CurveConvexDestinationVaultTests is Test {
         _destVault.depositUnderlying(100e18);
 
         // Ensure the funds went to Convex
-        assertEq(_destVault.convexBalance(), 100e18);
+        assertEq(_destVault.externalBalance(), 100e18);
     }
 
     function testDebtValueWithCurveAndConvex() public {
@@ -223,8 +223,8 @@ contract CurveConvexDestinationVaultTests is Test {
 
         // We gave the lp token a value of 2 ETH
         assertEq(_destVault.debtValue(), 400e18);
-        assertEq(_destVault.convexBalance(), 100e18);
-        assertEq(_destVault.curveBalance(), 100e18);
+        assertEq(_destVault.externalBalance(), 100e18);
+        assertEq(_destVault.internalBalance(), 100e18);
     }
 
     function testCollectRewards() public {
@@ -288,7 +288,7 @@ contract CurveConvexDestinationVaultTests is Test {
         _destVault.depositUnderlying(100e18);
 
         // Ensure the funds went to Convex
-        assertEq(_destVault.convexBalance(), 100e18);
+        assertEq(_destVault.externalBalance(), 100e18);
 
         address receiver = vm.addr(555);
         uint256 received = _destVault.withdrawUnderlying(50e18, receiver);

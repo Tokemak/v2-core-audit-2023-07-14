@@ -245,7 +245,6 @@ interface IswETH is IERC20Upgradeable {
     function deposit() external payable;
 
     /**
-     * //  * TODO: Reword
      * @dev This method reprices the swETH -> ETH rate, this will be called via an offchain service on a regular
      * interval, likely ~1 day. The swETH total supply is passed as an argument to avoid a potential race conditions
      * between the off-chain reserve calculations and the on-chain repricing

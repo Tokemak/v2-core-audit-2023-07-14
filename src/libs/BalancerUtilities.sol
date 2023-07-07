@@ -35,7 +35,9 @@ library BalancerUtilities {
         // slither-disable-start low-level-calls
         // solhint-disable-next-line no-unused-vars
         (bool success, bytes memory data) = pool.staticcall(abi.encodeWithSignature("getBptIndex()"));
-        // TODO: Write a test against EOA, decode the data and check > 0
+        if (success) {
+            return data.length > 0;
+        }
         // slither-disable-end low-level-calls
         return success;
     }

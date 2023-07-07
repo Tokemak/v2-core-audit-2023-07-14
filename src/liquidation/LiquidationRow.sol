@@ -1,10 +1,3 @@
-/**
- * @todo: Role management is yet to be implemented, as we are currently waiting for the role management project to be
- * completed.
- * Once the role management project is ready, appropriate access control and role-based permissions will be added to
- * this contract.
- */
-
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
@@ -20,6 +13,8 @@ import { ILiquidationRow } from "src/interfaces/liquidation/ILiquidationRow.sol"
 import { IVaultClaimableRewards } from "src/interfaces/rewards/IVaultClaimableRewards.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
 import { Roles } from "src/libs/Roles.sol";
+
+// TODO: Swap roles addAllowedSwapper/remove to onlyOwner
 
 contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
     using Address for address;

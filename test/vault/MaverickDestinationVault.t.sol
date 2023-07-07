@@ -209,7 +209,7 @@ contract MaverickDestinationVaultTests is Test {
         // We gave the lp token a value of 2 ETH
         assertEq(_destVault.debtValue(), 200e18);
         assertEq(_destVault.externalBalance(), 50e18);
-        assertEq(_destVault.localBalance(), 50e18);
+        assertEq(_destVault.internalBalance(), 50e18);
     }
 
     function test_collectRewards_TransfersToCaller() public {

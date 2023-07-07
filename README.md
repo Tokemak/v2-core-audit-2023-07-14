@@ -26,7 +26,7 @@ A fairly strict and opinionated Foundry-based template for developing Solidity s
 -   ~~Taking used gas out of liquidations~~
 -   Add a fee to liquidations, allow the fee to modified
 -   ~~Figure out how the veOGV rewarder works and add it in~~
--   Ensure rewarder + lmp vault is working and setup correctly
+-   ~~Ensure rewarder + lmp vault is working and setup correctly~~
 -   Consider switching rewarders to initializable so we can copy cheaply
 -   ~~Figure out Curve V2 pool oracle~~
 -   ~~Verify support for Curve -ng pools, and steth/eth~~

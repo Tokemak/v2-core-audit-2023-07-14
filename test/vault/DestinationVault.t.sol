@@ -18,6 +18,7 @@ import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IMainRewarder } from "src/interfaces/rewarders/IMainRewarder.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
 import { IAccessController, AccessController } from "src/security/AccessController.sol";
+import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 
 import { MainRewarder } from "src/rewarders/MainRewarder.sol";
 
@@ -34,6 +35,10 @@ contract DestinationVaultBaseTests is Test {
     TestERC20 private underlyer;
     TestDestinationVault private testVault;
 
+    IRootPriceOracle private _rootPriceOracle;
+
+    address private _weth;
+
     event OnDepositCalled();
 
     function setUp() public {
@@ -42,7 +47,10 @@ contract DestinationVaultBaseTests is Test {
         mainRewarder = IMainRewarder(vm.addr(3));
         lmpVaultRegistry = ILMPVaultRegistry(vm.addr(3));
 
-        systemRegistry = new SystemRegistry(vm.addr(100), vm.addr(101));
+        _weth = address(new TestERC20("weth", "weth"));
+        vm.label(_weth, "weth");
+
+        systemRegistry = new SystemRegistry(vm.addr(100), _weth);
         mockSystemBound(address(lmpVaultRegistry), address(systemRegistry));
 
         accessController = new AccessController(address(systemRegistry));
@@ -56,6 +64,12 @@ contract DestinationVaultBaseTests is Test {
         testVault = new TestDestinationVault(systemRegistry,
         baseAsset, underlyer, mainRewarder, new address[](0), abi.encode(""));
 
+        _rootPriceOracle = IRootPriceOracle(vm.addr(34_399));
+        vm.label(address(_rootPriceOracle), "rootPriceOracle");
+
+        mockSystemBound(address(_rootPriceOracle), address(systemRegistry));
+        systemRegistry.setRootPriceOracle(address(_rootPriceOracle));
+
         // TestUser1 starts with 100 ABC
         baseAsset.mint(testUser1, 100);
 
@@ -67,6 +81,16 @@ contract DestinationVaultBaseTests is Test {
 
         // Token deployer gets 1000 DEF
         underlyer.mint(address(this), 1000);
+
+        _mockRootPrice(_weth, 1 ether);
+    }
+
+    function test_debtValue_PriceInTermsOfBaseAssetWhenWeth() public {
+        bytes memory d = abi.encode("");
+        TestDestinationVault bav =
+            new TestDestinationVault(systemRegistry, IERC20(_weth), underlyer, mainRewarder, new address[](0), d);
+        _mockRootPrice(address(underlyer), 2 ether);
+        assertEq(bav.debtValue(10e6), 20 ether);
     }
 
     function testVaultNameIsWithConstituentValues() public {
@@ -186,6 +210,14 @@ contract DestinationVaultBaseTests is Test {
             abi.encode(isVault)
         );
     }
+
+    function _mockRootPrice(address token, uint256 price) internal {
+        vm.mockCall(
+            address(_rootPriceOracle),
+            abi.encodeWithSelector(IRootPriceOracle.getPriceInEth.selector, token),
+            abi.encode(price)
+        );
+    }
 }
 
 contract TestDestinationVault is DestinationVault {
@@ -271,4 +303,8 @@ contract TestDestinationVault is DestinationVault {
     function _collectRewards() internal override returns (uint256[] memory amounts, address[] memory tokens) { }
 
     function reset() external { }
+
+    function externalBalance() public pure override returns (uint256) {
+        return 0;
+    }
 }

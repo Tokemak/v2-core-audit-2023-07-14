@@ -1,37 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { Ownable2Step } from "openzeppelin-contracts/access/Ownable2Step.sol";
 import { Errors } from "src/utils/Errors.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
+import { SecurityBase } from "src/security/SecurityBase.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IDestinationAdapter } from "src/interfaces/destinations/IDestinationAdapter.sol";
 import { IDestinationRegistry } from "src/interfaces/destinations/IDestinationRegistry.sol";
-import { SystemComponent } from "src/SystemComponent.sol";
 
-// TODO: Add access control
-contract DestinationRegistry is SystemComponent, IDestinationRegistry, Ownable2Step {
+contract DestinationRegistry is SystemComponent, SecurityBase, IDestinationRegistry {
     mapping(bytes32 => IDestinationAdapter) public destinations;
     mapping(bytes32 => bool) public allowedTypes;
 
-    constructor(ISystemRegistry _systemRegistry) SystemComponent(_systemRegistry) { }
+    constructor(ISystemRegistry _systemRegistry)
+        SystemComponent(_systemRegistry)
+        SecurityBase(address(_systemRegistry.accessController()))
+    { }
 
-    modifier arrayLengthMatch(bytes32[] calldata destinationTypes, address[] calldata targets) {
-        if (destinationTypes.length != targets.length) {
-            revert ArraysLengthMismatch();
-        }
-        _;
-    }
-
-    function ensureDestinationIsPresent(IDestinationAdapter destination) private pure {
-        if (address(destination) == address(0)) {
-            revert DestinationNotPresent();
-        }
-    }
-
-    function register(
-        bytes32[] calldata destinationTypes,
-        address[] calldata targets
-    ) public override onlyOwner arrayLengthMatch(destinationTypes, targets) {
+    function register(bytes32[] calldata destinationTypes, address[] calldata targets) public override onlyOwner {
+        Errors.verifyArrayLengths(destinationTypes.length, targets.length, "types+targets");
         for (uint256 i = 0; i < destinationTypes.length; ++i) {
             bytes32 destination = destinationTypes[i];
             if (!isWhitelistedDestination(destination)) {
@@ -48,17 +35,15 @@ contract DestinationRegistry is SystemComponent, IDestinationRegistry, Ownable2S
         emit Register(destinationTypes, targets);
     }
 
-    function replace(
-        bytes32[] calldata destinationTypes,
-        address[] calldata targets
-    ) public override onlyOwner arrayLengthMatch(destinationTypes, targets) {
+    function replace(bytes32[] calldata destinationTypes, address[] calldata targets) public override onlyOwner {
+        Errors.verifyArrayLengths(destinationTypes.length, targets.length, "types+targets");
         for (uint256 i = 0; i < destinationTypes.length; ++i) {
             address target = targets[i];
             Errors.verifyNotZero(target, "target");
 
             bytes32 destination = destinationTypes[i];
             IDestinationAdapter existingDestination = destinations[destination];
-            ensureDestinationIsPresent(existingDestination);
+            Errors.verifyNotZero(address(existingDestination), "existingDestination");
 
             if (address(existingDestination) == target) {
                 revert DestinationAlreadySet();
@@ -71,7 +56,7 @@ contract DestinationRegistry is SystemComponent, IDestinationRegistry, Ownable2S
     function unregister(bytes32[] calldata destinationTypes) public override onlyOwner {
         for (uint256 i = 0; i < destinationTypes.length; ++i) {
             bytes32 destination = destinationTypes[i];
-            ensureDestinationIsPresent(destinations[destination]);
+            Errors.verifyNotZero(address(destinations[destination]), "destAddress");
             //slither-disable-next-line costly-loop
             delete destinations[destination];
         }
@@ -80,7 +65,7 @@ contract DestinationRegistry is SystemComponent, IDestinationRegistry, Ownable2S
 
     function getAdapter(bytes32 destinationType) public view override returns (IDestinationAdapter target) {
         target = destinations[destinationType];
-        ensureDestinationIsPresent(target);
+        Errors.verifyNotZero(address(target), "target");
     }
 
     function addToWhitelist(bytes32[] calldata destinationTypes) external override onlyOwner {
@@ -97,7 +82,7 @@ contract DestinationRegistry is SystemComponent, IDestinationRegistry, Ownable2S
         for (uint256 i = 0; i < destinationTypes.length; ++i) {
             bytes32 destination = destinationTypes[i];
             if (!allowedTypes[destination]) {
-                revert DestinationNotPresent();
+                revert Errors.ItemNotFound();
             }
             if (address(destinations[destination]) != address(0)) {
                 // cannot remove from whitelist already registered type – must unregister first

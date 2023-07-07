@@ -5,6 +5,7 @@ pragma solidity 0.8.17;
 import { Roles } from "src/libs/Roles.sol";
 import { Errors } from "src/utils/Errors.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
+import { Math } from "openzeppelin-contracts/utils/math/Math.sol";
 import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
@@ -113,6 +114,19 @@ abstract contract DestinationVault is SecurityBase, ERC20, Initializable, IDesti
     }
 
     /// @inheritdoc IDestinationVault
+    function balanceOfUnderlying() public view virtual override returns (uint256) {
+        return internalBalance() + externalBalance();
+    }
+
+    /// @inheritdoc IDestinationVault
+    function internalBalance() public view virtual override returns (uint256) {
+        return IERC20(_underlying).balanceOf(address(this));
+    }
+
+    /// @inheritdoc IDestinationVault
+    function externalBalance() public view virtual override returns (uint256);
+
+    /// @inheritdoc IDestinationVault
     function rewarder() external view virtual override returns (address) {
         return address(_rewarder);
     }
@@ -124,19 +138,12 @@ abstract contract DestinationVault is SecurityBase, ERC20, Initializable, IDesti
 
     /// @inheritdoc IDestinationVault
     function debtValue() public virtual override returns (uint256 value) {
-        uint256 price = _systemRegistry.rootPriceOracle().getPriceInEth(_underlying);
-        uint256 ethValue = (price * (balanceOfUnderlying())) / (10 ** _underlyingDecimals);
-        value = getTokenPriceInBaseAsset(ethValue);
+        value = _debtValue(balanceOfUnderlying());
     }
 
     /// @inheritdoc IDestinationVault
     function debtValue(uint256 shares) external virtual returns (uint256 value) {
-        if (shares == 0) {
-            return 0;
-        }
-        uint256 price = _systemRegistry.rootPriceOracle().getPriceInEth(_underlying);
-        uint256 ethValue = (price * shares) / (10 ** _underlyingDecimals);
-        value = getTokenPriceInBaseAsset(ethValue);
+        value = _debtValue(shares);
     }
 
     /// @inheritdoc IDestinationVault
@@ -160,20 +167,6 @@ abstract contract DestinationVault is SecurityBase, ERC20, Initializable, IDesti
     /// @return amounts amount of rewards claimed for each token
     /// @return tokens tokens claimed
     function _collectRewards() internal virtual returns (uint256[] memory amounts, address[] memory tokens);
-
-    /// @notice Figure out price in terms of the base asset
-    function getTokenPriceInBaseAsset(uint256 currentEthValue) internal returns (uint256 value) {
-        // If the base asset is WETH then we know its 1:1 to ETH so we'll just return the current value
-        if (address(_baseAsset) == address(_systemRegistry.weth())) {
-            return currentEthValue;
-        }
-
-        // Otherwise get the price of the base asset and convert
-        uint256 baseAssetPriceInEth = _systemRegistry.rootPriceOracle().getPriceInEth(address(_baseAsset));
-
-        // slither-disable-next-line divide-before-multiply
-        value = currentEthValue * 1e18 / baseAssetPriceInEth;
-    }
 
     function trackedTokens() public view virtual returns (address[] memory trackedTokensArr) {
         uint256 arLen = _trackedTokens.length();
@@ -229,9 +222,6 @@ abstract contract DestinationVault is SecurityBase, ERC20, Initializable, IDesti
 
         IERC20(_underlying).safeTransfer(to, amount);
     }
-
-    /// @inheritdoc IDestinationVault
-    function balanceOfUnderlying() public view virtual override returns (uint256 shares);
 
     /// @notice Ensure that we have the specified balance of the underlyer in the vault itself
     /// @param amount amount of token
@@ -319,5 +309,25 @@ abstract contract DestinationVault is SecurityBase, ERC20, Initializable, IDesti
     function _addTrackedToken(address token) internal {
         //slither-disable-next-line unused-return
         _trackedTokens.add(token);
+    }
+
+    function _debtValue(uint256 shares) private returns (uint256 value) {
+        //slither-disable-next-line incorrect-equality
+        if (shares == 0) {
+            return 0;
+        }
+
+        uint256 price = _systemRegistry.rootPriceOracle().getPriceInEth(_underlying);
+
+        // If the base asset is WETH then we know its 1:1 to ETH so we'll just return the current value
+        if (address(_baseAsset) == address(_systemRegistry.weth())) {
+            return (price * shares) / (10 ** _underlyingDecimals);
+        }
+
+        // TODO: Make sure this is correct,
+        // Otherwise get the price of the base asset and convert
+        uint256 baseAssetPriceInEth = _systemRegistry.rootPriceOracle().getPriceInEth(address(_baseAsset));
+
+        value = ((price * shares) * 1e18) / (baseAssetPriceInEth * (10 ** _underlyingDecimals));
     }
 }

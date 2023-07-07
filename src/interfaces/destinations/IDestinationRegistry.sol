@@ -12,10 +12,8 @@ interface IDestinationRegistry {
     event RemoveFromWhitelist(bytes32[] indexed destinationTypes);
 
     error InvalidAddress(address addr);
-    error ArraysLengthMismatch();
     error NotAllowedDestination();
     error DestinationAlreadySet();
-    error DestinationNotPresent();
 
     /**
      * @notice Adds a new addresses of the given destination types

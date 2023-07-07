@@ -3,26 +3,19 @@
 pragma solidity 0.8.17;
 
 import { Errors } from "src/utils/Errors.sol";
-import { Math } from "openzeppelin-contracts/utils/math/Math.sol";
-import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
-import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
-import { IMainRewarder } from "src/interfaces/rewarders/IMainRewarder.sol";
 import { DestinationVault } from "src/vault/DestinationVault.sol";
-import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
-import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
-import { MainRewarder } from "src/rewarders/MainRewarder.sol";
-import { IRouter } from "src/interfaces/external/maverick/IRouter.sol";
 import { IPool } from "src/interfaces/external/maverick/IPool.sol";
-import { IPosition } from "src/interfaces/external/maverick/IPosition.sol";
+import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
+import { IRouter } from "src/interfaces/external/maverick/IRouter.sol";
 import { IReward } from "src/interfaces/external/maverick/IReward.sol";
+import { IPosition } from "src/interfaces/external/maverick/IPosition.sol";
+import { IMainRewarder } from "src/interfaces/rewarders/IMainRewarder.sol";
 import { IPoolPositionSlim } from "src/interfaces/external/maverick/IPoolPositionSlim.sol";
 import { MaverickStakingAdapter } from "src/destinations/adapters/staking/MaverickStakingAdapter.sol";
 import { MaverickRewardsAdapter } from "src/destinations/adapters/rewards/MaverickRewardsAdapter.sol";
+import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-contract MaverickDestinationVault is DestinationVault, ReentrancyGuard {
-    using EnumerableSet for EnumerableSet.AddressSet;
-
+contract MaverickDestinationVault is DestinationVault {
     error NothingToClaim();
     error NoDebtReclaimed();
 
@@ -104,16 +97,10 @@ contract MaverickDestinationVault is DestinationVault, ReentrancyGuard {
         constituentTokens[1] = tokenB;
     }
 
-    function localBalance() public view returns (uint256) {
-        return IERC20(_underlying).balanceOf(address(this));
-    }
-
-    function externalBalance() public view returns (uint256) {
+    /// @notice Get the balance of underlyer currently staked in Maverick Rewarder
+    /// @return Balance of underlyer currently staked in Maverick Rewarder
+    function externalBalance() public view override returns (uint256) {
         return maverickRewarder.balanceOf(address(this));
-    }
-
-    function balanceOfUnderlying() public view override returns (uint256) {
-        return localBalance() + externalBalance();
     }
 
     /// @inheritdoc DestinationVault
@@ -139,7 +126,7 @@ contract MaverickDestinationVault is DestinationVault, ReentrancyGuard {
     /// @inheritdoc DestinationVault
     function _ensureLocalUnderlyingBalance(uint256 amount) internal virtual override {
         // We should almost always have our balance of LP in the rewarder
-        uint256 localLpBalance = localBalance();
+        uint256 localLpBalance = internalBalance();
         if (amount > localLpBalance) {
             MaverickStakingAdapter.unstakeLPs(maverickRewarder, amount - localLpBalance);
         }

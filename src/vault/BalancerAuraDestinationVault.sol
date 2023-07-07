@@ -3,7 +3,6 @@
 pragma solidity 0.8.17;
 
 import { Errors } from "src/utils/Errors.sol";
-import { MainRewarder } from "src/rewarders/MainRewarder.sol";
 import { DestinationVault } from "src/vault/DestinationVault.sol";
 import { BalancerUtilities } from "src/libs/BalancerUtilities.sol";
 import { IVault } from "src/interfaces/external/balancer/IVault.sol";
@@ -116,19 +115,8 @@ contract BalancerAuraDestinationVault is DestinationVault {
 
     /// @notice Get the balance of underlyer currently staked in Aura
     /// @return Balance of underlyer currently staked in Aura
-    function auraBalance() public view returns (uint256) {
+    function externalBalance() public view override returns (uint256) {
         return IERC20(auraStaking).balanceOf(address(this));
-    }
-
-    /// @notice Get the balance of underlyer currently in this Destination Vault directly
-    /// @return Balance of underlyer currently in this Destination Vault directly
-    function balancerBalance() public view returns (uint256) {
-        return IERC20(balancerPool).balanceOf(address(this));
-    }
-
-    /// @inheritdoc DestinationVault
-    function balanceOfUnderlying() public view override returns (uint256) {
-        return auraBalance() + balancerBalance();
     }
 
     /// @inheritdoc DestinationVault
@@ -151,7 +139,7 @@ contract BalancerAuraDestinationVault is DestinationVault {
         // We should almost always have our balance of LP tokens in Aura.
         // The exception being a donation we've made.
         // Withdraw from Aura back to this vault for use in a withdrawal
-        uint256 balancerLpBalance = balancerBalance();
+        uint256 balancerLpBalance = internalBalance();
         if (amount > balancerLpBalance) {
             AuraStaking.withdrawStake(balancerPool, auraStaking, amount - balancerLpBalance);
         }

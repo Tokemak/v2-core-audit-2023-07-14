@@ -12,6 +12,8 @@ import { IStatsCalculatorRegistry } from "src/interfaces/stats/IStatsCalculatorR
 import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
 import { TOKE_MAINNET, WETH_MAINNET } from "test/utils/Addresses.sol";
 
+// solhint-disable func-name-mixedcase
+
 contract SystemRegistryTest is Test {
     SystemRegistry private _systemRegistry;
 
@@ -21,6 +23,8 @@ contract SystemRegistryTest is Test {
     event DestinationVaultRegistrySet(address newAddress);
     event DestinationTemplateRegistrySet(address newAddress);
     event RootPriceOracleSet(address rootPriceOracle);
+    event SwapRouterSet(address swapRouter);
+    event CurveResolverSet(address curveResolver);
 
     function setUp() public {
         _systemRegistry = new SystemRegistry(TOKE_MAINNET, WETH_MAINNET);
@@ -534,6 +538,114 @@ contract SystemRegistryTest is Test {
         address rewardToken = vm.addr(123);
         vm.expectRevert(abi.encodeWithSelector(Errors.ItemNotFound.selector));
         _systemRegistry.removeRewardToken(rewardToken);
+    }
+
+    /* ******************************** */
+    /* Swap Router
+    /* ******************************** */
+
+    function test_setSwapRouter_CanBeSetMultipleTimes() public {
+        address router = vm.addr(1);
+        mockSystemComponent(router);
+        _systemRegistry.setSwapRouter(router);
+        assertEq(address(_systemRegistry.swapRouter()), router);
+
+        address router2 = vm.addr(2);
+        mockSystemComponent(router2);
+        _systemRegistry.setSwapRouter(router2);
+        assertEq(address(_systemRegistry.swapRouter()), router2);
+    }
+
+    function test_setSwapRouter_CannotSetDuplicate() public {
+        address router = vm.addr(1);
+        mockSystemComponent(router);
+        _systemRegistry.setSwapRouter(router);
+
+        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.DuplicateSet.selector, address(router)));
+        _systemRegistry.setSwapRouter(router);
+    }
+
+    function test_setSwapRouter_EmitsEventWithNewAddress() public {
+        address router = vm.addr(3);
+        mockSystemComponent(router);
+
+        vm.expectEmit(true, true, true, true);
+        emit SwapRouterSet(router);
+
+        _systemRegistry.setSwapRouter(router);
+    }
+
+    function test_setSwapRouter_OnlyCallableByOwner() public {
+        address router = vm.addr(3);
+        address newOwner = vm.addr(4);
+
+        vm.expectRevert("Ownable: caller is not the owner");
+        vm.prank(newOwner);
+        _systemRegistry.setSwapRouter(router);
+    }
+
+    function test_setSwapRouter_EnsuresSystemsMatch() public {
+        address router = vm.addr(1);
+        address fake = vm.addr(2);
+        vm.mockCall(router, abi.encodeWithSelector(ISystemComponent.getSystemRegistry.selector), abi.encode(fake));
+        vm.expectRevert(abi.encodeWithSelector(Errors.SystemMismatch.selector, address(_systemRegistry), fake));
+        _systemRegistry.setSwapRouter(router);
+    }
+
+    function test_setSwapRouter_CatchesInvalidContract() public {
+        // When its not a contract
+        address fakeRouter = vm.addr(2);
+        vm.expectRevert();
+        _systemRegistry.setRootPriceOracle(fakeRouter);
+
+        // When it is a contract, just incorrect
+        address emptyContract = address(new EmptyContract());
+        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.InvalidContract.selector, emptyContract));
+        _systemRegistry.setSwapRouter(emptyContract);
+    }
+
+    /* ******************************** */
+    /* Curve Resolver
+    /* ******************************** */
+
+    function test_setCurveResolver_CanBeSetMultipleTimes() public {
+        address resolver = vm.addr(1);
+        mockSystemComponent(resolver);
+        _systemRegistry.setCurveResolver(resolver);
+        assertEq(address(_systemRegistry.curveResolver()), resolver);
+
+        address resolver2 = vm.addr(2);
+        mockSystemComponent(resolver2);
+        _systemRegistry.setCurveResolver(resolver2);
+        assertEq(address(_systemRegistry.curveResolver()), resolver2);
+    }
+
+    function test_setCurveResolver_CannotSetDuplicate() public {
+        address resolver = vm.addr(1);
+        mockSystemComponent(resolver);
+        _systemRegistry.setCurveResolver(resolver);
+
+        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.DuplicateSet.selector, address(resolver)));
+        _systemRegistry.setCurveResolver(resolver);
+    }
+
+    function test_setCurveResolver_EmitsEventWithNewAddress() public {
+        address resolver = vm.addr(3);
+        mockSystemComponent(resolver);
+
+        vm.expectEmit(true, true, true, true);
+        emit CurveResolverSet(resolver);
+
+        _systemRegistry.setCurveResolver(resolver);
+    }
+
+    function test_setCurveResolver_OnlyCallableByOwner() public {
+        address resolver = vm.addr(3);
+        address newOwner = vm.addr(4);
+
+        vm.expectRevert("Ownable: caller is not the owner");
+        vm.prank(newOwner);
+        _systemRegistry.setCurveResolver(resolver);
     }
 
     /* ******************************** */

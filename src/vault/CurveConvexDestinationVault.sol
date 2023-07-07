@@ -140,19 +140,8 @@ contract CurveConvexDestinationVault is CurveV2FactoryCryptoAdapter, Destination
 
     /// @notice Get the balance of underlyer currently staked in Convex
     /// @return Balance of underlyer currently staked in Convex
-    function convexBalance() public view returns (uint256) {
+    function externalBalance() public view override returns (uint256) {
         return IBaseRewardPool(convexStaking).balanceOf(address(this));
-    }
-
-    /// @notice Get the balance of underlyer currently in this Destination Vault directly
-    /// @return Balance of underlyer currently in this Destination Vault directly
-    function curveBalance() public view returns (uint256) {
-        return IERC20(_underlying).balanceOf(address(this));
-    }
-
-    /// @inheritdoc DestinationVault
-    function balanceOfUnderlying() public view override returns (uint256) {
-        return convexBalance() + curveBalance();
     }
 
     /// @inheritdoc DestinationVault
@@ -181,7 +170,7 @@ contract CurveConvexDestinationVault is CurveV2FactoryCryptoAdapter, Destination
         // We should almost always have our balance of LP tokens in Convex.
         // The exception being a donation we've made.
         // Withdraw from Convex back to this vault for use in a withdrawal
-        uint256 curveLpBalance = curveBalance();
+        uint256 curveLpBalance = internalBalance();
         if (amount > curveLpBalance) {
             ConvexStaking.withdrawStake(_underlying, convexStaking, amount - curveLpBalance);
         }

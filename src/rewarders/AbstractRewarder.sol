@@ -23,6 +23,7 @@ import { Errors } from "src/utils/Errors.sol";
  * The contract is inspired by the Convex contract but uses block-based duration instead of timestamp-based duration.
  * Unlike Convex, it does not own the LP token but it interacts with an external LP token contract.
  */
+
 abstract contract AbstractRewarder is IBaseRewarder, SecurityBase {
     using SafeERC20 for IERC20;
 
@@ -309,7 +310,7 @@ abstract contract AbstractRewarder is IBaseRewarder, SecurityBase {
      * @notice Add an address to the whitelist.
      * @param wallet The address to be added to the whitelist.
      */
-    function addToWhitelist(address wallet) external hasRole(Roles.DV_REWARD_MANAGER_ROLE) {
+    function addToWhitelist(address wallet) external override hasRole(Roles.DV_REWARD_MANAGER_ROLE) {
         Errors.verifyNotZero(wallet, "wallet");
         if (whitelistedAddresses[wallet]) {
             revert Errors.ItemExists();
@@ -323,7 +324,7 @@ abstract contract AbstractRewarder is IBaseRewarder, SecurityBase {
      * @notice Remove an address from the whitelist.
      * @param wallet The address to be removed from the whitelist.
      */
-    function removeFromWhitelist(address wallet) external hasRole(Roles.DV_REWARD_MANAGER_ROLE) {
+    function removeFromWhitelist(address wallet) external override hasRole(Roles.DV_REWARD_MANAGER_ROLE) {
         if (!whitelistedAddresses[wallet]) {
             revert Errors.ItemNotFound();
         }
@@ -338,7 +339,7 @@ abstract contract AbstractRewarder is IBaseRewarder, SecurityBase {
      * @param wallet The address to be checked.
      * @return bool indicating if the address is whitelisted.
      */
-    function isWhitelisted(address wallet) external view returns (bool) {
+    function isWhitelisted(address wallet) external view override returns (bool) {
         return whitelistedAddresses[wallet];
     }
 

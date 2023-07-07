@@ -6,32 +6,32 @@ import { Roles } from "src/libs/Roles.sol";
 import { Errors } from "src/utils/Errors.sol";
 import { VaultTypes } from "src/vault/VaultTypes.sol";
 import { NonReentrant } from "src/utils/NonReentrant.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
 import { LMPStrategy } from "src/strategy/LMPStrategy.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
 import { ILMPVault } from "src/interfaces/vault/ILMPVault.sol";
 import { IStrategy } from "src/interfaces/strategy/IStrategy.sol";
 import { Math } from "openzeppelin-contracts/utils/math/Math.sol";
+import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import { Pausable } from "openzeppelin-contracts/security/Pausable.sol";
 import { IERC4626 } from "openzeppelin-contracts/interfaces/IERC4626.sol";
 import { IMainRewarder } from "src/interfaces/rewarders/IMainRewarder.sol";
-import { IERC20, ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import { IDestinationVault } from "src/interfaces/vault/IDestinationVault.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 import { ISystemRegistry, IDestinationVaultRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { ERC20Permit } from "openzeppelin-contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
 import { IERC3156FlashBorrower } from "openzeppelin-contracts/interfaces/IERC3156FlashBorrower.sol";
+import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 // Cross functional reetrancy was identified between updateDebtReporting and the
 // destinationInfo. Have nonReentrant and read-only nonReentrant modifier on them both
 // but slither was still complaining
 //slither-disable-start reentrancy-no-eth,reentrancy-benign
 
-// TODO: EIP2612?
-// TODO: Make sure LMP Vault is same decimals as asset
 // TODO: Be on the look out for an issue for where the destination vaults decimals are different than
 // the LMPVaults decimals. It's in here, just lost track of it.
-contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, NonReentrant {
+contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, NonReentrant {
     using EnumerableSet for EnumerableSet.AddressSet;
     using Math for uint256;
     using SafeERC20 for ERC20;
@@ -63,8 +63,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
     /// @notice Max fee. 100% == 10000
     uint256 public constant MAX_FEE_BPS = 10_000;
 
-    // TODO: Convert to SystemComponent
-    ISystemRegistry public immutable systemRegistry;
+    uint256 public constant NAV_CHANGE_ROUNDING_BUFFER = 100;
 
     /// @notice Factory contract that created this vault
     address public immutable factory;
@@ -77,6 +76,8 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
 
     /// @notice The current (though cached) value of assets we've deployed
     uint256 public totalDebt = 0;
+
+    uint8 private _baseAssetDecimals;
 
     EnumerableSet.AddressSet internal destinations;
     EnumerableSet.AddressSet internal removalQueue;
@@ -97,22 +98,48 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
     uint256 public navPerShareHighMarkTimestamp;
 
     EnumerableSet.AddressSet internal _trackedAssets;
-    IERC20 internal immutable _asset;
+    IERC20 internal immutable _baseAsset;
 
     error TooFewAssets(uint256 requested, uint256 actual);
     error WithdrawShareCalcInvalid(uint256 currentShares, uint256 cachedShares);
     error InvalidFee(uint256 newFee);
-    error OldFeeSinkMustNotHoldShares(address oldSink);
-    error NewFeeSinkMustNotHoldShares(address newink);
     error RewarderAlreadySet();
+    error RebalanceDestinationsMatch(address destinationVault);
+    error InvalidDestination(address destination);
+    error NavChanged(uint256 oldNav, uint256 newNav);
 
     event PerformanceFeeSet(uint256 newFee);
     event FeeSinkSet(address newFeeSink);
+    event NewNavHighWatermark(uint256 navPerShare, uint256 timestamp);
+    event TotalAssetsProcessed(uint256 total);
+
+    modifier noNavChange() {
+        uint256 ts = totalSupply();
+        if (ts > 0) {
+            uint256 oldNav = (totalAssets() * MAX_FEE_BPS) / totalSupply();
+            uint256 lowerBound = Math.max(oldNav, NAV_CHANGE_ROUNDING_BUFFER) - NAV_CHANGE_ROUNDING_BUFFER;
+            uint256 upperBound = oldNav > type(uint256).max - NAV_CHANGE_ROUNDING_BUFFER
+                ? type(uint256).max
+                : oldNav + NAV_CHANGE_ROUNDING_BUFFER;
+            _;
+            ts = totalSupply();
+            if (ts > 0) {
+                uint256 newNav = (totalAssets() * MAX_FEE_BPS) / totalSupply();
+
+                if (newNav < lowerBound || newNav > upperBound) {
+                    revert NavChanged(oldNav, newNav);
+                }
+            }
+        } else {
+            _;
+        }
+    }
 
     constructor(
         ISystemRegistry _systemRegistry,
         address _vaultAsset
     )
+        SystemComponent(_systemRegistry)
         ERC20(
             string(abi.encodePacked(ERC20(_vaultAsset).name(), " Pool Token")),
             string(abi.encodePacked("lmp", ERC20(_vaultAsset).symbol()))
@@ -120,9 +147,8 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         ERC20Permit(string(abi.encodePacked("lmp", ERC20(_vaultAsset).symbol())))
         SecurityBase(address(_systemRegistry.accessController()))
     {
-        systemRegistry = _systemRegistry;
-
-        _asset = IERC20(_vaultAsset); // TODO: rename to baseAsset for consistency
+        _baseAsset = IERC20(_vaultAsset);
+        _baseAssetDecimals = IERC20(_vaultAsset).decimals();
 
         // init withdrawal queue to empty (slither issue)
         withdrawalQueue = new IDestinationVault[](0);
@@ -131,12 +157,15 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         navPerShareHighMarkTimestamp = block.timestamp;
     }
 
+    /// @inheritdoc IERC20
+    function decimals() public view virtual override(ERC20, IERC20) returns (uint8) {
+        return _baseAssetDecimals;
+    }
+
     /// @notice Set the fee that will be taken when profit is realized
     /// @dev Resets the high water to current value
     /// @param fee Percent. 100% == 10000
-    function setPerformanceFeeBps(uint256 fee) external nonReentrant {
-        // TODO: Access control
-
+    function setPerformanceFeeBps(uint256 fee) external nonReentrant hasRole(Roles.LMP_FEE_SETTER_ROLE) {
         if (fee >= MAX_FEE_BPS) {
             revert InvalidFee(fee);
         }
@@ -150,7 +179,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
             navPerShareHighMark = (totalAssets() * MAX_FEE_BPS) / supply;
         } else {
             // The default high mark is 1:1. We don't want to be able to take
-            // fee's before the first debt reporting (i.e. we've only done rebalance)
+            // fee's before the first debt reporting
             // Before a rebalance, everything will be in idle and we don't want to take
             // fee's on pure idle
             navPerShareHighMark = MAX_FEE_BPS;
@@ -161,9 +190,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
 
     /// @notice Set the address that will receive fees
     /// @param newFeeSink Address that will receive fees
-    function setFeeSink(address newFeeSink) external {
-        // TODO: Access control
-
+    function setFeeSink(address newFeeSink) external onlyOwner {
         emit FeeSinkSet(newFeeSink);
 
         // Zero is valid. One way to disable taking fees
@@ -191,7 +218,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
 
     /// @dev See {IERC4626-asset}.
     function asset() public view virtual override returns (address) {
-        return address(_asset);
+        return address(_baseAsset);
     }
 
     function totalAssets() public view override returns (uint256) {
@@ -227,7 +254,8 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
     function deposit(
         uint256 assets,
         address receiver
-    ) public virtual override whenNotPaused nonReentrant returns (uint256 shares) {
+    ) public virtual override whenNotPaused nonReentrant noNavChange returns (uint256 shares) {
+        Errors.verifyNotZero(assets, "assets");
         if (assets > maxDeposit(receiver)) {
             revert ERC4626DepositExceedsMax(assets, maxDeposit(receiver));
         }
@@ -235,9 +263,6 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         shares = previewDeposit(assets);
 
         _transferAndMint(assets, shares, receiver);
-
-        // set a stake in rewarder
-        rewarder.stake(receiver, shares);
     }
 
     /// @dev See {IERC4626-maxMint}.
@@ -279,7 +304,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
     function mint(
         uint256 shares,
         address receiver
-    ) public virtual override whenNotPaused nonReentrant returns (uint256 assets) {
+    ) public virtual override whenNotPaused nonReentrant noNavChange returns (uint256 assets) {
         if (shares > maxMint(receiver)) {
             revert ERC4626MintExceedsMax(shares, maxMint(receiver));
         }
@@ -287,9 +312,6 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         assets = previewMint(shares);
 
         _transferAndMint(assets, shares, receiver);
-
-        // set a stake in rewarder
-        rewarder.stake(receiver, shares);
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -301,11 +323,11 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         uint256 assets,
         address receiver,
         address owner
-    ) public virtual override whenNotPaused nonReentrant returns (uint256 shares) {
+    ) public virtual override whenNotPaused nonReentrant noNavChange returns (uint256 shares) {
+        Errors.verifyNotZero(assets, "assets");
         // @audit where are we checking assets <= maxWithdraw
 
         // query number of shares these assets match
-
         shares = previewWithdraw(assets);
 
         uint256 actualAssets = _withdraw(assets, shares, receiver, owner);
@@ -320,7 +342,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         uint256 shares,
         address receiver,
         address owner
-    ) public virtual override whenNotPaused nonReentrant returns (uint256 assets) {
+    ) public virtual override whenNotPaused nonReentrant noNavChange returns (uint256 assets) {
         // @audit where are we checking shares <= maxRedeem
 
         assets = previewRedeem(shares);
@@ -373,10 +395,6 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
 
         // Neither of these numbers include rewards from the DV
         if (currentDvDebtValue < updatedDebtBasis) {
-            // TODO: Decide if we want to add some tolerance to the above check
-            // During initial deployments, tiny price movements could make this
-            // jump back and forth
-
             // We are currently sitting at a loss. Limit the value we can pull from
             // the destination vault
             currentDvDebtValue = currentDvDebtValue.mulDiv(userShares, totalVaultShares, Math.Rounding.Down);
@@ -391,7 +409,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
 
         // Calculate the portion of shares to burn based on the assets we need to pull
         // and the current total debt value. These are destination vault shares.
-        sharesToBurn = currentDvShares.mulDiv(maxAssetsToPull, currentDvDebtValue, Math.Rounding.Down);
+        sharesToBurn = currentDvShares.mulDiv(maxAssetsToPull, currentDvDebtValue, Math.Rounding.Up);
 
         // This is what will be deducted from totalDebt with the withdrawal. The totalDebt number
         // is calculated based on the cached values so we need to be sure to reduce it
@@ -419,7 +437,6 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
             uint256 withdrawalQueueLength = withdrawalQueue.length;
             for (uint256 i = 0; i < withdrawalQueueLength; ++i) {
                 IDestinationVault destVault = IDestinationVault(withdrawalQueue[i]);
-
                 (uint256 sharesToBurn, uint256 totalDebtBurn) = _calcUserWithdrawSharesToBurn(
                     destVault, shares, info.totalAssetsToPull - info.totalAssetsPulled, totalVaultShares
                 );
@@ -472,10 +489,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
 
         _burn(owner, shares);
 
-        _asset.safeTransfer(receiver, returnedAssets);
-
-        // remove stake from rewarder
-        rewarder.withdraw(owner, shares, false);
+        _baseAsset.safeTransfer(receiver, returnedAssets);
 
         // There is mix of usage of msg.sender and _msgSender, pick one
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
@@ -537,7 +551,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
             if (token.balanceOf(address(this)) < amount) revert Errors.InsufficientBalance(tokenAddress);
 
             // if matches base asset, subtract from idle
-            if (onlyDoTracked && tokenAddress == address(_asset)) {
+            if (onlyDoTracked && tokenAddress == address(_baseAsset)) {
                 // TODO: not sure if need this check, since checking balance above, but would prevent invalid state?
                 if (totalIdle < amount) revert Errors.InsufficientBalance(tokenAddress);
                 // subtract from idle
@@ -603,7 +617,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         // Conclusion: we need to do the transfer before we mint so that any reentrancy would happen before the
         // assets are transferred and before the shares are minted, which is a valid state.
         // slither-disable-next-line reentrancy-no-eth
-        _asset.safeTransferFrom(_msgSender(), address(this), assets);
+        _baseAsset.safeTransferFrom(_msgSender(), address(this), assets);
 
         totalIdle += assets;
 
@@ -765,8 +779,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         uint256 debtDecrease = 0;
         uint256 debtIncrease = 0;
         uint256 idleDecrease = 0;
-        uint256 idle = totalIdle;
-        uint256 debt = totalDebt;
+        uint256 idleIncrease = 0;
 
         // make sure there's something to do
         if (amountIn == 0 && amountOut == 0) {
@@ -774,8 +787,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         }
 
         if (destinationIn == destinationOut) {
-            // TODO: Use different error
-            revert Errors.InvalidParams();
+            revert RebalanceDestinationsMatch(destinationOut);
         }
 
         // make sure we have a valid path
@@ -800,24 +812,32 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
 
             // deposit to dv (already checked in `verifyRebalance` so no need to check return of deposit)
 
-            if (tokenIn != address(_asset)) {
+            if (tokenIn != address(_baseAsset)) {
                 IDestinationVault dvIn = IDestinationVault(destinationIn);
                 (uint256 debtDecreaseIn, uint256 debtIncreaseIn) = _handleRebalanceIn(dvIn, tokenIn, amountIn);
                 debtDecrease += debtDecreaseIn;
                 debtIncrease += debtIncreaseIn;
             } else {
-                idle += amountIn;
+                idleIncrease = amountIn;
             }
         }
 
-        if (debtDecrease > 0 || debtIncrease > 0) {
-            debt = debt + debtIncrease - debtDecrease;
+        {
+            uint256 idle = totalIdle;
+            uint256 debt = totalDebt;
+
+            if (idleDecrease > 0 || idleIncrease > 0) {
+                idle = idle + idleIncrease - idleDecrease;
+                totalIdle = idle;
+            }
+
+            if (debtDecrease > 0 || debtIncrease > 0) {
+                debt = debt + debtIncrease - debtDecrease;
+                totalDebt = debt;
+            }
+
+            _collectFees(idle, debt);
         }
-
-        totalIdle = idle - idleDecrease;
-        totalDebt = debt;
-
-        _collectFees(idle - idleDecrease, debt);
     }
 
     /// @inheritdoc IStrategy
@@ -836,8 +856,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         }
 
         if (rebalanceParams.destinationIn == rebalanceParams.destinationOut) {
-            // TODO: Use different error
-            revert Errors.InvalidParams();
+            revert RebalanceDestinationsMatch(rebalanceParams.destinationOut);
         }
 
         // make sure we have a valid path
@@ -890,7 +909,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
                 revert Errors.FlashLoanFailed(rebalanceParams.tokenIn, rebalanceParams.amountIn);
             }
 
-            if (rebalanceParams.tokenIn != address(_asset)) {
+            if (rebalanceParams.tokenIn != address(_baseAsset)) {
                 (uint256 debtDecreaseIn, uint256 debtIncreaseIn) =
                     _handleRebalanceIn(dvIn, rebalanceParams.tokenIn, tokenInBalanceAfter);
                 debtDecrease += debtDecreaseIn;
@@ -900,15 +919,22 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
             }
         }
 
-        if (idleDecrease > 0 || idleIncrease > 0) {
-            totalIdle = totalIdle + idleIncrease - idleDecrease;
-        }
+        {
+            uint256 idle = totalIdle;
+            uint256 debt = totalDebt;
 
-        if (debtDecrease > 0 || debtIncrease > 0) {
-            totalDebt = totalDebt + debtIncrease - debtDecrease;
-        }
+            if (idleDecrease > 0 || idleIncrease > 0) {
+                idle = idle + idleIncrease - idleDecrease;
+                totalIdle = idle;
+            }
 
-        _collectFees(totalIdle, totalDebt);
+            if (debtDecrease > 0 || debtIncrease > 0) {
+                debt = debt + debtIncrease - debtDecrease;
+                totalDebt = debt;
+            }
+
+            _collectFees(idle, debt);
+        }
     }
 
     /// @notice Perform deposit and debt info update for the "in" destination during a rebalance
@@ -957,7 +983,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
         // If the tokenOut is _asset we assume they are taking idle
         // which is already in the contract
         if (amountOut > 0) {
-            if (tokenOut != address(_asset)) {
+            if (tokenOut != address(_baseAsset)) {
                 IDestinationVault dvOut = IDestinationVault(destinationOut);
 
                 // Snapshot our current shares so we know how much to back out
@@ -1005,7 +1031,7 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
             IDestinationVault destVault = IDestinationVault(_destinations[i]);
 
             if (!destinations.contains(address(destVault))) {
-                revert Errors.ItemNotFound(); // TODO: Add in the address to the error, maybe use different error
+                revert InvalidDestination(address(destVault));
             }
 
             // Get the reward value we've earned. DV rewards are always in terms of base asset
@@ -1013,9 +1039,10 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
             // Main rewarder on DV's store the earned and liquidated rewards
             // Any extra rewarders would not be taken into account here as they still need liquidated
             uint256 claimGasUsed = gasleft();
-            uint256 beforeBaseAsset = _asset.balanceOf(address(this));
-            IMainRewarder(destVault.rewarder()).getReward();
-            uint256 claimedRewardValue = _asset.balanceOf(address(this)) - beforeBaseAsset;
+            uint256 beforeBaseAsset = _baseAsset.balanceOf(address(this));
+            // We don't want any extras, those would likely not be baseAsset
+            IMainRewarder(destVault.rewarder()).getReward(address(this), false);
+            uint256 claimedRewardValue = _baseAsset.balanceOf(address(this)) - beforeBaseAsset;
             claimGasUsed -= gasleft();
             idleIncrease += claimedRewardValue;
 
@@ -1038,33 +1065,35 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
     }
 
     function _collectFees(uint256 idle, uint256 debt) private {
-        // TODO: Retool to always track the high water mark so that setting a sink later doesn't pickup the backlog
         address sink = feeSink;
         uint256 fees = 0;
         uint256 shares = 0;
         uint256 profit = 0;
-        if (sink != address(0)) {
-            uint256 totalSupply = totalSupply();
-            uint256 currentNavPerShare = ((idle + debt) * MAX_FEE_BPS) / totalSupply;
-            uint256 effectiveNavPerShareHighMark = navPerShareHighMark; // TODO: Add in any decay we want here
 
-            if (currentNavPerShare > effectiveNavPerShareHighMark) {
-                // TODO: Evaluate the rounding that's happened in these nav -> supply calcs
-                profit = (currentNavPerShare - effectiveNavPerShareHighMark) * totalSupply;
-                fees = profit.mulDiv(performanceFeeBps, (MAX_FEE_BPS ** 2), Math.Rounding.Up);
-                if (fees > 0) {
-                    shares = _convertToShares(fees, Math.Rounding.Up);
-                    _mint(sink, shares);
-                    rewarder.stake(sink, shares);
-                    emit Deposit(address(this), sink, fees, shares);
-                }
+        uint256 totalSupply = totalSupply();
 
-                // Set our new high water mark
-                navPerShareHighMark = currentNavPerShare;
-                navPerShareHighMarkTimestamp = block.timestamp;
+        if (totalSupply == 0) {
+            return;
+        }
+
+        uint256 currentNavPerShare = ((idle + debt) * MAX_FEE_BPS) / totalSupply;
+        uint256 effectiveNavPerShareHighMark = navPerShareHighMark; // TODO: Add in any decay we want here
+
+        if (currentNavPerShare > effectiveNavPerShareHighMark) {
+            profit = (currentNavPerShare - effectiveNavPerShareHighMark) * totalSupply;
+            fees = profit.mulDiv(performanceFeeBps, (MAX_FEE_BPS ** 2), Math.Rounding.Up);
+            if (fees > 0 && sink != address(0)) {
+                shares = _convertToShares(fees, Math.Rounding.Up);
+                _mint(sink, shares);
+                emit Deposit(address(this), sink, fees, shares);
             }
+            // Set our new high water mark
+            navPerShareHighMark = currentNavPerShare;
+            navPerShareHighMarkTimestamp = block.timestamp;
+            emit NewNavHighWatermark(currentNavPerShare, block.timestamp);
         }
         emit FeeCollected(fees, sink, shares, profit);
+        emit TotalAssetsProcessed(idle + debt);
     }
 
     function _recalculateDestInfo(
@@ -1103,6 +1132,26 @@ contract LMPVault is ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, 
 
         totalDebtDecrease = currentDebt;
         totalDebtIncrease = dvDebtValue;
+    }
+
+    function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual override {
+        if (from == to) {
+            return;
+        }
+
+        if (from != address(0)) {
+            rewarder.withdraw(from, amount, true);
+        }
+    }
+
+    function _afterTokenTransfer(address from, address to, uint256 amount) internal virtual override {
+        if (from == to) {
+            return;
+        }
+
+        if (to != address(0)) {
+            rewarder.stake(to, amount);
+        }
     }
 }
 

@@ -22,9 +22,6 @@ import { IAsyncSwapperRegistry } from "src/interfaces/liquidation/IAsyncSwapperR
 import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
 import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-/// TODO: Swap router set tests
-/// TODO: Curve Resolver set tests
-
 /// @notice Root contract of the system instance.
 /// @dev All contracts in this instance of the system should be reachable from this contract
 contract SystemRegistry is ISystemRegistry, Ownable2Step {

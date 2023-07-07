@@ -59,7 +59,7 @@ contract MainRewarder is AbstractRewarder, IMainRewarder, ReentrancyGuard {
         }
 
         if (claim) {
-            getReward(account, true);
+            _processRewards(account, true);
         }
     }
 
@@ -72,8 +72,18 @@ contract MainRewarder is AbstractRewarder, IMainRewarder, ReentrancyGuard {
         }
     }
 
-    function getReward(address account, bool claimExtras) public nonReentrant {
+    function getReward() external nonReentrant {
+        _updateReward(msg.sender);
+        _processRewards(msg.sender, true);
+    }
+
+    // TODO: Is this something we want?
+    function getReward(address account, bool claimExtras) external nonReentrant {
         _updateReward(account);
+        _processRewards(account, claimExtras);
+    }
+
+    function _processRewards(address account, bool claimExtras) internal {
         _getReward(account);
 
         //also get rewards from linked rewards
@@ -82,9 +92,5 @@ contract MainRewarder is AbstractRewarder, IMainRewarder, ReentrancyGuard {
                 IExtraRewarder(extraRewards[i]).getReward(account);
             }
         }
-    }
-
-    function getReward() external {
-        getReward(msg.sender, true);
     }
 }

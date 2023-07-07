@@ -2,9 +2,10 @@
 // Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity >=0.8.7;
 
-// solhint-disable func-name-mixedcase
+// solhint-disable func-name-mixedcase,max-states-count
 
 import { Roles } from "src/libs/Roles.sol";
+import { Errors } from "src/utils/Errors.sol";
 import { LMPVault } from "src/vault/LMPVault.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
 import { SystemRegistry } from "src/SystemRegistry.sol";
@@ -26,6 +27,55 @@ import { DestinationRegistry } from "src/destinations/DestinationRegistry.sol";
 import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { IERC3156FlashBorrower } from "openzeppelin-contracts/interfaces/IERC3156FlashBorrower.sol";
 
+contract LMPVaultTests is Test {
+    SystemRegistry private _systemRegistry;
+    AccessController private _accessController;
+
+    TestERC20 private _asset;
+    LMPVaultMinting private _lmpVault;
+
+    function setUp() public {
+        vm.label(address(this), "testContract");
+
+        _systemRegistry = new SystemRegistry(vm.addr(100), vm.addr(101));
+
+        _accessController = new AccessController(address(_systemRegistry));
+        _systemRegistry.setAccessController(address(_accessController));
+
+        _asset = new TestERC20("asset", "asset");
+        _asset.setDecimals(9);
+        vm.label(address(_asset), "asset");
+
+        _lmpVault = new LMPVaultMinting(_systemRegistry, address(_asset));
+        vm.label(address(_lmpVault), "lmpVault");
+    }
+
+    function test_constructor_UsesBaseAssetDecimals() public {
+        assertEq(9, _lmpVault.decimals());
+    }
+
+    function test_setFeeSink_RequiresOwnerPermissions() public {
+        address notAdmin = vm.addr(34_234);
+
+        vm.startPrank(notAdmin);
+        vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
+        _lmpVault.setFeeSink(notAdmin);
+        vm.stopPrank();
+
+        _lmpVault.setFeeSink(notAdmin);
+    }
+
+    function test_setPerformanceFeeBps_RequiresFeeSetterRole() public {
+        vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
+        _lmpVault.setPerformanceFeeBps(6);
+
+        address feeSetter = vm.addr(234_234);
+        _accessController.grantRole(Roles.LMP_FEE_SETTER_ROLE, feeSetter);
+        vm.prank(feeSetter);
+        _lmpVault.setPerformanceFeeBps(6);
+    }
+}
+
 contract LMPVaultMintingTests is Test {
     SystemRegistry private _systemRegistry;
     AccessController private _accessController;
@@ -36,6 +86,7 @@ contract LMPVaultMintingTests is Test {
     IRootPriceOracle private _rootPriceOracle;
 
     TestERC20 private _asset;
+    TestERC20 private _toke;
     LMPVaultMinting private _lmpVault;
     MainRewarder private _rewarder;
 
@@ -52,7 +103,11 @@ contract LMPVaultMintingTests is Test {
     function setUp() public {
         vm.label(address(this), "testContract");
 
-        _systemRegistry = new SystemRegistry(vm.addr(100), vm.addr(101));
+        _toke = new TestERC20("test", "test");
+        vm.label(address(_toke), "toke");
+
+        _systemRegistry = new SystemRegistry(address(_toke), vm.addr(101));
+        _systemRegistry.addRewardToken(address(_toke));
 
         _accessController = new AccessController(address(_systemRegistry));
         _systemRegistry.setAccessController(address(_accessController));
@@ -72,7 +127,7 @@ contract LMPVaultMintingTests is Test {
         _rewarder = new MainRewarder(
             _systemRegistry, // registry
             address(_lmpVault), // stakeTracker
-            address(_asset),
+            address(_toke),
             800, // newRewardRatio
             100 // durationInBlock
         );
@@ -206,6 +261,123 @@ contract LMPVaultMintingTests is Test {
         assertEq(message, "");
     }
 
+    function testFuzz_deposit_NoNavChangeDuringWithdraw(
+        uint256 amount,
+        uint256 amountWithdraw,
+        uint256 amount2,
+        uint256 amountWithdraw2,
+        uint256 rebalDivisor,
+        bool rebalanceAmount1
+    ) public {
+        vm.assume(amount > 100);
+        vm.assume(amount < 100_000_000e18);
+        vm.assume(amountWithdraw > 100);
+        vm.assume(amount >= amountWithdraw);
+        vm.assume(type(uint256).max / _lmpVault.MAX_FEE_BPS() >= amount);
+        vm.assume(type(uint256).max / _lmpVault.MAX_FEE_BPS() >= amountWithdraw);
+        vm.assume(amount <= type(uint256).max / 2 / _lmpVault.MAX_FEE_BPS());
+
+        vm.assume(amount2 > 100);
+        vm.assume(amount2 < 100_000_000e18);
+        vm.assume(amountWithdraw2 > 100);
+        vm.assume(amount2 >= amountWithdraw2);
+        vm.assume(type(uint256).max / _lmpVault.MAX_FEE_BPS() >= amount2);
+        vm.assume(type(uint256).max / _lmpVault.MAX_FEE_BPS() >= amountWithdraw2);
+        vm.assume(amount2 <= type(uint256).max / 2 / _lmpVault.MAX_FEE_BPS());
+
+        vm.assume(rebalDivisor < (rebalanceAmount1 ? amount : amount2) / 2);
+        vm.assume(rebalDivisor > 1);
+
+        address user1 = vm.addr(100);
+        vm.label(user1, "user1");
+        address user2 = vm.addr(200);
+        vm.label(user2, "user2");
+
+        _asset.mint(user1, amount);
+        _asset.mint(user2, amount2);
+
+        vm.startPrank(user1);
+        _asset.approve(address(_lmpVault), amount);
+        _lmpVault.deposit(amount, user1);
+        vm.stopPrank();
+        vm.startPrank(user2);
+        _asset.approve(address(_lmpVault), amount2);
+        _lmpVault.deposit(amount2, user2);
+        vm.stopPrank();
+
+        address solver = vm.addr(23_423_434);
+        vm.label(solver, "solver");
+        _accessController.grantRole(Roles.SOLVER_ROLE, solver);
+
+        uint256 rebalanceOut = rebalanceAmount1 ? amount : amount2;
+
+        // At time of writing LMPVault always returned true for verifyRebalance
+        _underlyerOne.mint(solver, rebalanceOut);
+        vm.startPrank(solver);
+        _underlyerOne.approve(address(_lmpVault), rebalanceOut);
+        _lmpVault.rebalance(
+            address(_destVaultOne),
+            address(_underlyerOne), // tokenIn
+            rebalanceOut / 2,
+            address(0), // destinationOut, none when sending out baseAsset
+            address(_asset), // baseAsset, tokenOut
+            rebalanceOut
+        );
+        vm.stopPrank();
+
+        {
+            uint256 max = _lmpVault.maxWithdraw(user1);
+            vm.startPrank(user1);
+            uint256 pull = amountWithdraw > max ? max / 2 > 0 ? max / 2 : max : amountWithdraw;
+
+            if (pull > 0) {
+                uint256 shares = _lmpVault.withdraw(pull, user1, user1);
+                assertEq(shares > 0, true, "user1WithdrawShares");
+            }
+            vm.stopPrank();
+        }
+
+        {
+            uint256 max = _lmpVault.maxWithdraw(user2);
+            vm.startPrank(user2);
+            uint256 pull = amountWithdraw2 > max ? max / 2 > 0 ? max / 2 : max : amountWithdraw2;
+
+            if (pull > 0) {
+                uint256 shares = _lmpVault.withdraw(pull, user2, user2);
+                assertEq(shares > 0, true, "user2WithdrawShares");
+            }
+            vm.stopPrank();
+        }
+        {
+            uint256 remainingShares = _lmpVault.balanceOf(user1);
+
+            if (remainingShares > 0) {
+                vm.prank(user1);
+                uint256 assets = _lmpVault.redeem(remainingShares, user1, user1);
+                assertEq(assets > 0, true, "user1RedeemAssets");
+            }
+        }
+        {
+            uint256 remainingShares = _lmpVault.balanceOf(user2);
+
+            if (remainingShares > 0) {
+                vm.prank(user2);
+                uint256 assets = _lmpVault.redeem(remainingShares, user2, user2);
+                assertEq(assets > 0, true, "user2RedeemAssets");
+            }
+        }
+
+        // We've pulled everything
+        assertEq(_lmpVault.totalDebt(), 0, "totalDebtPre");
+        assertEq(_lmpVault.totalIdle(), 0, "totalIdlePre");
+
+        _lmpVault.updateDebtReporting(_destinations);
+
+        // Ensure this is still true after reporting
+        assertEq(_lmpVault.totalDebt(), 0, "totalDebtPost");
+        assertEq(_lmpVault.totalIdle(), 0, "totalIdlePost");
+    }
+
     function test_deposit_InitialSharesMintedOneToOneIntoIdle() public {
         _asset.mint(address(this), 1000);
         _asset.approve(address(_lmpVault), 1000);
@@ -220,6 +392,62 @@ contract LMPVaultMintingTests is Test {
         assertEq(beforeAsset - afterAsset, 1000);
         assertEq(afterShares - beforeShares, 1000);
         assertEq(_lmpVault.totalIdle(), 1000);
+    }
+
+    function test_deposit_StartsEarningWhileStillReceivingToken() public {
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        assertEq(_lmpVault.balanceOf(address(this)), 0);
+        assertEq(_lmpVault.rewarder().balanceOf(address(this)), 0);
+
+        _accessController.grantRole(Roles.DV_REWARD_MANAGER_ROLE, address(this));
+        _lmpVault.rewarder().addToWhitelist(address(this));
+        _toke.mint(address(this), 1000e18);
+        _toke.approve(address(_lmpVault.rewarder()), 1000e18);
+        _lmpVault.rewarder().queueNewRewards(1000e18);
+
+        uint256 shares = _lmpVault.deposit(1000, address(this));
+
+        vm.roll(block.number + 10_000);
+
+        assertEq(shares, 1000);
+        assertEq(_lmpVault.balanceOf(address(this)), 1000);
+        assertEq(_lmpVault.rewarder().balanceOf(address(this)), 1000);
+        assertEq(_lmpVault.rewarder().earned(address(this)), 1000e18, "earned");
+
+        assertEq(_toke.balanceOf(address(this)), 0);
+        _lmpVault.rewarder().getReward();
+        assertEq(_toke.balanceOf(address(this)), 1000e18);
+        assertEq(_lmpVault.rewarder().earned(address(this)), 0, "earnedAfter");
+    }
+
+    function test_mint_StartsEarningWhileStillReceivingToken() public {
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        assertEq(_lmpVault.balanceOf(address(this)), 0);
+        assertEq(_lmpVault.rewarder().balanceOf(address(this)), 0);
+
+        _accessController.grantRole(Roles.DV_REWARD_MANAGER_ROLE, address(this));
+        _lmpVault.rewarder().addToWhitelist(address(this));
+        _toke.mint(address(this), 1000e18);
+        _toke.approve(address(_lmpVault.rewarder()), 1000e18);
+        _lmpVault.rewarder().queueNewRewards(1000e18);
+
+        uint256 assets = _lmpVault.mint(1000, address(this));
+
+        vm.roll(block.number + 10_000);
+
+        assertEq(assets, 1000);
+        assertEq(_lmpVault.balanceOf(address(this)), 1000);
+        assertEq(_lmpVault.rewarder().balanceOf(address(this)), 1000);
+        assertEq(_lmpVault.rewarder().earned(address(this)), 1000e18, "earned");
+
+        assertEq(_toke.balanceOf(address(this)), 0);
+        _lmpVault.rewarder().getReward();
+        assertEq(_toke.balanceOf(address(this)), 1000e18);
+        assertEq(_lmpVault.rewarder().earned(address(this)), 0, "earnedAfter");
     }
 
     function test_withdraw_AssetsComeFromIdleOneToOne() public {
@@ -239,6 +467,34 @@ contract LMPVaultMintingTests is Test {
         assertEq(_lmpVault.totalIdle(), 0);
     }
 
+    function test_withdraw_ClaimsRewardedTokens() public {
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        assertEq(_lmpVault.balanceOf(address(this)), 0);
+        assertEq(_lmpVault.rewarder().balanceOf(address(this)), 0);
+
+        _accessController.grantRole(Roles.DV_REWARD_MANAGER_ROLE, address(this));
+        _lmpVault.rewarder().addToWhitelist(address(this));
+        _toke.mint(address(this), 1000e18);
+        _toke.approve(address(_lmpVault.rewarder()), 1000e18);
+        _lmpVault.rewarder().queueNewRewards(1000e18);
+
+        uint256 shares = _lmpVault.deposit(1000, address(this));
+
+        vm.roll(block.number + 10_000);
+
+        assertEq(shares, 1000);
+        assertEq(_lmpVault.balanceOf(address(this)), 1000);
+        assertEq(_lmpVault.rewarder().balanceOf(address(this)), 1000);
+        assertEq(_lmpVault.rewarder().earned(address(this)), 1000e18, "earned");
+
+        assertEq(_toke.balanceOf(address(this)), 0);
+        _lmpVault.withdraw(1000, address(this), address(this));
+        assertEq(_toke.balanceOf(address(this)), 1000e18);
+        assertEq(_lmpVault.rewarder().earned(address(this)), 0, "earnedAfter");
+    }
+
     function test_redeem_AssetsFromIdleOneToOne() public {
         _asset.mint(address(this), 1000);
         _asset.approve(address(_lmpVault), 1000);
@@ -254,6 +510,73 @@ contract LMPVaultMintingTests is Test {
         assertEq(1000, beforeShares - afterShares);
         assertEq(1000, afterAsset - beforeAsset);
         assertEq(_lmpVault.totalIdle(), 0);
+    }
+
+    function test_redeem_ClaimsRewardedTokens() public {
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        assertEq(_lmpVault.balanceOf(address(this)), 0);
+        assertEq(_lmpVault.rewarder().balanceOf(address(this)), 0);
+
+        _accessController.grantRole(Roles.DV_REWARD_MANAGER_ROLE, address(this));
+        _lmpVault.rewarder().addToWhitelist(address(this));
+        _toke.mint(address(this), 1000e18);
+        _toke.approve(address(_lmpVault.rewarder()), 1000e18);
+        _lmpVault.rewarder().queueNewRewards(1000e18);
+
+        uint256 shares = _lmpVault.deposit(1000, address(this));
+
+        vm.roll(block.number + 10_000);
+
+        assertEq(shares, 1000);
+        assertEq(_lmpVault.balanceOf(address(this)), 1000);
+        assertEq(_lmpVault.rewarder().balanceOf(address(this)), 1000);
+        assertEq(_lmpVault.rewarder().earned(address(this)), 1000e18, "earned");
+
+        assertEq(_toke.balanceOf(address(this)), 0);
+        _lmpVault.redeem(1000, address(this), address(this));
+        assertEq(_toke.balanceOf(address(this)), 1000e18);
+        assertEq(_lmpVault.rewarder().earned(address(this)), 0, "earnedAfter");
+    }
+
+    function test_transfer_ClaimsRewardedTokensAndRecipientStartsEarning() public {
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        assertEq(_lmpVault.balanceOf(address(this)), 0);
+        assertEq(_lmpVault.rewarder().balanceOf(address(this)), 0);
+
+        _accessController.grantRole(Roles.DV_REWARD_MANAGER_ROLE, address(this));
+        _lmpVault.rewarder().addToWhitelist(address(this));
+        _toke.mint(address(this), 1000e18);
+        _toke.approve(address(_lmpVault.rewarder()), 1000e18);
+        _lmpVault.rewarder().queueNewRewards(1000e18);
+
+        uint256 shares = _lmpVault.deposit(1000, address(this));
+
+        vm.roll(block.number + 3);
+
+        address receiver = vm.addr(2_347_845);
+        vm.label(receiver, "receiver");
+
+        assertEq(shares, 1000);
+        assertEq(_lmpVault.balanceOf(address(this)), 1000);
+        assertEq(_lmpVault.rewarder().balanceOf(address(this)), 1000);
+        assertEq(_lmpVault.rewarder().earned(address(this)), 30e18, "earned");
+
+        assertEq(_toke.balanceOf(address(this)), 0);
+        _lmpVault.transfer(receiver, 1000);
+        assertEq(_toke.balanceOf(address(this)), 30e18);
+        assertEq(_lmpVault.rewarder().earned(address(this)), 0, "earnedAfter");
+
+        vm.roll(block.number + 6);
+
+        assertEq(_lmpVault.rewarder().earned(receiver), 90e18, "recipientEarned");
+        vm.prank(receiver);
+        _lmpVault.withdraw(1000, receiver, receiver);
+        assertEq(_toke.balanceOf(receiver), 90e18);
+        assertEq(_lmpVault.rewarder().earned(receiver), 0, "recipientEarnedAfter");
     }
 
     function test_rebalance_IdleAssetsCanLeaveAndReturn() public {
@@ -388,6 +711,113 @@ contract LMPVaultMintingTests is Test {
         uint256 assetBalanceCheck3 = _asset.balanceOf(address(this));
 
         assertEq(sharesBurned3, 300);
+        assertEq(assetBalanceCheck3, 1000);
+
+        // We've pulled everything
+        assertEq(_lmpVault.totalDebt(), 0);
+        assertEq(_lmpVault.totalIdle(), 0);
+
+        _lmpVault.updateDebtReporting(_destinations);
+
+        // Ensure this is still true after reporting
+        assertEq(_lmpVault.totalDebt(), 0);
+        assertEq(_lmpVault.totalIdle(), 0);
+    }
+
+    function test_rebalance_CantRebalanceToTheSameDestination() public {
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+        _lmpVault.deposit(1000, address(this));
+
+        address solver = vm.addr(23_423_434);
+        vm.label(solver, "solver");
+        _accessController.grantRole(Roles.SOLVER_ROLE, solver);
+
+        // At time of writing LMPVault always returned true for verifyRebalance
+        // Rebalance 1000 baseAsset for 500 underlyerOne+destVaultOne
+        _underlyerOne.mint(solver, 250);
+        vm.startPrank(solver);
+        _underlyerOne.approve(address(_lmpVault), 250);
+        vm.expectRevert(abi.encodeWithSelector(LMPVault.RebalanceDestinationsMatch.selector, address(_destVaultOne)));
+        _lmpVault.rebalance(
+            address(_destVaultOne), address(_underlyerOne), 250, address(_destVaultOne), address(_underlyerOne), 500
+        );
+        vm.stopPrank();
+    }
+
+    function test_rebalance_WithdrawsPossibleAfterRebalanceToMultipleDestinations() public {
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+        _lmpVault.deposit(1000, address(this));
+        assertEq(_lmpVault.balanceOf(address(this)), 1000, "initialLMPBalance");
+
+        address solver = vm.addr(23_423_434);
+        vm.label(solver, "solver");
+        _accessController.grantRole(Roles.SOLVER_ROLE, solver);
+
+        // Rebalance 500 baseAsset for 250 underlyerOne+destVaultOne
+        _underlyerOne.mint(solver, 250);
+        _underlyerTwo.mint(solver, 250);
+        vm.startPrank(solver);
+        _underlyerOne.approve(address(_lmpVault), 250);
+        _lmpVault.rebalance(
+            address(_destVaultOne),
+            address(_underlyerOne), // tokenIn
+            250,
+            address(0), // destinationOut, none when sending out baseAsset
+            address(_asset), // baseAsset, tokenOut
+            500
+        );
+        _underlyerTwo.approve(address(_lmpVault), 250);
+        _lmpVault.rebalance(
+            address(_destVaultTwo),
+            address(_underlyerTwo), // tokenIn
+            250,
+            address(0), // destinationOut, none when sending out baseAsset
+            address(_asset), // baseAsset, tokenOut
+            250
+        );
+        vm.stopPrank();
+
+        // At this point we've transferred 750 idle out, which means we
+        // should have 250 left
+        assertEq(_lmpVault.totalIdle(), 250);
+        assertEq(_lmpVault.totalDebt(), 750);
+
+        // We withdraw 400 assets which we can get all from idle
+        uint256 sharesBurned = _lmpVault.withdraw(400, address(this), address(this));
+
+        // So we should have 0 idle left now
+        assertEq(_lmpVault.totalIdle(), 0);
+        assertEq(sharesBurned, 400);
+        assertEq(_lmpVault.balanceOf(address(this)), 600);
+
+        // Just verifying that the destination vault does hold the amount
+        // of the underlyer they should. We got 250 of our assets from idle
+        // leave 150 to pull from D1. That should have taken 75 shares of our
+        uint256 duOneBal = _underlyerOne.balanceOf(address(_destVaultOne));
+        uint256 originalDv1Shares = _destVaultOne.balanceOf(address(_lmpVault));
+        assertEq(duOneBal, 175);
+        assertEq(originalDv1Shares, 175);
+
+        // Lets withdraw 400 now. We can get 350 from D1 and the rest from D2
+        uint256 sharesBurned2 = _lmpVault.withdraw(400, address(this), address(this));
+
+        assertEq(sharesBurned2, 400);
+        assertEq(_lmpVault.balanceOf(address(this)), 200);
+        assertEq(_underlyerOne.balanceOf(address(_destVaultOne)), 0);
+        assertEq(_destVaultOne.balanceOf(address(_lmpVault)), 0);
+        assertEq(_underlyerTwo.balanceOf(address(_destVaultTwo)), 200);
+        assertEq(_destVaultTwo.balanceOf(address(_lmpVault)), 200);
+
+        vm.expectRevert("ERC20: burn amount exceeds balance");
+        _lmpVault.withdraw(400, address(this), address(this));
+
+        // Pull the amount of assets we have shares for
+        uint256 sharesBurned3 = _lmpVault.withdraw(200, address(this), address(this));
+        uint256 assetBalanceCheck3 = _asset.balanceOf(address(this));
+
+        assertEq(sharesBurned3, 200);
         assertEq(assetBalanceCheck3, 1000);
 
         // We've pulled everything
@@ -573,8 +1003,32 @@ contract LMPVaultMintingTests is Test {
         assertEq(_lmpVault.totalIdle(), 0);
     }
 
+    function test_flashRebalance_CantRebalanceToTheSameDestination() public {
+        _accessController.grantRole(Roles.SOLVER_ROLE, address(this));
+        FlashRebalancer rebalancer = new FlashRebalancer();
+
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+        _lmpVault.deposit(1000, address(this));
+
+        vm.expectRevert(abi.encodeWithSelector(LMPVault.RebalanceDestinationsMatch.selector, address(_destVaultOne)));
+        _lmpVault.flashRebalance(
+            IStrategy.FlashRebalanceParams({
+                receiver: rebalancer,
+                destinationIn: address(_destVaultOne),
+                tokenIn: address(_underlyerOne),
+                amountIn: 250,
+                destinationOut: address(_destVaultOne),
+                tokenOut: address(_underlyerOne),
+                amountOut: 500
+            }),
+            abi.encode("")
+        );
+    }
+
     function test_updateDebtReporting_FeesAreTakenWithoutDoubleDipping() public {
         _accessController.grantRole(Roles.SOLVER_ROLE, address(this));
+        _accessController.grantRole(Roles.LMP_FEE_SETTER_ROLE, address(this));
 
         // User is going to deposit 1000 asset
         _asset.mint(address(this), 1000);
@@ -701,6 +1155,8 @@ contract LMPVaultMintingTests is Test {
 
     function test_updateDebtReporting_FlashRebalanceFeesAreTakenWithoutDoubleDipping() public {
         _accessController.grantRole(Roles.SOLVER_ROLE, address(this));
+        _accessController.grantRole(Roles.LMP_FEE_SETTER_ROLE, address(this));
+
         FlashRebalancer rebalancer = new FlashRebalancer();
 
         // User is going to deposit 1000 asset
@@ -834,6 +1290,8 @@ contract LMPVaultMintingTests is Test {
     }
 
     function test_updateDebtReporting_EarnedRewardsAreFactoredIn() public {
+        _accessController.grantRole(Roles.LMP_FEE_SETTER_ROLE, address(this));
+
         // Going to work with two users for this one to test partial ownership
         // Both users get 1000 asset initially
         address user1 = vm.addr(238_904);
@@ -1084,6 +1542,7 @@ contract LMPVaultMintingTests is Test {
     }
 
     function test_updateDebtReporting_FlashRebalanceEarnedRewardsAreFactoredIn() public {
+        _accessController.grantRole(Roles.LMP_FEE_SETTER_ROLE, address(this));
         FlashRebalancer rebalancer = new FlashRebalancer();
 
         // Going to work with two users for this one to test partial ownership
@@ -1417,7 +1876,7 @@ contract LMPVaultWithdrawSharesTests is Test {
     struct TestInfo {
         uint256 currentDVSharesOwned;
         uint256 currentDebtValue;
-        uint256 lastOutDebt;
+        uint256 lastDebtBasis;
         uint256 lastDVSharesOwned;
         uint256 assetsToPull;
         uint256 userShares;
@@ -1436,7 +1895,7 @@ contract LMPVaultWithdrawSharesTests is Test {
         // We can burn all shares to obtain the value we seek
 
         // We own 1000 shares at 1000 value, so shares are 1:1 atm
-        // Last out debt was at 999, 1000 > 999, so we're in profit and
+        // Last debt basis was at 999, 1000 > 999, so we're in profit and
         // can burn what the vault owns, not just the users share
 
         // Trying to pull 50 asset, with dv shares being 1:1, means
@@ -1447,7 +1906,7 @@ contract LMPVaultWithdrawSharesTests is Test {
             TestInfo({
                 currentDVSharesOwned: 1000,
                 currentDebtValue: 1000,
-                lastOutDebt: 999,
+                lastDebtBasis: 999,
                 lastDVSharesOwned: 1000,
                 assetsToPull: 50,
                 totalAssetsPulled: 0,
@@ -1468,7 +1927,7 @@ contract LMPVaultWithdrawSharesTests is Test {
         // We can burn all shares to obtain the value we seek
 
         // We own 1000 shares at 2000 value.
-        // Last out debt was at 1900, 2000 > 1900, so we're in profit and
+        // Last debt basis was at 1900, 2000 > 1900, so we're in profit and
         // can burn what the vault owns, not just the users share
 
         // Trying to pull 50 asset, with dv shares being 2:1, means
@@ -1479,7 +1938,7 @@ contract LMPVaultWithdrawSharesTests is Test {
             TestInfo({
                 currentDVSharesOwned: 1000,
                 currentDebtValue: 2000,
-                lastOutDebt: 1900,
+                lastDebtBasis: 1900,
                 lastDVSharesOwned: 1000,
                 assetsToPull: 50,
                 totalAssetsPulled: 0,
@@ -1500,27 +1959,27 @@ contract LMPVaultWithdrawSharesTests is Test {
         // We can burn all shares to obtain the value we seek
 
         // We own 900 shares at 1800 value.
-        // Last out debt was at 1900, but that was when we owned 1000 shares
-        // Since we only own 900 now, we need to drop our debt out calculation 10%
-        // which puts the real debt out at 1710.
+        // Last debt basis was at 1900, but that was when we owned 1000 shares
+        // Since we only own 900 now, we need to drop our debt basis calculation 10%
+        // which puts the real debt basis at 1710.
         // But, price went up so current value is at 1800 and we're in profit
 
-        // Trying to pull 50 asset, with dv shares being 2:1, means
-        // we should expect to burn 25 dv shares and pull the entire 50
+        // Of the 1800 cached debt, burning 25 shares of 1000 total
+        // We need to remove 1800 * 25 / 1000 or 45 from total debt
 
         _assertResults(
             _lmpVault,
             TestInfo({
                 currentDVSharesOwned: 900,
                 currentDebtValue: 1800,
-                lastOutDebt: 1900,
+                lastDebtBasis: 1900,
                 lastDVSharesOwned: 1000,
                 assetsToPull: 50,
                 totalAssetsPulled: 0,
                 userShares: 25,
                 totalSupply: 1000,
                 expectedSharesToBurn: 25,
-                totalDebtBurn: 50
+                totalDebtBurn: 45
             })
         );
     }
@@ -1534,27 +1993,29 @@ contract LMPVaultWithdrawSharesTests is Test {
         // We can burn all shares to obtain the value we seek
 
         // We own 900 shares at 1850 value.
-        // Last out debt was at 1900, but that was when we owned 1000 shares
-        // Since we only own 900 now, we need to drop our debt out calculation 10%
-        // which puts the real debt out at 1710.
+        // Last debt basis was at 1900, but that was when we owned 1000 shares
+        // Since we only own 900 now, we need to drop our debt basis calculation 10%
+        // which puts the real debt basis at 1710.
         // But, price went up so current value is at 1850 and we're in profit
 
         // Trying to pull 2000 asset, but our whole pot is only worth 1850.
         // We can use all shares so that's what we'll get for 900 shares.
+        // Of the 1850 cached debt, we're burning 900 shares of the total cached 1000
+        // Remove 1850*900/1000 or 1665 from total debt
 
         _assertResults(
             _lmpVault,
             TestInfo({
                 currentDVSharesOwned: 900,
                 currentDebtValue: 1850,
-                lastOutDebt: 1900,
+                lastDebtBasis: 1900,
                 lastDVSharesOwned: 1000,
                 assetsToPull: 2000,
                 totalAssetsPulled: 0,
                 userShares: 1000,
                 totalSupply: 1000,
                 expectedSharesToBurn: 900,
-                totalDebtBurn: 1850
+                totalDebtBurn: 1665
             })
         );
     }
@@ -1578,7 +2039,7 @@ contract LMPVaultWithdrawSharesTests is Test {
             TestInfo({
                 currentDVSharesOwned: 1000,
                 currentDebtValue: 1900,
-                lastOutDebt: 1900,
+                lastDebtBasis: 1900,
                 lastDVSharesOwned: 1000,
                 assetsToPull: 2000,
                 totalAssetsPulled: 0,
@@ -1606,22 +2067,22 @@ contract LMPVaultWithdrawSharesTests is Test {
 
         // That 1000 shares worth 1700 asset, so each share is worth 1.7 asset
         // We're trying to get 50 asset, 50 / 1.7 shares, so we'll burn
-        // 29. We started with 1900 debtBasis, burning 29/1000 shares, so we'll
-        // remove 56 debt
+        // 30. We have 1700, burning 30/1000 shares, so we'll
+        // remove 51 debt
 
         _assertResults(
             _lmpVault,
             TestInfo({
                 currentDVSharesOwned: 1000,
                 currentDebtValue: 1700,
-                lastOutDebt: 1900,
+                lastDebtBasis: 1900,
                 lastDVSharesOwned: 1000,
                 assetsToPull: 50,
                 totalAssetsPulled: 0,
                 userShares: 500,
                 totalSupply: 1000,
-                expectedSharesToBurn: 29,
-                totalDebtBurn: 56
+                expectedSharesToBurn: 30,
+                totalDebtBurn: 51
             })
         );
     }
@@ -1631,36 +2092,34 @@ contract LMPVaultWithdrawSharesTests is Test {
         // Can Cover Requested: Yes
         // Owned Shares Match Cache: No
 
-        // When the deployment is sitting at overall profit
-        // We can burn all shares to obtain the value we seek
-
         // We own 900 shares at 1700 value.
-        // Last out debt was at 1900, but that was when we owned 1000 shares
-        // Since we only own 900 now, we need to drop our debt out calculation 10%
-        // which puts the real debt out at 1710.
+        // Last debt basis was at 1900, but that was when the vault owned 1000 shares
+        // Since we only own 900 now, we need to drop our debt basis calculation 10%
+        // which puts the real debt basis at 1710.
         // Current value is lower, so we're in a loss scenario
 
         // User owns 50% of the LMP vault, so we can only burn 50% of the
-        // the DV shares we own. 450 shares can still cover what we want to pull
-        // so we expect 50 back.
+        // the DV shares we own. 450 shares are worth 1700/900*450 or 850
+        // We are trying to pull 50 or 5.88% of the value of our shares
+        // 5.88% of the the shares we own is 27
 
-        // That 1000 shares worth 1700 asset, so each share is worth roughly 1.889 asset
-        // We're trying to get 50 asset, 50 / 1.889 shares, so we'll burn
-        // 26
+        // That debt was worth 1700, and we're burning 27 out of the 1000 shares
+        // that were there when we took the snapshot
+        // 1700 * 27 / 1000 = 46
 
         _assertResults(
             _lmpVault,
             TestInfo({
                 currentDVSharesOwned: 900,
                 currentDebtValue: 1700,
-                lastOutDebt: 1900,
+                lastDebtBasis: 1900,
                 lastDVSharesOwned: 1000,
                 assetsToPull: 50,
                 totalAssetsPulled: 0,
                 userShares: 500,
                 totalSupply: 1000,
-                expectedSharesToBurn: 26,
-                totalDebtBurn: 50
+                expectedSharesToBurn: 27,
+                totalDebtBurn: 46
             })
         );
     }
@@ -1674,30 +2133,27 @@ contract LMPVaultWithdrawSharesTests is Test {
         // We can burn all shares to obtain the value we seek
 
         // We own 900 shares at 400 value.
-        // Last out debt was at 1900, but that was when we owned 1000 shares
-        // Since we only own 900 now, we need to drop our debt out calculation 10%
-        // which puts the real debt out at 1710.
+        // Last debt basis was at 1900, but that was when we owned 1000 shares
+        // Since we only own 900 now, we need to drop our debt basis calculation 10%
+        // which puts the real debt basis at 1710.
         // Current value, 500, is lower, so we're in a loss scenario
 
-        // User owns 10% of the LMP vault, so we can only burn 10% of the
-        // the DV shares we own.
-        // At 900 shares worth 400, that puts each share at 1.8 asset
-        // We can only burn 90 shares, 10% of the 400, so max we can expect is 40
-        // User is trying to get 200 but we should top out at 40
+        // With a cached debt value of 400, us burning 90 shares of the total
+        // cached amount of 1000. We need to remove 400*90/1000 or 36 from total debt
 
         _assertResults(
             _lmpVault,
             TestInfo({
                 currentDVSharesOwned: 900,
                 currentDebtValue: 400,
-                lastOutDebt: 1900,
+                lastDebtBasis: 1900,
                 lastDVSharesOwned: 1000,
                 assetsToPull: 200,
                 totalAssetsPulled: 0,
                 userShares: 100,
                 totalSupply: 1000,
                 expectedSharesToBurn: 90,
-                totalDebtBurn: 40
+                totalDebtBurn: 36
             })
         );
     }
@@ -1721,7 +2177,7 @@ contract LMPVaultWithdrawSharesTests is Test {
             TestInfo({
                 currentDVSharesOwned: 1000,
                 currentDebtValue: 400,
-                lastOutDebt: 1900,
+                lastDebtBasis: 1900,
                 lastDVSharesOwned: 1000,
                 assetsToPull: 200,
                 totalAssetsPulled: 0,
@@ -1737,7 +2193,7 @@ contract LMPVaultWithdrawSharesTests is Test {
         TestInfo memory testInfo = TestInfo({
             currentDVSharesOwned: 1000,
             currentDebtValue: 400,
-            lastOutDebt: 1900,
+            lastDebtBasis: 1900,
             lastDVSharesOwned: 900, // Less than currentDvSharesOwned
             assetsToPull: 200,
             totalAssetsPulled: 0,
@@ -1751,7 +2207,7 @@ contract LMPVaultWithdrawSharesTests is Test {
             _lmpVault,
             testInfo.currentDVSharesOwned,
             testInfo.currentDebtValue,
-            testInfo.lastOutDebt,
+            testInfo.lastDebtBasis,
             testInfo.lastDVSharesOwned
         );
 
@@ -1770,11 +2226,11 @@ contract LMPVaultWithdrawSharesTests is Test {
             testVault,
             testInfo.currentDVSharesOwned,
             testInfo.currentDebtValue,
-            testInfo.lastOutDebt,
+            testInfo.lastDebtBasis,
             testInfo.lastDVSharesOwned
         );
 
-        (uint256 sharesToBurn, /*uint256 expectedTotalBurn*/ ) = _lmpVault.calcUserWithdrawSharesToBurn(
+        (uint256 sharesToBurn, uint256 expectedTotalBurn) = _lmpVault.calcUserWithdrawSharesToBurn(
             IDestinationVault(dv),
             testInfo.userShares,
             testInfo.assetsToPull,
@@ -1783,17 +2239,14 @@ contract LMPVaultWithdrawSharesTests is Test {
         );
 
         assertEq(sharesToBurn, testInfo.expectedSharesToBurn, "sharesToBurn");
-
-        // TODO: Put this check back in, want to test withdrawals
-        // to make sure they act right before updating all the numbers
-        //assertEq(expectedTotalBurn, testInfo.totalDebtBurn, "expectedTotalBurn");
+        assertEq(expectedTotalBurn, testInfo.totalDebtBurn, "expectedTotalBurn");
     }
 
     function _mockDestVaultForWithdrawShareCalc(
         TestWithdrawSharesLMPVault testVault,
         uint256 lmpVaultBalance,
         uint256 currentSharesValue,
-        uint256 lastOutDebt,
+        uint256 lastDebtBasis,
         uint256 lastOwnedShares
     ) internal returns (address ret) {
         _aix++;
@@ -1809,11 +2262,8 @@ contract LMPVaultWithdrawSharesTests is Test {
             abi.encode(currentSharesValue)
         );
 
-        testVault.setDestInfoOutDebt(ret, lastOutDebt);
+        testVault.setDestInfoDebtBasis(ret, lastDebtBasis);
         testVault.setDestInfoOwnedShares(ret, lastOwnedShares);
-
-        // TODO: Add test that mimics a change in value, change in currentDebt, to check that our
-        // totalDebtBurn return is based on that and not the debt basis
         testVault.setDestInfoCurrentDebt(ret, currentSharesValue);
     }
 }
@@ -1843,7 +2293,7 @@ contract FlashRebalancer is IERC3156FlashBorrower {
 contract TestWithdrawSharesLMPVault is LMPVault {
     constructor(ISystemRegistry _systemRegistry, address _vaultAsset) LMPVault(_systemRegistry, _vaultAsset) { }
 
-    function setDestInfoOutDebt(address destVault, uint256 debtBasis) public {
+    function setDestInfoDebtBasis(address destVault, uint256 debtBasis) public {
         destinationInfo[destVault].debtBasis = debtBasis;
     }
 
@@ -1902,19 +2352,16 @@ contract TestDestinationVault is DestinationVault {
         amounts[0] = amount;
     }
 
-    function debtValue() public override returns (uint256 value) {
-        value = (
-            TestERC20(_underlying).balanceOf(address(this))
-                * _systemRegistry.rootPriceOracle().getPriceInEth(_underlying)
-        ) / 1e18;
-    }
-
     function _ensureLocalUnderlyingBalance(uint256) internal virtual override { }
 
     function _onDeposit(uint256 amount) internal virtual override { }
 
     function balanceOfUnderlying() public view override returns (uint256) {
         return TestERC20(_underlying).balanceOf(address(this));
+    }
+
+    function externalBalance() public pure override returns (uint256) {
+        return 0;
     }
 
     function _collectRewards() internal virtual override returns (uint256[] memory amounts, address[] memory tokens) { }
