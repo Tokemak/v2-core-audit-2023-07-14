@@ -146,7 +146,20 @@ abstract contract DestinationVault is SecurityBase, ERC20, Initializable, IDesti
     function underlyingTokens() external view virtual override returns (address[] memory);
 
     /// @inheritdoc IDestinationVault
-    function collectRewards() external virtual override returns (uint256[] memory amounts, address[] memory tokens);
+    function collectRewards()
+        external
+        virtual
+        override
+        hasRole(Roles.LIQUIDATOR_ROLE)
+        returns (uint256[] memory amounts, address[] memory tokens)
+    {
+        (amounts, tokens) = _collectRewards();
+    }
+
+    /// @notice Collects any earned rewards from staking, incentives, etc. Transfers to sender
+    /// @return amounts amount of rewards claimed for each token
+    /// @return tokens tokens claimed
+    function _collectRewards() internal virtual returns (uint256[] memory amounts, address[] memory tokens);
 
     /// @notice Figure out price in terms of the base asset
     function getTokenPriceInBaseAsset(uint256 currentEthValue) internal returns (uint256 value) {
@@ -257,8 +270,10 @@ abstract contract DestinationVault is SecurityBase, ERC20, Initializable, IDesti
             if (token == _baseAsset) {
                 amount += amounts[i];
             } else {
-                IERC20(token).safeApprove(address(swapRouter), amounts[i]);
-                amount += swapRouter.swapForQuote(token, amounts[i], _baseAsset, 0);
+                if (amounts[i] > 0) {
+                    IERC20(token).safeApprove(address(swapRouter), amounts[i]);
+                    amount += swapRouter.swapForQuote(token, amounts[i], _baseAsset, 0);
+                }
             }
         }
 

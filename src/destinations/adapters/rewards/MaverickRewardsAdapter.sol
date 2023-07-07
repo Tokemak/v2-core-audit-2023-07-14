@@ -3,33 +3,56 @@
 
 pragma solidity 0.8.17;
 
-import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
-
 import { Errors } from "src/utils/Errors.sol";
 import { IReward } from "src/interfaces/external/maverick/IReward.sol";
-import { IClaimableRewardsAdapter } from "src/interfaces/destinations/IClaimableRewardsAdapter.sol";
+import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
+import { RewardAdapter } from "src/destinations/adapters/rewards/RewardAdapter.sol";
 
-contract MaverickRewardsAdapter is IClaimableRewardsAdapter, ReentrancyGuard {
-    /// @inheritdoc IClaimableRewardsAdapter
-    function claimRewards(address _rewarder) public nonReentrant returns (uint256[] memory, IERC20[] memory) {
-        Errors.verifyNotZero(_rewarder, "rewarder");
+//slither-disable-next-line missing-inheritance
+library MaverickRewardsAdapter {
+    using SafeERC20 for IERC20;
+
+    /// @notice Claim rewards for Maverick Boosted Position LP tokens staked in their rewarder
+    /// @param rewarder the Maverick rewarder contract
+    /// @return amounts the amount of each token that was claimed
+    /// @return tokens the tokens that were claimed
+    function claimRewards(address rewarder) public returns (uint256[] memory, address[] memory) {
+        return _claimRewards(rewarder, address(this));
+    }
+
+    /// @notice Claim rewards for Maverick Boosted Position LP tokens staked in their rewarder
+    /// @param rewarder the Maverick rewarder contract
+    /// @param sendTo the destination of the rewarded tokens
+    /// @return amounts the amount of each token that was claimed
+    /// @return tokens the tokens that were claimed
+    function claimRewards(address rewarder, address sendTo) public returns (uint256[] memory, address[] memory) {
+        return _claimRewards(rewarder, sendTo);
+    }
+
+    /// @notice Claim rewards for Maverick Boosted Position LP tokens staked in their rewarder
+    /// @param rewarder the Maverick rewarder contract
+    /// @param sendTo the destination of the rewarded tokens
+    /// @return amounts the amount of each token that was claimed
+    /// @return tokens the tokens that were claimed
+    function _claimRewards(address rewarder, address sendTo) internal returns (uint256[] memory, address[] memory) {
+        Errors.verifyNotZero(rewarder, "rewarder");
         address account = address(this);
 
-        IReward rewarder = IReward(_rewarder);
+        IReward reward = IReward(rewarder);
 
         // Fetching the earned rewards information
-        IReward.EarnedInfo[] memory earnedInfos = rewarder.earned(account);
+        IReward.EarnedInfo[] memory earnedInfos = reward.earned(account);
         uint256 length = earnedInfos.length;
 
-        IERC20[] memory rewardTokens = new IERC20[](length);
+        address[] memory rewardTokens = new address[](length);
         uint256[] memory amountsClaimed = new uint256[](length);
 
         // Iterating over each reward info, if earned is not zero, reward is claimed
         for (uint256 i = 0; i < length; ++i) {
             IReward.EarnedInfo memory earnedInfo = earnedInfos[i];
-            IERC20 rewardToken = earnedInfo.rewardToken;
-            rewardTokens[i] = rewardToken;
+            IERC20 rewardToken = IERC20(earnedInfo.rewardToken);
+            rewardTokens[i] = address(rewardToken);
 
             if (earnedInfo.earned == 0) {
                 amountsClaimed[i] = 0;
@@ -37,17 +60,17 @@ contract MaverickRewardsAdapter is IClaimableRewardsAdapter, ReentrancyGuard {
             }
 
             // Fetching the current balance before claiming the reward
-            uint256 balanceBefore = rewardToken.balanceOf(account);
+            uint256 balanceBefore = rewardToken.balanceOf(sendTo);
 
             // Claiming the reward
             // slither-disable-next-line unused-return
-            rewarder.getReward(account, uint8(i));
+            reward.getReward(sendTo, uint8(i));
 
             // Calculating the claimed amount by comparing the balance after claiming the reward
-            amountsClaimed[i] = rewardToken.balanceOf(account) - balanceBefore;
+            amountsClaimed[i] = rewardToken.balanceOf(sendTo) - balanceBefore;
         }
 
-        emit RewardsClaimed(rewardTokens, amountsClaimed);
+        RewardAdapter.emitRewardsClaimed(rewardTokens, amountsClaimed);
 
         return (amountsClaimed, rewardTokens);
     }

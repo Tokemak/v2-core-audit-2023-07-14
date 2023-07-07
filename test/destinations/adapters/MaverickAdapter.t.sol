@@ -12,7 +12,15 @@ import { MaverickAdapter } from "src/destinations/adapters/MaverickAdapter.sol";
 import { IPool } from "src/interfaces/external/maverick/IPool.sol";
 import { IPosition } from "src/interfaces/external/maverick/IPosition.sol";
 import { IRouter } from "src/interfaces/external/maverick/IRouter.sol";
-import { WSTETH_MAINNET, CBETH_MAINNET, STETH_MAINNET, SWETH_MAINNET, WETH_MAINNET } from "test/utils/Addresses.sol";
+import {
+    WSTETH_MAINNET,
+    MAV_ROUTER,
+    CBETH_MAINNET,
+    STETH_MAINNET,
+    SWETH_MAINNET,
+    WETH_MAINNET,
+    MAV_WSTETH_WETH_POOL
+} from "test/utils/Addresses.sol";
 
 import { TestableVM } from "src/solver/test/TestableVM.sol";
 import { SolverCaller } from "src/solver/test/SolverCaller.sol";
@@ -51,14 +59,14 @@ contract MaverickAdapterTest is Test {
         vm.selectFork(mainnetFork);
         assertEq(vm.activeFork(), mainnetFork);
 
-        router = IRouter(0xbBF1EE38152E9D8e3470Dc47947eAa65DcA94913);
+        router = IRouter(MAV_ROUTER);
         position = router.position();
         solver = new TestableVM();
     }
 
     // wstETH/WETH
     function testAddLiquidityWethWstEth() public {
-        IPool pool = IPool(0x0eB1C92f9f5EC9D817968AfDdB4B46c564cdeDBe);
+        IPool pool = IPool(MAV_WSTETH_WETH_POOL);
 
         uint256[] memory amounts = new uint256[](2);
         uint128 deltaA = 5 * 1e18;
@@ -97,7 +105,7 @@ contract MaverickAdapterTest is Test {
 
     // wstETH/WETH
     function testRemoveLiquidityWethWstEth() public {
-        IPool pool = IPool(0x0eB1C92f9f5EC9D817968AfDdB4B46c564cdeDBe);
+        IPool pool = IPool(MAV_WSTETH_WETH_POOL);
 
         uint256[] memory amounts = new uint256[](2);
         uint128 deltaA = 5 * 1e18;

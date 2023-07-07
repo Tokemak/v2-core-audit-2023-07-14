@@ -100,5 +100,5 @@ interface IReward {
 
     /// @notice Get address of the token used for staking for receiving rewards.
     /// @return address of the LP staking token
-    function stakingToken() external returns (address);
+    function stakingToken() external view returns (address);
 }

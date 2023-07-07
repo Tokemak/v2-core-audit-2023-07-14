@@ -188,7 +188,7 @@ contract CurveConvexDestinationVault is CurveV2FactoryCryptoAdapter, Destination
     }
 
     /// @inheritdoc DestinationVault
-    function collectRewards() external virtual override returns (uint256[] memory amounts, address[] memory tokens) {
+    function _collectRewards() internal virtual override returns (uint256[] memory amounts, address[] memory tokens) {
         (amounts, tokens) = ConvexRewards.claimRewards(convexStaking, defaultStakingRewardToken, msg.sender);
     }
 

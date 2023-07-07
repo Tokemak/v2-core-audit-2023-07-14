@@ -1917,5 +1917,5 @@ contract TestDestinationVault is DestinationVault {
         return TestERC20(_underlying).balanceOf(address(this));
     }
 
-    function collectRewards() external virtual override returns (uint256[] memory amounts, address[] memory tokens) { }
+    function _collectRewards() internal virtual override returns (uint256[] memory amounts, address[] memory tokens) { }
 }

@@ -2,12 +2,13 @@
 // Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity >=0.8.17;
 
-// solhint-disable func-name-mixedcase
+// solhint-disable func-name-mixedcase,max-stats-count
 
 import { ISystemComponent } from "src/interfaces/ISystemComponent.sol";
 import { Errors } from "src/utils/Errors.sol";
 import { Test, StdCheats, StdUtils } from "forge-std/Test.sol";
 import { DestinationVault } from "src/vault/DestinationVault.sol";
+import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { SystemRegistry } from "src/SystemRegistry.sol";
@@ -25,26 +26,24 @@ import { LMPVaultRegistry } from "src/vault/LMPVaultRegistry.sol";
 import { MainRewarder } from "src/rewarders/MainRewarder.sol";
 import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { SwapRouter } from "src/swapper/SwapRouter.sol";
-import { BalancerAuraDestinationVault } from "src/vault/BalancerAuraDestinationVault.sol";
 import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
-import { BalancerV2Swap } from "src/swapper/adapters/BalancerV2Swap.sol";
 import {
     WETH_MAINNET,
-    STETH_ETH_CURVE_POOL,
-    WSETH_WETH_BAL_POOL,
+    MAV_WSTETH_WETH_POOL,
+    MAV_ROUTER,
     STETH_MAINNET,
+    MAV_WSTETH_WETH_BOOSTED_POS_REWARDER,
+    MAV_WSTETH_WETH_BOOSTED_POS,
     BAL_VAULT,
-    BAL_MAINNET,
-    AURA_BOOSTER,
+    LDO_MAINNET,
     WSTETH_MAINNET,
-    AURA_MAINNET,
-    BAL_WSTETH_WETH_WHALE
+    WSETH_WETH_BAL_POOL
 } from "test/utils/Addresses.sol";
 import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
+import { MaverickDestinationVault } from "src/vault/MaverickDestinationVault.sol";
+import { BalancerV2Swap } from "src/swapper/adapters/BalancerV2Swap.sol";
 
-contract BalancerAuraDestinationVaultTests is Test {
-    address private constant LP_TOKEN_WHALE = BAL_WSTETH_WETH_WHALE; //~20
-
+contract MaverickDestinationVaultTests is Test {
     uint256 private _mainnetFork;
 
     SystemRegistry private _systemRegistry;
@@ -61,13 +60,13 @@ contract BalancerAuraDestinationVaultTests is Test {
 
     IERC20 private _underlyer;
 
-    BalancerAuraDestinationVault private _destVault;
+    MaverickDestinationVault private _destVault;
 
     SwapRouter private swapRouter;
     BalancerV2Swap private balSwapper;
 
     function setUp() public {
-        _mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"), 17_586_885);
+        _mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"), 17_360_127);
         vm.selectFork(_mainnetFork);
 
         vm.label(address(this), "testContract");
@@ -107,11 +106,10 @@ contract BalancerAuraDestinationVaultTests is Test {
         _destinationVaultFactory = new DestinationVaultFactory(_systemRegistry, 1, 1000);
         _destinationVaultRegistry.setVaultFactory(address(_destinationVaultFactory));
 
-        _underlyer = IERC20(WSETH_WETH_BAL_POOL);
+        _underlyer = IERC20(MAV_WSTETH_WETH_BOOSTED_POS);
         vm.label(address(_underlyer), "underlyer");
 
-        BalancerAuraDestinationVault dvTemplate =
-            new BalancerAuraDestinationVault(_systemRegistry, BAL_VAULT, AURA_MAINNET);
+        MaverickDestinationVault dvTemplate = new MaverickDestinationVault(_systemRegistry);
         bytes32 dvType = keccak256(abi.encode("template"));
         bytes32[] memory dvTypes = new bytes32[](1);
         dvTypes[0] = dvType;
@@ -123,11 +121,11 @@ contract BalancerAuraDestinationVaultTests is Test {
         _accessController.grantRole(Roles.CREATE_DESTINATION_VAULT_ROLE, address(this));
         address[] memory additionalTrackedTokens = new address[](0);
 
-        BalancerAuraDestinationVault.InitParams memory initParams = BalancerAuraDestinationVault.InitParams({
-            balancerPool: WSETH_WETH_BAL_POOL,
-            auraStaking: 0x59D66C58E83A26d6a0E35114323f65c3945c89c1,
-            auraBooster: AURA_BOOSTER,
-            auraPoolId: 115
+        MaverickDestinationVault.InitParams memory initParams = MaverickDestinationVault.InitParams({
+            maverickRouter: MAV_ROUTER,
+            maverickBoostedPosition: MAV_WSTETH_WETH_BOOSTED_POS,
+            maverickRewarder: MAV_WSTETH_WETH_BOOSTED_POS_REWARDER,
+            maverickPool: MAV_WSTETH_WETH_POOL
         });
         bytes memory initParamBytes = abi.encode(initParams);
 
@@ -143,7 +141,7 @@ contract BalancerAuraDestinationVaultTests is Test {
         );
         vm.label(newVault, "destVault");
 
-        _destVault = BalancerAuraDestinationVault(newVault);
+        _destVault = MaverickDestinationVault(newVault);
 
         _rootPriceOracle = IRootPriceOracle(vm.addr(34_399));
         vm.label(address(_rootPriceOracle), "rootPriceOracle");
@@ -160,11 +158,11 @@ contract BalancerAuraDestinationVaultTests is Test {
         _systemRegistry.setLMPVaultRegistry(address(_lmpVaultRegistry));
     }
 
-    function test_exchangeName_Returns() public {
-        assertEq(_destVault.exchangeName(), "balancer");
+    function test_exchangeName_ReturnsMaverick() public {
+        assertEq(_destVault.exchangeName(), "maverick");
     }
 
-    function test_underlyingTokens_ReturnsForMetastable() public {
+    function test_underlyingTokens_ReturnsPoolTokens() public {
         address[] memory tokens = _destVault.underlyingTokens();
 
         assertEq(tokens.length, 2);
@@ -172,140 +170,123 @@ contract BalancerAuraDestinationVaultTests is Test {
         assertEq(IERC20(tokens[1]).symbol(), "WETH");
     }
 
-    function test_debtValue_TokensDirectlyInVaultAreCounted() public {
-        vm.prank(LP_TOKEN_WHALE);
-        _underlyer.transfer(address(_destVault), 10e18);
+    function test_debtValue_TakesIntoAccountLocalTokenBalance() public {
+        deal(address(MAV_WSTETH_WETH_BOOSTED_POS), address(_destVault), 100e18);
 
         // We gave the lp token a value of 2 ETH
-        assertEq(_destVault.debtValue(), 20e18);
+        assertEq(_destVault.debtValue(), 200e18);
     }
 
-    function test_debtValue_TokensInAuraAreCounted() public {
+    function test_deposit_IsStakedIntoRewarder() public {
         // Get some tokens to play with
-        vm.prank(LP_TOKEN_WHALE);
-        _underlyer.transfer(address(this), 10e18);
+        deal(address(MAV_WSTETH_WETH_BOOSTED_POS), address(this), 100e18);
 
         // Give us deposit rights
         _mockIsVault(address(this), true);
 
         // Deposit
-        _underlyer.approve(address(_destVault), 5e18);
-        _destVault.depositUnderlying(5e18);
+        _underlyer.approve(address(_destVault), 100e18);
+        _destVault.depositUnderlying(100e18);
+
+        // Ensure the funds went to Convex
+        assertEq(_destVault.externalBalance(), 100e18);
+    }
+
+    function test_debtValue_TakesIntoAccountLocalAndExternalTokenBalance() public {
+        // Get some tokens to play with
+        deal(address(MAV_WSTETH_WETH_BOOSTED_POS), address(this), 100e18);
+
+        // Give us deposit rights
+        _mockIsVault(address(this), true);
+
+        // Deposit
+        _underlyer.approve(address(_destVault), 500e18);
+        _destVault.depositUnderlying(50e18);
 
         // Send some directly to contract to be Curve balance
-        _underlyer.transfer(address(_destVault), 5e18);
+        _underlyer.transfer(address(_destVault), 50e18);
 
         // We gave the lp token a value of 2 ETH
-        assertEq(_destVault.debtValue(), 20e18);
-        assertEq(_destVault.auraBalance(), 5e18);
-        assertEq(_destVault.balancerBalance(), 5e18);
+        assertEq(_destVault.debtValue(), 200e18);
+        assertEq(_destVault.externalBalance(), 50e18);
+        assertEq(_destVault.localBalance(), 50e18);
     }
 
-    function test_depositUnderlying_TokensGoToAura() public {
+    function test_collectRewards_TransfersToCaller() public {
         // Get some tokens to play with
-        vm.prank(LP_TOKEN_WHALE);
-        _underlyer.transfer(address(this), 10e18);
+        deal(address(MAV_WSTETH_WETH_BOOSTED_POS), address(this), 100e18);
 
         // Give us deposit rights
         _mockIsVault(address(this), true);
 
         // Deposit
-        _underlyer.approve(address(_destVault), 10e18);
-        _destVault.depositUnderlying(10e18);
-
-        // Ensure the funds went to Aura
-        assertEq(_destVault.auraBalance(), 10e18);
-    }
-
-    function test_collectRewards_ReturnsAllTokensAndAmounts() public {
-        // Get some tokens to play with
-        vm.prank(LP_TOKEN_WHALE);
-        _underlyer.transfer(address(this), 10e18);
-
-        // Give us deposit rights
-        _mockIsVault(address(this), true);
-
-        // Deposit
-        _underlyer.approve(address(_destVault), 10e18);
-        _destVault.depositUnderlying(10e18);
+        _underlyer.approve(address(_destVault), 100e18);
+        _destVault.depositUnderlying(100e18);
 
         // Move 7 days later
         vm.roll(block.number + 7200 * 7);
         // solhint-disable-next-line not-rely-on-time
         vm.warp(block.timestamp + 7 days);
 
-        IERC20 bal = IERC20(BAL_MAINNET);
-        IERC20 aura = IERC20(AURA_MAINNET);
-
         _accessController.grantRole(Roles.LIQUIDATOR_ROLE, address(this));
 
-        uint256 preBalBAL = bal.balanceOf(address(this));
-        uint256 preBalAURA = aura.balanceOf(address(this));
+        IERC20 ldo = IERC20(LDO_MAINNET);
+
+        uint256 preBalLDO = ldo.balanceOf(address(this));
 
         (uint256[] memory amounts, address[] memory tokens) = _destVault.collectRewards();
 
         assertEq(amounts.length, tokens.length);
-        assertEq(tokens.length, 3);
-        assertEq(address(tokens[0]), 0x00dfc9ceEFAf596A0Da2e6A1251215a28147EB5b); // stash token
-        assertEq(address(tokens[1]), BAL_MAINNET);
-        assertEq(address(tokens[2]), AURA_MAINNET);
+        assertEq(tokens.length, 2);
+        assertEq(address(tokens[0]), address(0));
+        assertEq(address(tokens[1]), LDO_MAINNET);
 
+        assertTrue(amounts[0] == 0);
         assertTrue(amounts[1] > 0);
-        assertTrue(amounts[2] > 0);
 
-        uint256 afterBalBAL = bal.balanceOf(address(this));
-        uint256 afterBalAURA = aura.balanceOf(address(this));
+        uint256 afterBalLDO = ldo.balanceOf(address(this));
 
-        assertEq(amounts[1], afterBalBAL - preBalBAL);
-        assertEq(amounts[2], afterBalAURA - preBalAURA);
+        assertEq(amounts[1], afterBalLDO - preBalLDO);
     }
 
-    function test_withdrawUnderlying_PullsFromAura() public {
+    function test_withdrawUnderlying_SendsOneForOneToReceiver() public {
         // Get some tokens to play with
-        vm.prank(LP_TOKEN_WHALE);
-        _underlyer.transfer(address(this), 10e18);
+        deal(address(MAV_WSTETH_WETH_BOOSTED_POS), address(this), 100e18);
 
         // Give us deposit rights
         _mockIsVault(address(this), true);
 
         // Deposit
-        _underlyer.approve(address(_destVault), 10e18);
-        _destVault.depositUnderlying(10e18);
+        _underlyer.approve(address(_destVault), 100e18);
+        _destVault.depositUnderlying(100e18);
 
         // Ensure the funds went to Convex
-        assertEq(_destVault.auraBalance(), 10e18);
+        assertEq(_destVault.externalBalance(), 100e18);
 
         address receiver = vm.addr(555);
-        uint256 received = _destVault.withdrawUnderlying(10e18, receiver);
+        uint256 received = _destVault.withdrawUnderlying(50e18, receiver);
 
-        assertEq(received, 10e18);
-        assertEq(_underlyer.balanceOf(receiver), 10e18);
-        assertEq(_destVault.auraBalance(), 0e18);
+        assertEq(received, 50e18);
+        assertEq(_underlyer.balanceOf(receiver), 50e18);
     }
 
-    function test_withdrawBaseAsset_ReturnsAppropriateAmount() public {
+    function test_withdrawBaseAsset_SwapsToBaseAndSendsToReceiver() public {
         // Get some tokens to play with
-        vm.prank(LP_TOKEN_WHALE);
-        _underlyer.transfer(address(this), 10e18);
+        deal(address(MAV_WSTETH_WETH_BOOSTED_POS), address(this), 1e18);
 
         // Give us deposit rights
         _mockIsVault(address(this), true);
 
         // Deposit
-        _underlyer.approve(address(_destVault), 10e18);
-        _destVault.depositUnderlying(10e18);
+        _underlyer.approve(address(_destVault), 1e18);
+        _destVault.depositUnderlying(1e18);
 
         address receiver = vm.addr(555);
         uint256 startingBalance = _asset.balanceOf(receiver);
 
-        uint256 received = _destVault.withdrawBaseAsset(10e18, receiver);
+        uint256 received = _destVault.withdrawBaseAsset(5e17, receiver);
 
-        // Bal pool has a rough pool value of $96,362,068
-        // Total Supply of 50180.410952857663703844
-        // Eth Price: $1855
-        // PPS: 1.035208869 w/10 shares ~= 10.35208869
-
-        assertEq(_asset.balanceOf(receiver) - startingBalance, 10_356_898_854_512_073_834);
+        assertEq(_asset.balanceOf(receiver) - startingBalance, 637_692_400_777_456_012);
         assertEq(received, _asset.balanceOf(receiver) - startingBalance);
     }
 

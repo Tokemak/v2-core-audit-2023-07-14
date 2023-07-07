@@ -11,7 +11,6 @@ import { DestinationVault } from "src/vault/DestinationVault.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 import { SystemRegistry } from "src/SystemRegistry.sol";
 import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
@@ -244,6 +243,8 @@ contract CurveConvexDestinationVaultTests is Test {
         vm.roll(block.number + 7200 * 7);
         // solhint-disable-next-line not-rely-on-time
         vm.warp(block.timestamp + 7 days);
+
+        _accessController.grantRole(Roles.LIQUIDATOR_ROLE, address(this));
 
         IERC20 ldo = IERC20(LDO_MAINNET);
         IERC20 crv = IERC20(CRV_MAINNET);

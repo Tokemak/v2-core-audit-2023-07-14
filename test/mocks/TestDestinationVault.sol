@@ -90,7 +90,7 @@ contract TestDestinationVault is DestinationVault {
         return 0;
     }
 
-    function collectRewards() external override returns (uint256[] memory amounts, address[] memory tokens) { }
+    function _collectRewards() internal override returns (uint256[] memory amounts, address[] memory tokens) { }
 
     function reset() external { }
 }

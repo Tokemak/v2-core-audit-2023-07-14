@@ -4,11 +4,10 @@ pragma solidity 0.8.17;
 
 import { Errors } from "src/utils/Errors.sol";
 import { Math } from "openzeppelin-contracts/utils/math/Math.sol";
-import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
-
+import { IMainRewarder } from "src/interfaces/rewarders/IMainRewarder.sol";
 import { DestinationVault } from "src/vault/DestinationVault.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
@@ -19,6 +18,7 @@ import { IPosition } from "src/interfaces/external/maverick/IPosition.sol";
 import { IReward } from "src/interfaces/external/maverick/IReward.sol";
 import { IPoolPositionSlim } from "src/interfaces/external/maverick/IPoolPositionSlim.sol";
 import { MaverickStakingAdapter } from "src/destinations/adapters/staking/MaverickStakingAdapter.sol";
+import { MaverickRewardsAdapter } from "src/destinations/adapters/rewards/MaverickRewardsAdapter.sol";
 
 contract MaverickDestinationVault is DestinationVault, ReentrancyGuard {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -26,144 +26,149 @@ contract MaverickDestinationVault is DestinationVault, ReentrancyGuard {
     error NothingToClaim();
     error NoDebtReclaimed();
 
-    /* ******************************** */
-    /* State Variables                  */
-    /* ******************************** */
+    /// @notice Only used to initialize the vault
+    struct InitParams {
+        /// @notice Maverick swap and liquidity router
+        address maverickRouter;
+        /// @notice Maverick Boosted Position contract
+        address maverickBoostedPosition;
+        /// @notice Rewarder contract for the Boosted Position
+        address maverickRewarder;
+        /// @notice Pool that the Boosted Position proxies
+        address maverickPool;
+    }
 
-    MainRewarder public rewarder;
-    IPoolPositionSlim public boostedPosition;
+    string private constant EXCHANGE_NAME = "maverick";
+
+    /// @dev Tokens that make up the pool
+    address[] private constituentTokens;
+
+    /// @notice Maverick swap and liquidity router
+    IRouter public maverickRouter;
+
+    /// @notice Maverick Boosted Position contract
+    IPoolPositionSlim public maverickBoostedPosition;
+
+    /// @notice Rewarder contract for the Boosted Position
     IReward public maverickRewarder;
-    IPool public pool;
+
+    /// @notice Pool that the Boosted Position proxies
+    IPool public maverickPool;
+
+    /// @notice Address Mavericks Position NFT
     IPosition public positionNft;
-    IERC20 public stakingToken;
 
+    error InvalidConfiguration();
+
+    constructor(ISystemRegistry sysRegistry) DestinationVault(sysRegistry) { }
+
+    /// @inheritdoc DestinationVault
     function initialize(
-        ISystemRegistry _systemRegistry,
-        IERC20Metadata _baseAsset,
-        string memory baseName,
-        bytes memory data,
-        MainRewarder _rewarder,
-        IRouter maverickRouter,
-        IPoolPositionSlim _boostedPosition,
-        IReward _maverickRewarder,
-        IPool _pool
-    ) public initializer {
-        //slither-disable-start missing-zero-check
-        DestinationVault.initialize(_systemRegistry, _baseAsset, baseName, data);
+        IERC20 baseAsset_,
+        IERC20 underlyer_,
+        IMainRewarder rewarder_,
+        address[] memory additionalTrackedTokens_,
+        bytes memory params_
+    ) public virtual override {
+        // Base class has the initializer() modifier to prevent double-setup
+        // If you don't call the base initialize, make sure you protect this call
+        super.initialize(baseAsset_, underlyer_, rewarder_, additionalTrackedTokens_, params_);
 
-        Errors.verifyNotZero(address(_rewarder), "_rewarder");
-        Errors.verifyNotZero(address(_boostedPosition), "_boostedPosition");
-        Errors.verifyNotZero(address(_maverickRewarder), "_maverickRewarder");
-        Errors.verifyNotZero(address(_pool), "_pool");
-        Errors.verifyNotZero(address(maverickRouter), "maverickRouter");
+        // Decode the init params, validate, and save off
+        InitParams memory initParams = abi.decode(params_, (InitParams));
 
-        rewarder = _rewarder;
-        boostedPosition = _boostedPosition;
-        maverickRewarder = _maverickRewarder;
-        pool = _pool;
-        positionNft = maverickRouter.position();
-        stakingToken = IERC20(maverickRewarder.stakingToken());
+        Errors.verifyNotZero(initParams.maverickRouter, "maverickRouter");
+        Errors.verifyNotZero(initParams.maverickBoostedPosition, "maverickBoostedPosition");
+        Errors.verifyNotZero(initParams.maverickRewarder, "maverickRewarder");
+        Errors.verifyNotZero(initParams.maverickPool, "maverickPool");
 
-        //slither-disable-start unused-return
-        trackedTokens.add(address(stakingToken));
-        trackedTokens.add(address(pool.tokenA()));
-        trackedTokens.add(address(pool.tokenB()));
-        //slither-disable-end unused-return
+        maverickRouter = IRouter(initParams.maverickRouter);
+        maverickBoostedPosition = IPoolPositionSlim(initParams.maverickBoostedPosition);
+        maverickRewarder = IReward(initParams.maverickRewarder);
+        maverickPool = IPool(initParams.maverickPool);
 
-        //slither-disable-end missing-zero-check
+        positionNft = IRouter(initParams.maverickRouter).position();
+        address stakingToken = IReward(initParams.maverickRewarder).stakingToken();
+
+        if (address(stakingToken) != address(_underlying)) {
+            revert InvalidConfiguration();
+        }
+
+        address tokenA = address(IPool(initParams.maverickPool).tokenA());
+        address tokenB = address(IPool(initParams.maverickPool).tokenB());
+        _addTrackedToken(tokenA);
+        _addTrackedToken(tokenB);
+
+        constituentTokens = new address[](2);
+        constituentTokens[0] = tokenA;
+        constituentTokens[1] = tokenB;
     }
 
-    function stakingTokenBalance() public view returns (uint256) {
-        return stakingToken.balanceOf(address(this));
+    function localBalance() public view returns (uint256) {
+        return IERC20(_underlying).balanceOf(address(this));
     }
 
-    function stakedAmount() public view returns (uint256) {
+    function externalBalance() public view returns (uint256) {
         return maverickRewarder.balanceOf(address(this));
     }
 
-    function totalLpAmount() public view returns (uint256) {
-        return stakingTokenBalance() + stakedAmount();
+    function balanceOfUnderlying() public view override returns (uint256) {
+        return localBalance() + externalBalance();
     }
 
-    function debtValue() public override returns (uint256 value) {
-        value = totalLpAmount() * _getTokenPriceInBaseAsset(address(stakingToken)) / 10 ** 18;
+    /// @inheritdoc DestinationVault
+    function exchangeName() external pure override returns (string memory) {
+        return EXCHANGE_NAME;
     }
 
-    function rewardValue() public override returns (uint256 value) {
-        value = rewarder.earned(address(this));
-
-        //slither-disable-start calls-loop
-        for (uint256 i = 0; i < rewarder.extraRewardsLength(); ++i) {
-            address rewardToken = rewarder.extraRewards(i);
-            uint256 rewardAmount = IERC20(rewardToken).balanceOf(address(this));
-            value += rewardAmount * _getTokenPriceInBaseAsset(rewardToken);
+    /// @inheritdoc DestinationVault
+    function underlyingTokens() external view override returns (address[] memory result) {
+        result = new address[](2);
+        for (uint256 i = 0; i < 2; ++i) {
+            result[i] = constituentTokens[i];
         }
-        //slither-disable-end calls-loop
     }
 
-    /// @notice If base asset is not WETH (which is a case for our MVP)
-    /// we should figure out price of the given token in terms of base asset
-    function _getTokenPriceInBaseAsset(address token) private returns (uint256 value) {
-        //slither-disable-start calls-loop
-        IRootPriceOracle priceOracle = systemRegistry.rootPriceOracle();
-        uint256 tokenPriceInEth = priceOracle.getPriceInEth(token) * 10 ** 18;
-        if (keccak256(abi.encodePacked(baseAsset.symbol())) == keccak256(abi.encodePacked("WETH"))) {
-            value = tokenPriceInEth;
-        } else {
-            uint256 baseAssetPriceInEth = priceOracle.getPriceInEth(address(baseAsset));
-            value = tokenPriceInEth / baseAssetPriceInEth;
-        }
-        //slither-disable-end calls-loop
-    }
-
-    function claimVested_() internal virtual override nonReentrant returns (uint256 amount) {
-        uint256 balanceBefore = baseAsset.balanceOf(address(this));
-        rewarder.getReward();
-        amount = baseAsset.balanceOf(address(this)) - balanceBefore;
-        // slither-disable-next-line incorrect-equality
-        if (amount == 0) revert NothingToClaim();
-    }
-
-    /// @notice Stakes into Maverick Rewarder on deposit
-    /// @dev Should be called by Strategy/Solver on liquidity deployment
-    function stakeOnDeposit(uint256 amount) public nonReentrant {
+    /// @notice Callback during a deposit after the sender has been minted shares (if applicable)
+    /// @dev Should be used for staking tokens into protocols, etc
+    /// @param amount underlying tokens received
+    function _onDeposit(uint256 amount) internal virtual override {
         MaverickStakingAdapter.stakeLPs(maverickRewarder, amount);
     }
 
-    function reclaimDebt_(
-        uint256 pctNumerator,
-        uint256 pctDenominator
-    ) internal virtual override nonReentrant returns (uint256 amount, uint256 loss) {
-        // defining total amount we want to burn in base asset value
-        uint256 totalBurnAmount = Math.mulDiv(debt, pctNumerator, pctDenominator, Math.Rounding.Down);
-        // defining total amount we want to burn in terms of LP quantity
-        uint256 totalLpBurnAmount = Math.mulDiv(totalLpAmount(), pctNumerator, pctDenominator, Math.Rounding.Down);
-
-        // 1) unstake from Maverick Rewarder if we cannot cover all (we prefer not to unstake as long as we can)
-        uint256 unstakeLpAmount = 0;
-        uint256 stakingTokenBal = stakingTokenBalance();
-        if (totalLpBurnAmount > stakingTokenBal) {
-            unstakeLpAmount = totalLpBurnAmount - stakingTokenBal;
-            MaverickStakingAdapter.unstakeLPs(maverickRewarder, unstakeLpAmount);
+    /// @inheritdoc DestinationVault
+    function _ensureLocalUnderlyingBalance(uint256 amount) internal virtual override {
+        // We should almost always have our balance of LP in the rewarder
+        uint256 localLpBalance = localBalance();
+        if (amount > localLpBalance) {
+            MaverickStakingAdapter.unstakeLPs(maverickRewarder, amount - localLpBalance);
         }
+    }
 
-        // 2) withdraw from Maverick Boosted Position
+    /// @inheritdoc DestinationVault
+    function _collectRewards() internal virtual override returns (uint256[] memory amounts, address[] memory tokens) {
+        (amounts, tokens) = MaverickRewardsAdapter.claimRewards(address(maverickRewarder), msg.sender);
+    }
 
-        //slither-disable-next-line similar-names
+    /// @inheritdoc DestinationVault
+    function _burnUnderlyer(uint256 underlyerAmount)
+        internal
+        virtual
+        override
+        returns (address[] memory tokens, uint256[] memory amounts)
+    {
+        //slither-disable-start similar-names
         (uint256 sellAmountA, uint256 sellAmountB) =
-            boostedPosition.burnFromToAddressAsReserves(address(this), address(positionNft), totalLpBurnAmount);
+            maverickBoostedPosition.burnFromToAddressAsReserves(address(this), address(this), underlyerAmount);
 
-        // 3) swap what we receive
-        amount += _sellToken(address(pool.tokenA()), sellAmountA);
-        amount += _sellToken(address(pool.tokenB()), sellAmountB);
+        tokens = new address[](2);
+        amounts = new uint256[](2);
 
-        // 4) check amount and loss
-        // slither-disable-next-line incorrect-equality
-        if (amount == 0) {
-            revert NoDebtReclaimed();
-        }
-        if (amount < totalBurnAmount) {
-            loss = totalBurnAmount - amount;
-        }
+        tokens[0] = constituentTokens[0];
+        tokens[1] = constituentTokens[1];
+
+        amounts[0] = sellAmountA;
+        amounts[1] = sellAmountB;
+        //slither-disable-end similar-names
     }
 }
