@@ -3,7 +3,7 @@ pragma solidity 0.8.17;
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
-import { ERC20Utils } from "src/libs/ERC20Utils.sol";
+import { LibAdapter } from "src/libs/LibAdapter.sol";
 import { IAsyncSwapper, SwapParams } from "src/interfaces/liquidation/IAsyncSwapper.sol";
 
 contract BaseAsyncSwapper is IAsyncSwapper, ReentrancyGuard {
@@ -30,7 +30,7 @@ contract BaseAsyncSwapper is IAsyncSwapper, ReentrancyGuard {
             revert InsufficientBalance(sellTokenBalance, swapParams.sellAmount);
         }
 
-        ERC20Utils.approve(sellToken, AGGREGATOR, swapParams.sellAmount);
+        LibAdapter._approve(sellToken, AGGREGATOR, swapParams.sellAmount);
 
         uint256 buyTokenBalanceBefore = buyToken.balanceOf(address(this));
 
