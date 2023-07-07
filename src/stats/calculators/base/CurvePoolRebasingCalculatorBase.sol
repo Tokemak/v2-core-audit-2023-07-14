@@ -15,10 +15,12 @@ import { ILSTStats } from "src/interfaces/stats/ILSTStats.sol";
 import { ICurveResolver } from "src/interfaces/utils/ICurveResolver.sol";
 import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { IPool } from "src/interfaces/external/curve/IPool.sol";
+import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 abstract contract CurvePoolRebasingCalculatorBase is IDexLSTStats, BaseStatsCalculator, Initializable {
     ILSTStats[] public lstStats;
     address[] public reserveTokens;
+    uint8[] public reserveTokenDecimals;
     uint256 public numTokens;
 
     bytes32 private _aprId;
@@ -80,11 +82,13 @@ abstract contract CurvePoolRebasingCalculatorBase is IDexLSTStats, BaseStatsCalc
 
         IStatsCalculatorRegistry registry = systemRegistry.statsCalculatorRegistry();
         lstStats = new ILSTStats[](numTokens);
+        reserveTokenDecimals = new uint8[](numTokens);
+
         for (uint256 i = 0; i < numTokens; i++) {
             bytes32 dependentAprId = dependentAprIds[i];
-            if (dependentAprId != Stats.NOOP_APR_ID) {
-                address coin = reserveTokens[i];
+            address coin = reserveTokens[i];
 
+            if (dependentAprId != Stats.NOOP_APR_ID) {
                 IStatsCalculator calculator = registry.getCalculator(dependentAprId);
 
                 // Ensure that the calculator we configured is meant to handle the token
@@ -95,6 +99,12 @@ abstract contract CurvePoolRebasingCalculatorBase is IDexLSTStats, BaseStatsCalc
                 }
 
                 lstStats[i] = ILSTStats(address(calculator));
+            }
+
+            if (coin == Stats.CURVE_ETH) {
+                reserveTokenDecimals[i] = 18;
+            } else {
+                reserveTokenDecimals[i] = IERC20Metadata(coin).decimals();
             }
         }
 
@@ -178,9 +188,13 @@ abstract contract CurvePoolRebasingCalculatorBase is IDexLSTStats, BaseStatsCalc
     }
 
     function calculateReserveInEthByIndex(IRootPriceOracle pricer, uint256 index) internal returns (uint256) {
+        // the price oracle is always 18 decimals, so divide by the decimals of the token
+        // to ensure that we always report the value in ETH as 18 decimals
+        uint256 divisor = 10 ** reserveTokenDecimals[index];
+
         // the pricer handles the reentrancy issue for curve
         // slither-disable-next-line reentrancy-benign
-        return pricer.getPriceInEth(reserveTokens[index]) * IPool(poolAddress).balances(index) / 1e18;
+        return pricer.getPriceInEth(reserveTokens[index]) * IPool(poolAddress).balances(index) / divisor;
     }
 
     function getVirtualPrice() internal virtual returns (uint256 virtualPrice);

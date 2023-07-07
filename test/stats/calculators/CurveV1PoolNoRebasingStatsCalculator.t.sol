@@ -26,6 +26,8 @@ import { ICurveMetaRegistry } from "src/interfaces/external/curve/ICurveMetaRegi
 import { CurveV1PoolNoRebasingStatsCalculator } from "src/stats/calculators/CurveV1PoolNoRebasingStatsCalculator.sol";
 import { IDexLSTStats } from "src/interfaces/stats/IDexLSTStats.sol";
 import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
+import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { IPool } from "src/interfaces/external/curve/IPool.sol";
 
 contract CurveV1PoolNoRebasingStatsCalculatorTest is Test {
     address private constant CURVE_META_REGISTRY = 0xF98B45FA17DE75FB1aD0e7aFD971b0ca00e379fC;
@@ -190,6 +192,29 @@ contract CurveV1PoolNoRebasingStatsCalculatorTest is Test {
         assertEq(calculator.lastVirtualPrice(), newVirtualPrice);
     }
 
+    function testItShouldHandleReserveTokensDecimals() public {
+        mockTokenDecimals(RETH_MAINNET, 12); // set rETH to be 12 decimals instead of 18
+        initializeSuccessfully();
+
+        // move past allowed snapshot time
+        uint256 newTimestamp = TARGET_BLOCK_TIMESTAMP + Stats.DEX_FEE_APR_SNAPSHOT_INTERVAL;
+        vm.warp(newTimestamp);
+
+        uint256[] memory noSlashing = new uint256[](0);
+        mockLSTData(mockRethStats, 10, noSlashing, noSlashing);
+        mockLSTData(mockWstethStats, 12, noSlashing, noSlashing);
+        mockTokenPrice(RETH_MAINNET, 1e18);
+        mockTokenPrice(WSTETH_MAINNET, 1e18);
+
+        // set rETH reserve to 1e12 so that if decimals are handled correctly
+        // the result should be it it ends up at 1e18
+        mockPoolReserves(1e12, 1e18);
+
+        IDexLSTStats.DexLSTStatsData memory current = calculator.current();
+        assertEq(current.reservesInEth[0], 1e18);
+        assertEq(current.reservesInEth[1], 1e18);
+    }
+
     function testCurrent() public {
         initializeSuccessfully();
 
@@ -325,6 +350,15 @@ contract CurveV1PoolNoRebasingStatsCalculatorTest is Test {
             abi.encodeWithSelector(ICurveV1StableSwap.get_virtual_price.selector),
             abi.encode(virtualPrice)
         );
+    }
+
+    function mockPoolReserves(uint256 token0Amount, uint256 token1Amount) internal {
+        vm.mockCall(TARGET_POOL, abi.encodeWithSelector(IPool.balances.selector, 0), abi.encode(token0Amount));
+        vm.mockCall(TARGET_POOL, abi.encodeWithSelector(IPool.balances.selector, 1), abi.encode(token1Amount));
+    }
+
+    function mockTokenDecimals(address token, uint8 decimals) internal {
+        vm.mockCall(token, abi.encodeWithSelector(IERC20Metadata.decimals.selector), abi.encode(decimals));
     }
 
     function mockLSTData(
