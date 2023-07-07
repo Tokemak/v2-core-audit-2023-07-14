@@ -17,19 +17,41 @@ import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { IPool } from "src/interfaces/external/curve/IPool.sol";
 import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
+/// @title Curve Pool No Rebasing Calculator Base
+/// @notice Generates stats for Curve pools that do not include any rebasing tokens
+/// @dev Contract is cheaper to snapshot because it tracks less state on snapshots
 abstract contract CurvePoolNoRebasingCalculatorBase is IDexLSTStats, BaseStatsCalculator, Initializable {
+    /// @notice The stats contracts for the underlying LSTs
+    /// @return the LST stats contract for the specified index
     ILSTStats[] public lstStats;
+
+    /// @notice The addresses of the pools reserve tokens
+    /// @return the reserve token address for the specified index
     address[] public reserveTokens;
+
+    /// @notice The decimals of the pools reserve tokens
+    /// @return the reserve token decimals for the specified index
     uint8[] public reserveTokenDecimals;
+
+    /// @notice The number of underlying tokens in the pool
     uint256 public numTokens;
 
-    bytes32 private _aprId;
+    /// @notice The Curve pool address that the stats are for
     address public poolAddress;
+
+    /// @notice The LP token for the Curve pool. May be the same as pool address
     address public lpToken;
 
+    /// @notice The most recent filtered feeApr. Typically retrieved via the current method
     uint256 public feeApr;
+
+    /// @notice The last time a snapshot was taken
     uint256 public lastSnapshotTimestamp;
+
+    /// @notice The pool's virtual price the last time a snapshot was taken
     uint256 public lastVirtualPrice;
+
+    bytes32 private _aprId;
 
     struct InitData {
         address poolAddress;

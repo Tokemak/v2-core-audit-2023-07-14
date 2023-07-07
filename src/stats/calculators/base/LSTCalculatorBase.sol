@@ -151,5 +151,6 @@ abstract contract LSTCalculatorBase is ILSTStats, BaseStatsCalculator, Initializ
         return LSTStatsData({ baseApr: baseApr, slashingCosts: slashingCosts, slashingTimestamps: slashingTimestamps });
     }
 
+    /// @inheritdoc ILSTStats
     function calculateEthPerToken() public view virtual returns (uint256);
 }

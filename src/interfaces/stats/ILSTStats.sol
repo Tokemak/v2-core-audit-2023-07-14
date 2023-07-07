@@ -13,7 +13,12 @@ interface ILSTStats {
         uint256[] slashingTimestamps;
     }
 
-    function current() external view returns (LSTStatsData memory);
+    /// @notice Get the current stats for the LST
+    /// @dev Returned data is a combination of current data and filtered snapshots
+    /// @return lstStatsData current data on the LST
+    function current() external view returns (LSTStatsData memory lstStatsData);
 
-    function calculateEthPerToken() external view returns (uint256);
+    /// @notice Get the EthPerToken (or Share) for the LST
+    /// @return ethPerShare the backing eth for the LST
+    function calculateEthPerToken() external view returns (uint256 ethPerShare);
 }

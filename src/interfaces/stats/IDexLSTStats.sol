@@ -14,5 +14,8 @@ interface IDexLSTStats {
         ILSTStats.LSTStatsData[] lstStatsData;
     }
 
-    function current() external returns (DexLSTStatsData memory);
+    /// @notice Get the current stats for the DEX with underlying LST tokens
+    /// @dev Returned data is a combination of current data and filtered snapshots
+    /// @return dexLSTStatsData current data on the DEX
+    function current() external returns (DexLSTStatsData memory dexLSTStatsData);
 }
