@@ -4,6 +4,7 @@ pragma solidity 0.8.17;
 
 import { Test } from "forge-std/Test.sol";
 import { Stats } from "src/stats/Stats.sol";
+import { Errors } from "src/utils/Errors.sol";
 
 contract StatsTest is Test {
     function testComputeAnnualizedChangeMinZero() public {

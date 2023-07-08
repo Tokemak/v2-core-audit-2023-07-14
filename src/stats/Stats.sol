@@ -3,6 +3,7 @@
 pragma solidity 0.8.17;
 
 import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
+import { Errors } from "src/utils/Errors.sol";
 
 library Stats {
     uint256 public constant SECONDS_IN_YEAR = 365 * 24 * 60 * 60;
@@ -50,6 +51,12 @@ library Stats {
     /// @param poolAddress address of the curve pool
     function generateCurvePoolIdentifier(address poolAddress) internal pure returns (bytes32) {
         return keccak256(abi.encode("curve", poolAddress));
+    }
+
+    /// @notice Generate an aprId for a balancer pool
+    /// @param poolAddress address of the balancer pool
+    function generateBalancerPoolIdentifier(address poolAddress) internal pure returns (bytes32) {
+        return keccak256(abi.encode("balancer", poolAddress));
     }
 
     function calculateAnnualizedChangeMinZero(
