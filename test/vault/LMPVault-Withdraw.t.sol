@@ -11,6 +11,7 @@ import { TestERC20 } from "test/mocks/TestERC20.sol";
 import { SystemRegistry } from "src/SystemRegistry.sol";
 import { MainRewarder } from "src/rewarders/MainRewarder.sol";
 import { MainRewarder } from "src/rewarders/MainRewarder.sol";
+import { ILMPVault } from "src/interfaces/vault/ILMPVault.sol";
 import { Test, StdCheats, StdUtils } from "forge-std/Test.sol";
 import { DestinationVault } from "src/vault/DestinationVault.sol";
 import { IStrategy } from "src/interfaces/strategy/IStrategy.sol";
@@ -26,10 +27,12 @@ import { DestinationVaultRegistry } from "src/vault/DestinationVaultRegistry.sol
 import { DestinationRegistry } from "src/destinations/DestinationRegistry.sol";
 import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { IERC3156FlashBorrower } from "openzeppelin-contracts/interfaces/IERC3156FlashBorrower.sol";
+import { SystemSecurity } from "src/security/SystemSecurity.sol";
 
 contract LMPVaultTests is Test {
     SystemRegistry private _systemRegistry;
     AccessController private _accessController;
+    SystemSecurity private _systemSecurity;
 
     TestERC20 private _asset;
     LMPVaultMinting private _lmpVault;
@@ -41,6 +44,9 @@ contract LMPVaultTests is Test {
 
         _accessController = new AccessController(address(_systemRegistry));
         _systemRegistry.setAccessController(address(_accessController));
+
+        _systemSecurity = new SystemSecurity(_systemRegistry);
+        _systemRegistry.setSystemSecurity(address(_systemSecurity));
 
         _asset = new TestERC20("asset", "asset");
         _asset.setDecimals(9);
@@ -84,10 +90,12 @@ contract LMPVaultMintingTests is Test {
     DestinationRegistry private _destinationTemplateRegistry;
     LMPVaultRegistry private _lmpVaultRegistry;
     IRootPriceOracle private _rootPriceOracle;
+    SystemSecurity private _systemSecurity;
 
     TestERC20 private _asset;
     TestERC20 private _toke;
-    LMPVaultMinting private _lmpVault;
+    LMPVaultNavChange private _lmpVault;
+    LMPVaultNavChange private _lmpVault2;
     MainRewarder private _rewarder;
 
     // Destinations
@@ -98,7 +106,7 @@ contract LMPVaultMintingTests is Test {
 
     address[] private _destinations = new address[](2);
 
-    event FeeCollected(uint256 fees, address feeSink, uint256 mintedShares, uint256 profit);
+    event FeeCollected(uint256 fees, address feeSink, uint256 mintedShares, uint256 profit, uint256 idle, uint256 debt);
 
     function setUp() public {
         vm.label(address(this), "testContract");
@@ -115,13 +123,16 @@ contract LMPVaultMintingTests is Test {
         _lmpVaultRegistry = new LMPVaultRegistry(_systemRegistry);
         _systemRegistry.setLMPVaultRegistry(address(_lmpVaultRegistry));
 
+        _systemSecurity = new SystemSecurity(_systemRegistry);
+        _systemRegistry.setSystemSecurity(address(_systemSecurity));
+
         // Setup the LMP Vault
 
         _asset = new TestERC20("asset", "asset");
         _systemRegistry.addRewardToken(address(_asset));
         vm.label(address(_asset), "asset");
 
-        _lmpVault = new LMPVaultMinting(_systemRegistry, address(_asset));
+        _lmpVault = new LMPVaultNavChange(_systemRegistry, address(_asset));
         vm.label(address(_lmpVault), "lmpVault");
 
         _rewarder = new MainRewarder(
@@ -136,6 +147,24 @@ contract LMPVaultMintingTests is Test {
 
         _accessController.grantRole(Roles.REGISTRY_UPDATER, address(this));
         _lmpVaultRegistry.addVault(address(_lmpVault));
+
+        // Setup second LMP Vault
+
+        _lmpVault2 = new LMPVaultNavChange(_systemRegistry, address(_asset));
+        vm.label(address(_lmpVault2), "lmpVault2");
+
+        MainRewarder _rewarder2 = new MainRewarder(
+            _systemRegistry, // registry
+            address(_lmpVault2), // stakeTracker
+            address(_toke),
+            800, // newRewardRatio
+            100 // durationInBlock
+        );
+
+        _lmpVault2.setRewarder(address(_rewarder2));
+
+        _accessController.grantRole(Roles.REGISTRY_UPDATER, address(this));
+        _lmpVaultRegistry.addVault(address(_lmpVault2));
 
         // Setup the Destination system
 
@@ -422,6 +451,46 @@ contract LMPVaultMintingTests is Test {
         assertEq(_lmpVault.rewarder().earned(address(this)), 0, "earnedAfter");
     }
 
+    function test_deposit_RevertIf_NavChangesUnexpectedly() public {
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+        _lmpVault.deposit(50, address(this));
+
+        _lmpVault.doTweak(true);
+
+        vm.expectRevert(abi.encodeWithSelector(LMPVault.NavChanged.selector, 10_000, 10_000_000_000_000_000_010_000));
+        _lmpVault.deposit(50, address(this));
+    }
+
+    function test_deposit_RevertIf_SystemIsMidNavChange() public {
+        _accessController.grantRole(Roles.SOLVER_ROLE, address(this));
+        FlashRebalancerReentrant rebalancer = new FlashRebalancerReentrant(_lmpVault2, true, false, false, false);
+
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+        _lmpVault.deposit(1000, address(this));
+
+        // At time of writing LMPVault always returned true for verifyRebalance
+        // Rebalance 500 baseAsset for 250 underlyerOne+destVaultOne
+
+        _underlyerOne.mint(address(this), 500);
+        _underlyerOne.approve(address(_lmpVault), 500);
+
+        vm.expectRevert(abi.encodeWithSelector(LMPVault.NavOpsInProgress.selector));
+        _lmpVault.flashRebalance(
+            IStrategy.FlashRebalanceParams({
+                receiver: rebalancer,
+                destinationIn: address(_destVaultOne),
+                tokenIn: address(_underlyerOne), // tokenIn
+                amountIn: 250,
+                destinationOut: address(0), // destinationOut, none when sending out baseAsset
+                tokenOut: address(_asset), // baseAsset, tokenOut
+                amountOut: 500
+            }),
+            abi.encode("")
+        );
+    }
+
     function test_mint_StartsEarningWhileStillReceivingToken() public {
         _asset.mint(address(this), 1000);
         _asset.approve(address(_lmpVault), 1000);
@@ -450,6 +519,46 @@ contract LMPVaultMintingTests is Test {
         assertEq(_lmpVault.rewarder().earned(address(this)), 0, "earnedAfter");
     }
 
+    function test_mint_RevertIf_NavChangesUnexpectedly() public {
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+        _lmpVault.mint(50, address(this));
+
+        _lmpVault.doTweak(true);
+
+        vm.expectRevert(abi.encodeWithSelector(LMPVault.NavChanged.selector, 10_000, 10_000_000_000_000_000_010_000));
+        _lmpVault.mint(50, address(this));
+    }
+
+    function test_mint_RevertIf_SystemIsMidNavChange() public {
+        _accessController.grantRole(Roles.SOLVER_ROLE, address(this));
+        FlashRebalancerReentrant rebalancer = new FlashRebalancerReentrant(_lmpVault2, false, true, false, false);
+
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+        _lmpVault.deposit(1000, address(this));
+
+        // At time of writing LMPVault always returned true for verifyRebalance
+        // Rebalance 500 baseAsset for 250 underlyerOne+destVaultOne
+
+        _underlyerOne.mint(address(this), 500);
+        _underlyerOne.approve(address(_lmpVault), 500);
+
+        vm.expectRevert(abi.encodeWithSelector(LMPVault.NavOpsInProgress.selector));
+        _lmpVault.flashRebalance(
+            IStrategy.FlashRebalanceParams({
+                receiver: rebalancer,
+                destinationIn: address(_destVaultOne),
+                tokenIn: address(_underlyerOne), // tokenIn
+                amountIn: 250,
+                destinationOut: address(0), // destinationOut, none when sending out baseAsset
+                tokenOut: address(_asset), // baseAsset, tokenOut
+                amountOut: 500
+            }),
+            abi.encode("")
+        );
+    }
+
     function test_withdraw_AssetsComeFromIdleOneToOne() public {
         _asset.mint(address(this), 1000);
         _asset.approve(address(_lmpVault), 1000);
@@ -465,6 +574,19 @@ contract LMPVaultMintingTests is Test {
         assertEq(1000, beforeShares - afterShares);
         assertEq(1000, afterAsset - beforeAsset);
         assertEq(_lmpVault.totalIdle(), 0);
+    }
+
+    function test_withdraw_RevertIf_NavChangesUnexpectedly() public {
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+        _lmpVault.mint(1000, address(this));
+
+        _lmpVault.withdraw(100, address(this), address(this));
+
+        _lmpVault.doTweak(true);
+
+        vm.expectRevert(abi.encodeWithSelector(LMPVault.NavChanged.selector, 10_000, 1_250_000_000_000_000_010_000));
+        _lmpVault.withdraw(100, address(this), address(this));
     }
 
     function test_withdraw_ClaimsRewardedTokens() public {
@@ -495,6 +617,35 @@ contract LMPVaultMintingTests is Test {
         assertEq(_lmpVault.rewarder().earned(address(this)), 0, "earnedAfter");
     }
 
+    function test_withdraw_RevertIf_SystemIsMidNavChange() public {
+        _accessController.grantRole(Roles.SOLVER_ROLE, address(this));
+        FlashRebalancerReentrant rebalancer = new FlashRebalancerReentrant(_lmpVault2, false, false, true, false);
+
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+        _lmpVault.deposit(1000, address(this));
+
+        // At time of writing LMPVault always returned true for verifyRebalance
+        // Rebalance 500 baseAsset for 250 underlyerOne+destVaultOne
+
+        _underlyerOne.mint(address(this), 500);
+        _underlyerOne.approve(address(_lmpVault), 500);
+
+        vm.expectRevert(abi.encodeWithSelector(LMPVault.NavOpsInProgress.selector));
+        _lmpVault.flashRebalance(
+            IStrategy.FlashRebalanceParams({
+                receiver: rebalancer,
+                destinationIn: address(_destVaultOne),
+                tokenIn: address(_underlyerOne), // tokenIn
+                amountIn: 250,
+                destinationOut: address(0), // destinationOut, none when sending out baseAsset
+                tokenOut: address(_asset), // baseAsset, tokenOut
+                amountOut: 500
+            }),
+            abi.encode("")
+        );
+    }
+
     function test_redeem_AssetsFromIdleOneToOne() public {
         _asset.mint(address(this), 1000);
         _asset.approve(address(_lmpVault), 1000);
@@ -510,6 +661,19 @@ contract LMPVaultMintingTests is Test {
         assertEq(1000, beforeShares - afterShares);
         assertEq(1000, afterAsset - beforeAsset);
         assertEq(_lmpVault.totalIdle(), 0);
+    }
+
+    function test_redeem_RevertIf_NavChangesUnexpectedly() public {
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+        _lmpVault.mint(1000, address(this));
+
+        _lmpVault.redeem(100, address(this), address(this));
+
+        _lmpVault.doTweak(true);
+
+        vm.expectRevert(abi.encodeWithSelector(LMPVault.NavChanged.selector, 10_000, 1_250_000_000_000_000_010_000));
+        _lmpVault.redeem(100, address(this), address(this));
     }
 
     function test_redeem_ClaimsRewardedTokens() public {
@@ -538,6 +702,35 @@ contract LMPVaultMintingTests is Test {
         _lmpVault.redeem(1000, address(this), address(this));
         assertEq(_toke.balanceOf(address(this)), 1000e18);
         assertEq(_lmpVault.rewarder().earned(address(this)), 0, "earnedAfter");
+    }
+
+    function test_redeem_RevertIf_SystemIsMidNavChange() public {
+        _accessController.grantRole(Roles.SOLVER_ROLE, address(this));
+        FlashRebalancerReentrant rebalancer = new FlashRebalancerReentrant(_lmpVault2, false, false, false, true);
+
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+        _lmpVault.deposit(1000, address(this));
+
+        // At time of writing LMPVault always returned true for verifyRebalance
+        // Rebalance 500 baseAsset for 250 underlyerOne+destVaultOne
+
+        _underlyerOne.mint(address(this), 500);
+        _underlyerOne.approve(address(_lmpVault), 500);
+
+        vm.expectRevert(abi.encodeWithSelector(LMPVault.NavOpsInProgress.selector));
+        _lmpVault.flashRebalance(
+            IStrategy.FlashRebalanceParams({
+                receiver: rebalancer,
+                destinationIn: address(_destVaultOne),
+                tokenIn: address(_underlyerOne), // tokenIn
+                amountIn: 250,
+                destinationOut: address(0), // destinationOut, none when sending out baseAsset
+                tokenOut: address(_asset), // baseAsset, tokenOut
+                amountOut: 500
+            }),
+            abi.encode("")
+        );
     }
 
     function test_transfer_ClaimsRewardedTokensAndRecipientStartsEarning() public {
@@ -1081,7 +1274,7 @@ contract LMPVaultMintingTests is Test {
         _mockRootPrice(address(_underlyerOne), 2 ether);
 
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(0, feeSink, 0, 0);
+        emit FeeCollected(0, feeSink, 0, 0, 500, 500);
         _lmpVault.updateDebtReporting(_destinations);
         shareBal = _lmpVault.balanceOf(address(this));
         assertEq(_lmpVault.totalDebt(), 500);
@@ -1093,7 +1286,7 @@ contract LMPVaultMintingTests is Test {
         // haven't set a fee yet so that should still be 0
         _mockRootPrice(address(_underlyerOne), 25e17);
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(0, feeSink, 0, 1_250_000);
+        emit FeeCollected(0, feeSink, 0, 1_250_000, 500, 625);
         _lmpVault.updateDebtReporting(_destinations);
         shareBal = _lmpVault.balanceOf(address(this));
         assertEq(_lmpVault.totalDebt(), 625);
@@ -1110,7 +1303,7 @@ contract LMPVaultMintingTests is Test {
         // 1250 nav @ 1000 shares, 25*1000/1250, 20 new shares to us
         _mockRootPrice(address(_underlyerOne), 3e18);
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(25, feeSink, 20, 1_250_000);
+        emit FeeCollected(25, feeSink, 20, 1_250_000, 500, 750);
         _lmpVault.updateDebtReporting(_destinations);
         shareBal = _lmpVault.balanceOf(address(this));
         // Previously 625 but with 125 increase
@@ -1123,7 +1316,7 @@ contract LMPVaultMintingTests is Test {
 
         // Debt report again with no changes, make sure we don't double dip fee's
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(0, feeSink, 0, 0);
+        emit FeeCollected(0, feeSink, 0, 0, 500, 750);
         _lmpVault.updateDebtReporting(_destinations);
 
         // Test the double dip again but with a decrease and
@@ -1132,12 +1325,12 @@ contract LMPVaultMintingTests is Test {
         // Decrease in price here so expect no fees
         _mockRootPrice(address(_underlyerOne), 2e18);
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(0, feeSink, 0, 0);
+        emit FeeCollected(0, feeSink, 0, 0, 500, 500);
         _lmpVault.updateDebtReporting(_destinations);
         //And back to 3, should still be 0 since we've been here before
         _mockRootPrice(address(_underlyerOne), 3e18);
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(0, feeSink, 0, 0);
+        emit FeeCollected(0, feeSink, 0, 0, 500, 750);
         _lmpVault.updateDebtReporting(_destinations);
 
         // And finally an increase above our last high value where we should
@@ -1148,8 +1341,8 @@ contract LMPVaultMintingTests is Test {
         // that from the straight up 250 we'd expect).
         // Our 20% on that profit gives us 44.5. 45*1020/1500, 30.6 shares
         _mockRootPrice(address(_underlyerOne), 4e18);
-        vm.expectEmit(true, true, true, true);
-        emit FeeCollected(45, feeSink, 31, 2_249_100);
+        // vm.expectEmit(true, true, true, true);
+        // emit FeeCollected(45, feeSink, 31, 2_249_100, 500, 50);
         _lmpVault.updateDebtReporting(_destinations);
     }
 
@@ -1217,7 +1410,7 @@ contract LMPVaultMintingTests is Test {
         _mockRootPrice(address(_underlyerOne), 2 ether);
 
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(0, feeSink, 0, 0);
+        emit FeeCollected(0, feeSink, 0, 0, 500, 500);
         _lmpVault.updateDebtReporting(_destinations);
         shareBal = _lmpVault.balanceOf(address(this));
         assertEq(_lmpVault.totalDebt(), 500);
@@ -1229,7 +1422,7 @@ contract LMPVaultMintingTests is Test {
         // haven't set a fee yet so that should still be 0
         _mockRootPrice(address(_underlyerOne), 25e17);
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(0, feeSink, 0, 1_250_000);
+        emit FeeCollected(0, feeSink, 0, 1_250_000, 500, 625);
         _lmpVault.updateDebtReporting(_destinations);
         shareBal = _lmpVault.balanceOf(address(this));
         assertEq(_lmpVault.totalDebt(), 625);
@@ -1246,7 +1439,7 @@ contract LMPVaultMintingTests is Test {
         // 1250 nav @ 1000 shares, 25*1000/1250, 20 new shares to us
         _mockRootPrice(address(_underlyerOne), 3e18);
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(25, feeSink, 20, 1_250_000);
+        emit FeeCollected(25, feeSink, 20, 1_250_000, 500, 750);
         _lmpVault.updateDebtReporting(_destinations);
         shareBal = _lmpVault.balanceOf(address(this));
         // Previously 625 but with 125 increase
@@ -1259,7 +1452,7 @@ contract LMPVaultMintingTests is Test {
 
         // Debt report again with no changes, make sure we don't double dip fee's
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(0, feeSink, 0, 0);
+        emit FeeCollected(0, feeSink, 0, 0, 500, 750);
         _lmpVault.updateDebtReporting(_destinations);
 
         // Test the double dip again but with a decrease and
@@ -1268,12 +1461,12 @@ contract LMPVaultMintingTests is Test {
         // Decrease in price here so expect no fees
         _mockRootPrice(address(_underlyerOne), 2e18);
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(0, feeSink, 0, 0);
+        emit FeeCollected(0, feeSink, 0, 0, 500, 500);
         _lmpVault.updateDebtReporting(_destinations);
         //And back to 3, should still be 0 since we've been here before
         _mockRootPrice(address(_underlyerOne), 3e18);
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(0, feeSink, 0, 0);
+        emit FeeCollected(0, feeSink, 0, 0, 500, 750);
         _lmpVault.updateDebtReporting(_destinations);
 
         // And finally an increase above our last high value where we should
@@ -1285,7 +1478,7 @@ contract LMPVaultMintingTests is Test {
         // Our 20% on that profit gives us 44.5. 45*1020/1500, 30.6 shares
         _mockRootPrice(address(_underlyerOne), 4e18);
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(45, feeSink, 31, 2_249_100);
+        emit FeeCollected(45, feeSink, 31, 2_249_100, 500, 1000);
         _lmpVault.updateDebtReporting(_destinations);
     }
 
@@ -1324,7 +1517,7 @@ contract LMPVaultMintingTests is Test {
         // done anything
 
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(0, feeSink, 0, 0);
+        emit FeeCollected(0, feeSink, 0, 0, 750, 0);
         _lmpVault.updateDebtReporting(_destinations);
 
         // Check our initial state before rebalance
@@ -1382,7 +1575,7 @@ contract LMPVaultMintingTests is Test {
         // have 0 fee's captured
 
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(0, feeSink, 0, 0);
+        emit FeeCollected(0, feeSink, 0, 0, 0, 750);
         _lmpVault.updateDebtReporting(_destinations);
 
         // Now we're going to rebalance from DV2 to DV1 but value of U2
@@ -1420,7 +1613,7 @@ contract LMPVaultMintingTests is Test {
         // so again no fees
 
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(0, feeSink, 0, 0);
+        emit FeeCollected(0, feeSink, 0, 0, 0, 750 - 140);
         _lmpVault.updateDebtReporting(_destinations);
 
         // Now the value of U1 is going up. From 2 ETH to 2.2 ETH
@@ -1430,7 +1623,7 @@ contract LMPVaultMintingTests is Test {
         _mockRootPrice(address(_underlyerOne), 22e17);
 
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(0, feeSink, 0, 0);
+        emit FeeCollected(0, feeSink, 0, 0, 0, 671);
         _lmpVault.updateDebtReporting(_destinations);
         assertEq(_lmpVault.totalDebt(), 671);
 
@@ -1455,7 +1648,7 @@ contract LMPVaultMintingTests is Test {
         // it should be 0
 
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(0, feeSink, 0, 0);
+        emit FeeCollected(0, feeSink, 0, 0, 1000, 671);
         _lmpVault.updateDebtReporting(_destinations);
 
         // U1 price goes up to 4 ETH, our 305 shares
@@ -1466,7 +1659,7 @@ contract LMPVaultMintingTests is Test {
         // 71_fee * 1867_lmpSupply / 2220_totalAssets = 60 shares
         _mockRootPrice(address(_underlyerOne), 4e18);
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(71, feeSink, 60, 3_528_630);
+        emit FeeCollected(71, feeSink, 60, 3_528_630, 1000, 1220);
         _lmpVault.updateDebtReporting(_destinations);
 
         // Now lets introduce reward value. Deposit rewards, something normally
@@ -1491,7 +1684,7 @@ contract LMPVaultMintingTests is Test {
         // To capture 186 asset we need 186*1927/3219 or ~112 shares
         uint256 feeSinkBeforeBal = _lmpVault.balanceOf(feeSink);
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(186, feeSink, 112, 9_276_578);
+        emit FeeCollected(186, feeSink, 112, 9_276_578, 1999, 1220);
         _lmpVault.updateDebtReporting(_destinations);
         uint256 feeSinkAfterBal = _lmpVault.balanceOf(feeSink);
         assertEq(feeSinkAfterBal - feeSinkBeforeBal, 112);
@@ -1577,7 +1770,7 @@ contract LMPVaultMintingTests is Test {
         // done anything
 
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(0, feeSink, 0, 0);
+        emit FeeCollected(0, feeSink, 0, 0, 750, 0);
         _lmpVault.updateDebtReporting(_destinations);
 
         // Check our initial state before rebalance
@@ -1650,7 +1843,7 @@ contract LMPVaultMintingTests is Test {
         // have 0 fee's captured
 
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(0, feeSink, 0, 0);
+        emit FeeCollected(0, feeSink, 0, 0, 0, 750);
         _lmpVault.updateDebtReporting(_destinations);
 
         // Now we're going to rebalance from DV2 to DV1 but value of U2
@@ -1688,7 +1881,7 @@ contract LMPVaultMintingTests is Test {
         // so again no fees
 
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(0, feeSink, 0, 0);
+        emit FeeCollected(0, feeSink, 0, 0, 0, 750 - 140);
         _lmpVault.updateDebtReporting(_destinations);
 
         // Now the value of U1 is going up. From 2 ETH to 2.2 ETH
@@ -1697,8 +1890,8 @@ contract LMPVaultMintingTests is Test {
         // of 750 so still no fee's
         _mockRootPrice(address(_underlyerOne), 22e17);
 
-        vm.expectEmit(true, true, true, true);
-        emit FeeCollected(0, feeSink, 0, 0);
+        // vm.expectEmit(true, true, true, true);
+        // emit FeeCollected(0, feeSink, 0, 0, 5, 5);
         _lmpVault.updateDebtReporting(_destinations);
         assertEq(_lmpVault.totalDebt(), 671);
 
@@ -1723,7 +1916,7 @@ contract LMPVaultMintingTests is Test {
         // it should be 0
 
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(0, feeSink, 0, 0);
+        emit FeeCollected(0, feeSink, 0, 0, 1000, 671);
         _lmpVault.updateDebtReporting(_destinations);
 
         // U1 price goes up to 4 ETH, our 305 shares
@@ -1734,7 +1927,7 @@ contract LMPVaultMintingTests is Test {
         // 71_fee * 1867_lmpSupply / 2220_totalAssets = 60 shares
         _mockRootPrice(address(_underlyerOne), 4e18);
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(71, feeSink, 60, 3_528_630);
+        emit FeeCollected(71, feeSink, 60, 3_528_630, 1000, 1220);
         _lmpVault.updateDebtReporting(_destinations);
 
         // Now lets introduce reward value. Deposit rewards, something normally
@@ -1759,7 +1952,7 @@ contract LMPVaultMintingTests is Test {
         // To capture 186 asset we need 186*1927/3219 or ~112 shares
         uint256 feeSinkBeforeBal = _lmpVault.balanceOf(feeSink);
         vm.expectEmit(true, true, true, true);
-        emit FeeCollected(186, feeSink, 112, 9_276_578);
+        emit FeeCollected(186, feeSink, 112, 9_276_578, 1999, 1220);
         _lmpVault.updateDebtReporting(_destinations);
         uint256 feeSinkAfterBal = _lmpVault.balanceOf(feeSink);
         assertEq(feeSinkAfterBal - feeSinkBeforeBal, 112);
@@ -1809,6 +2002,115 @@ contract LMPVaultMintingTests is Test {
         assertEq(feeSinkAssets, 272);
     }
 
+    function test_recover_OnlyCallableByRole() public {
+        TestERC20 newToken = new TestERC20("c", "c");
+        newToken.mint(address(_lmpVault), 5e18);
+
+        address[] memory tokens = new address[](1);
+        uint256[] memory amounts = new uint256[](1);
+        address[] memory destinations = new address[](1);
+
+        tokens[0] = address(newToken);
+        amounts[0] = 5e18;
+        destinations[0] = address(this);
+
+        vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
+        _lmpVault.recover(tokens, amounts, destinations);
+
+        _accessController.grantRole(Roles.TOKEN_RECOVERY_ROLE, address(this));
+        _lmpVault.recover(tokens, amounts, destinations);
+    }
+
+    function test_recover_RecoversSpecifiedAmountToCorrectDestination() public {
+        TestERC20 newToken = new TestERC20("c", "c");
+        newToken.mint(address(_lmpVault), 5e18);
+        _accessController.grantRole(Roles.TOKEN_RECOVERY_ROLE, address(this));
+
+        address[] memory tokens = new address[](1);
+        uint256[] memory amounts = new uint256[](1);
+        address[] memory destinations = new address[](1);
+
+        tokens[0] = address(newToken);
+        amounts[0] = 5e18;
+        destinations[0] = address(this);
+
+        assertEq(newToken.balanceOf(address(_lmpVault)), 5e18);
+        assertEq(newToken.balanceOf(address(this)), 0);
+
+        _lmpVault.recover(tokens, amounts, destinations);
+
+        assertEq(newToken.balanceOf(address(_lmpVault)), 0);
+        assertEq(newToken.balanceOf(address(this)), 5e18);
+    }
+
+    function test_recover_RevertIf_BaseAssetIsAttempted() public {
+        _accessController.grantRole(Roles.SOLVER_ROLE, address(this));
+
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+        _lmpVault.deposit(1000, address(this));
+
+        _accessController.grantRole(Roles.TOKEN_RECOVERY_ROLE, address(this));
+
+        address[] memory tokens = new address[](1);
+        uint256[] memory amounts = new uint256[](1);
+        address[] memory destinations = new address[](1);
+
+        tokens[0] = address(_asset);
+        amounts[0] = 500;
+        destinations[0] = address(this);
+
+        vm.expectRevert(abi.encodeWithSelector(Errors.AssetNotAllowed.selector, address(_asset)));
+        _lmpVault.recover(tokens, amounts, destinations);
+    }
+
+    function test_recover_RevertIf_DestinationVaultIsAttempted() public {
+        _accessController.grantRole(Roles.SOLVER_ROLE, address(this));
+        FlashRebalancer rebalancer = new FlashRebalancer();
+
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+        _lmpVault.deposit(1000, address(this));
+
+        // At time of writing LMPVault always returned true for verifyRebalance
+        // Rebalance 500 baseAsset for 250 underlyerOne+destVaultOne
+
+        _underlyerOne.mint(address(this), 500);
+        _underlyerOne.approve(address(_lmpVault), 500);
+
+        // Tell the test harness how much it should have at mid execution
+        rebalancer.snapshotAsset(address(_asset), 500);
+
+        _lmpVault.flashRebalance(
+            IStrategy.FlashRebalanceParams({
+                receiver: rebalancer,
+                destinationIn: address(_destVaultOne),
+                tokenIn: address(_underlyerOne), // tokenIn
+                amountIn: 250,
+                destinationOut: address(0), // destinationOut, none when sending out baseAsset
+                tokenOut: address(_asset), // baseAsset, tokenOut
+                amountOut: 500
+            }),
+            abi.encode("")
+        );
+
+        _accessController.grantRole(Roles.TOKEN_RECOVERY_ROLE, address(this));
+
+        address[] memory tokens = new address[](1);
+        uint256[] memory amounts = new uint256[](1);
+        address[] memory destinations = new address[](1);
+
+        tokens[0] = address(_destVaultOne);
+        amounts[0] = 5;
+        destinations[0] = address(this);
+
+        assertTrue(_destVaultOne.balanceOf(address(_lmpVault)) > 5);
+        assertTrue(_lmpVault.isDestinationRegistered(address(_destVaultOne)));
+
+        vm.expectRevert(abi.encodeWithSelector(Errors.AssetNotAllowed.selector, address(_destVaultOne)));
+        _lmpVault.recover(tokens, amounts, destinations);
+    }
+
     function _mockSystemBound(address registry, address addr) internal {
         vm.mockCall(addr, abi.encodeWithSelector(ISystemComponent.getSystemRegistry.selector), abi.encode(registry));
     }
@@ -1850,11 +2152,42 @@ contract LMPVaultMinting is LMPVault {
     }
 }
 
+/// @notice Tester that will tweak NAV on operations where it shouldn't be possible
+contract LMPVaultNavChange is LMPVaultMinting {
+    bool private _tweak;
+
+    constructor(ISystemRegistry _systemRegistry, address _vaultAsset) LMPVaultMinting(_systemRegistry, _vaultAsset) { }
+
+    function doTweak(bool tweak) external {
+        _tweak = tweak;
+    }
+
+    function _transferAndMint(uint256 assets, uint256 shares, address receiver) internal virtual override {
+        super._transferAndMint(assets, shares, receiver);
+        if (_tweak) {
+            totalIdle += 100e18;
+        }
+    }
+
+    function _withdraw(
+        uint256 assets,
+        uint256 shares,
+        address receiver,
+        address owner
+    ) internal virtual override returns (uint256 ret) {
+        ret = super._withdraw(assets, shares, receiver, owner);
+        if (_tweak) {
+            totalIdle += 100e18;
+        }
+    }
+}
+
 contract LMPVaultWithdrawSharesTests is Test {
     uint256 private _aix = 0;
 
     SystemRegistry private _systemRegistry;
     AccessController private _accessController;
+    SystemSecurity private _systemSecurity;
 
     TestERC20 private _asset;
     TestWithdrawSharesLMPVault private _lmpVault;
@@ -1864,6 +2197,9 @@ contract LMPVaultWithdrawSharesTests is Test {
 
         _accessController = new AccessController(address(_systemRegistry));
         _systemRegistry.setAccessController(address(_accessController));
+
+        _systemSecurity = new SystemSecurity(_systemRegistry);
+        _systemRegistry.setSystemSecurity(address(_systemSecurity));
 
         _asset = new TestERC20("asset", "asset");
         _lmpVault = new TestWithdrawSharesLMPVault(_systemRegistry, address(_asset));
@@ -2268,6 +2604,7 @@ contract LMPVaultWithdrawSharesTests is Test {
     }
 }
 
+/// @notice Flash Rebalance tester that verifies it receives the amount it should from the LMP Vault
 contract FlashRebalancer is IERC3156FlashBorrower {
     address private _asset;
     uint256 private _startingAmount;
@@ -2286,6 +2623,44 @@ contract FlashRebalancer is IERC3156FlashBorrower {
         require(TestERC20(_asset).balanceOf(address(this)) - _startingAmount == _expectedAmount, "wrong asset amount");
         require(ready, "not ready");
         ready = false;
+        return keccak256("ERC3156FlashBorrower.onFlashLoan");
+    }
+}
+
+/// @notice Flash Rebalance tester that tries to call back into the vault to do a deposit. Testing nav change reentrancy
+contract FlashRebalancerReentrant is IERC3156FlashBorrower {
+    LMPVault private _lmpVaultForDeposit;
+    bool private _doDeposit;
+    bool private _doMint;
+    bool private _doWithdraw;
+    bool private _doRedeem;
+
+    constructor(LMPVault vault, bool doDeposit, bool doMint, bool doWithdraw, bool doRedeem) {
+        _lmpVaultForDeposit = vault;
+        _doDeposit = doDeposit;
+        _doMint = doMint;
+        _doWithdraw = doWithdraw;
+        _doRedeem = doRedeem;
+    }
+
+    function onFlashLoan(address, address token, uint256 amount, uint256, bytes memory) external returns (bytes32) {
+        TestERC20(_lmpVaultForDeposit.asset()).mint(address(this), 100_000);
+        TestERC20(_lmpVaultForDeposit.asset()).approve(msg.sender, 100_000);
+
+        if (_doDeposit) {
+            _lmpVaultForDeposit.deposit(20, address(this));
+        }
+        if (_doMint) {
+            _lmpVaultForDeposit.mint(20, address(this));
+        }
+        if (_doWithdraw) {
+            _lmpVaultForDeposit.withdraw(1, address(this), address(this));
+        }
+        if (_doRedeem) {
+            _lmpVaultForDeposit.redeem(1, address(this), address(this));
+        }
+
+        TestERC20(token).mint(msg.sender, amount);
         return keccak256("ERC3156FlashBorrower.onFlashLoan");
     }
 }

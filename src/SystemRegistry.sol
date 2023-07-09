@@ -12,6 +12,7 @@ import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
 import { ICurveResolver } from "src/interfaces/utils/ICurveResolver.sol";
 import { ILMPVaultRouter } from "src/interfaces/vault/ILMPVaultRouter.sol";
 import { ILMPVaultFactory } from "src/interfaces/vault/ILMPVaultFactory.sol";
+import { ISystemSecurity } from "src/interfaces/security/ISystemSecurity.sol";
 import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
 import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { IAccessController } from "src/interfaces/security/IAccessController.sol";
@@ -44,6 +45,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     IAsyncSwapperRegistry private _asyncSwapperRegistry;
     ISwapRouter private _swapRouter;
     ICurveResolver private _curveResolver;
+    ISystemSecurity private _systemSecurity;
 
     mapping(bytes32 => ILMPVaultFactory) private _lmpVaultFactoryByType;
     EnumerableSet.Bytes32Set private _lmpVaultFactoryTypes;
@@ -69,6 +71,7 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     event CurveResolverSet(address curveResolver);
     event RewardTokenAdded(address rewardToken);
     event RewardTokenRemoved(address rewardToken);
+    event SystemSecuritySet(address security);
 
     /* ******************************** */
     /* Errors                           */
@@ -155,6 +158,11 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
     /// @inheritdoc ISystemRegistry
     function curveResolver() external view returns (ICurveResolver) {
         return _curveResolver;
+    }
+
+    /// @inheritdoc ISystemRegistry
+    function systemSecurity() external view returns (ISystemSecurity) {
+        return _systemSecurity;
     }
 
     /* ******************************** */
@@ -396,6 +404,23 @@ contract SystemRegistry is ISystemRegistry, Ownable2Step {
         delete _lmpVaultFactoryByType[vaultType];
 
         emit LMPVaultFactoryRemoved(vaultType, factoryAddress);
+    }
+
+    /// @notice Set the System Security instance for this system
+    /// @dev Should only be able to set this value one time
+    /// @param security Address of the security contract
+    function setSystemSecurity(address security) external onlyOwner {
+        Errors.verifyNotZero(security, "security");
+
+        if (address(_systemSecurity) != address(0)) {
+            revert Errors.AlreadySet("security");
+        }
+
+        emit SystemSecuritySet(security);
+
+        _systemSecurity = ISystemSecurity(security);
+
+        _verifySystemsAgree(security);
     }
 
     /// @notice Verifies that a system bound contract matches this contract

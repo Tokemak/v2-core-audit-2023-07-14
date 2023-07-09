@@ -20,7 +20,7 @@ contract SwapRouter is SystemComponent, ISwapRouter, SecurityBase, ReentrancyGua
     // slither-disable-next-line uninitialized-state
     mapping(address => mapping(address => SwapData[])) private swapRoutes;
 
-    modifier onlyLMPVault(address vaultAddress) {
+    modifier onlyDestinationVault(address vaultAddress) {
         IDestinationVaultRegistry destinationVaultRegistry = systemRegistry.destinationVaultRegistry();
         if (!destinationVaultRegistry.isRegistered(vaultAddress)) revert Errors.AccessDenied();
         _;
@@ -70,7 +70,7 @@ contract SwapRouter is SystemComponent, ISwapRouter, SecurityBase, ReentrancyGua
         uint256 sellAmount,
         address quoteToken,
         uint256 minBuyAmount
-    ) external onlyLMPVault(msg.sender) nonReentrant returns (uint256) {
+    ) external onlyDestinationVault(msg.sender) nonReentrant returns (uint256) {
         if (sellAmount == 0) revert Errors.ZeroAmount();
         if (assetToken == quoteToken) revert Errors.InvalidParams();
         Errors.verifyNotZero(assetToken, "assetToken");

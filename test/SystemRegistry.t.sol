@@ -4,13 +4,14 @@ pragma solidity >=0.8.7;
 import { Errors } from "src/utils/Errors.sol";
 import { Test, StdCheats } from "forge-std/Test.sol";
 import { SystemRegistry } from "src/SystemRegistry.sol";
+import { TOKE_MAINNET, WETH_MAINNET } from "test/utils/Addresses.sol";
 import { ISystemComponent } from "src/interfaces/ISystemComponent.sol";
+import { ISystemSecurity } from "src/interfaces/security/ISystemSecurity.sol";
 import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
 import { IAccessController } from "src/interfaces/security/IAccessController.sol";
 import { IDestinationRegistry } from "src/interfaces/destinations/IDestinationRegistry.sol";
 import { IStatsCalculatorRegistry } from "src/interfaces/stats/IStatsCalculatorRegistry.sol";
 import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
-import { TOKE_MAINNET, WETH_MAINNET } from "test/utils/Addresses.sol";
 
 // solhint-disable func-name-mixedcase
 
@@ -25,6 +26,7 @@ contract SystemRegistryTest is Test {
     event RootPriceOracleSet(address rootPriceOracle);
     event SwapRouterSet(address swapRouter);
     event CurveResolverSet(address curveResolver);
+    event SystemSecuritySet(address security);
 
     function setUp() public {
         _systemRegistry = new SystemRegistry(TOKE_MAINNET, WETH_MAINNET);
@@ -646,6 +648,80 @@ contract SystemRegistryTest is Test {
         vm.expectRevert("Ownable: caller is not the owner");
         vm.prank(newOwner);
         _systemRegistry.setCurveResolver(resolver);
+    }
+
+    /* ******************************** */
+    /* System Security
+    /* ******************************** */
+
+    function test_setSystemSecurity_CannotBeSetToItself() public {
+        address component = vm.addr(1);
+        mockSystemComponent(component);
+        _systemRegistry.setSystemSecurity(component);
+        vm.expectRevert(abi.encodeWithSelector(Errors.AlreadySet.selector, "security"));
+        _systemRegistry.setSystemSecurity(component);
+    }
+
+    function test_setSystemSecurity_CanOnlyBeSetOnce() public {
+        address component = vm.addr(1);
+        mockSystemComponent(component);
+        _systemRegistry.setSystemSecurity(component);
+        component = vm.addr(2);
+        vm.expectRevert(abi.encodeWithSelector(Errors.AlreadySet.selector, "security"));
+        _systemRegistry.setSystemSecurity(component);
+    }
+
+    function test_setSystemSecurity_ZeroAddressNotAllowed() public {
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "security"));
+        _systemRegistry.setSystemSecurity(address(0));
+    }
+
+    function test_setSystemSecurity_SavesValueForLaterRead() public {
+        address component = vm.addr(3);
+        mockSystemComponent(component);
+        _systemRegistry.setSystemSecurity(component);
+        ISystemSecurity queried = _systemRegistry.systemSecurity();
+
+        assertEq(component, address(queried));
+    }
+
+    function test_setSystemSecurity_EmitsEventOnSet() public {
+        address component = vm.addr(3);
+
+        vm.expectEmit(true, true, true, true);
+        emit SystemSecuritySet(component);
+
+        mockSystemComponent(component);
+        _systemRegistry.setSystemSecurity(component);
+    }
+
+    function test_setSystemSecurity_OnlyCallableByOwner() public {
+        address component = vm.addr(3);
+        address newOwner = vm.addr(4);
+
+        vm.expectRevert("Ownable: caller is not the owner");
+        vm.prank(newOwner);
+        _systemRegistry.setSystemSecurity(component);
+    }
+
+    function test_setSystemSecurity_EnsuresSystemsMatch() public {
+        address component = vm.addr(1);
+        address fake = vm.addr(2);
+        vm.mockCall(component, abi.encodeWithSelector(ISystemComponent.getSystemRegistry.selector), abi.encode(fake));
+        vm.expectRevert(abi.encodeWithSelector(Errors.SystemMismatch.selector, address(_systemRegistry), fake));
+        _systemRegistry.setSystemSecurity(component);
+    }
+
+    function test_setSystemSecurity_BlocksInvalidContractFromBeingSet() public {
+        // When its not a contract
+        address fakeComponent = vm.addr(2);
+        vm.expectRevert();
+        _systemRegistry.setSystemSecurity(fakeComponent);
+
+        // When it is a contract, just incorrect
+        address emptyContract = address(new EmptyContract());
+        vm.expectRevert(abi.encodeWithSelector(SystemRegistry.InvalidContract.selector, emptyContract));
+        _systemRegistry.setSystemSecurity(emptyContract);
     }
 
     /* ******************************** */

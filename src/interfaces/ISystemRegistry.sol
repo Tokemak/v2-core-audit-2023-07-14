@@ -11,6 +11,7 @@ import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
 import { ICurveResolver } from "src/interfaces/utils/ICurveResolver.sol";
 import { ILMPVaultRouter } from "src/interfaces/vault/ILMPVaultRouter.sol";
 import { ILMPVaultFactory } from "src/interfaces/vault/ILMPVaultFactory.sol";
+import { ISystemSecurity } from "src/interfaces/security/ISystemSecurity.sol";
 import { IDestinationRegistry } from "./destinations/IDestinationRegistry.sol";
 import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { ILMPVaultRegistry } from "src/interfaces/vault/ILMPVaultRegistry.sol";
@@ -94,4 +95,8 @@ interface ISystemRegistry {
     /// @param rewardToken token address to verify
     /// @return bool that indicates true if token is registered and false if not
     function isRewardToken(address rewardToken) external view returns (bool);
+
+    /// @notice Get the system security instance for this system
+    /// @return security instance of system security for this system
+    function systemSecurity() external view returns (ISystemSecurity security);
 }

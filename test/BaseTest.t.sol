@@ -16,6 +16,7 @@ import { TestDestinationVault } from "test/mocks/TestDestinationVault.sol";
 import { IAccessController, AccessController } from "src/security/AccessController.sol";
 import { StrategyFactory } from "src/strategy/StrategyFactory.sol";
 import { StakeTrackingMock } from "test/mocks/StakeTrackingMock.sol";
+import { SystemSecurity } from "src/security/SystemSecurity.sol";
 import { IMainRewarder, MainRewarder } from "src/rewarders/MainRewarder.sol";
 
 import { IGPToke, GPToke } from "src/staking/GPToke.sol";
@@ -39,6 +40,8 @@ contract BaseTest is Test {
     TestDestinationVault public testDestinationVault;
 
     IAccessController public accessController;
+
+    SystemSecurity public systemSecurity;
 
     // -- Staking -- //
     GPToke public gpToke;
@@ -84,6 +87,9 @@ contract BaseTest is Test {
         systemRegistry.setLMPVaultFactory(VaultTypes.LST, address(lmpVaultFactory));
         // NOTE: deployer grants factory permission to update the registry
         accessController.grantRole(Roles.REGISTRY_UPDATER, address(lmpVaultFactory));
+
+        systemSecurity = new SystemSecurity(systemRegistry);
+        systemRegistry.setSystemSecurity(address(systemSecurity));
 
         // NOTE: these pieces were taken out so that each set of tests can init only the components it needs!
         //       Saves a ton of unnecessary setup time and makes fuzzing tests run much much faster

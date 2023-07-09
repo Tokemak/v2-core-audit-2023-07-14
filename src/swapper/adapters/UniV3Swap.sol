@@ -31,7 +31,7 @@ contract UniV3Swap is BaseAdapter {
     constructor(address _router) BaseAdapter(_router) { }
 
     /// @inheritdoc ISyncSwapper
-    function validate(address fromAddress, ISwapRouter.SwapData memory swapData) external view override {
+    function validate(address fromAddress, ISwapRouter.SwapData memory swapData) external pure override {
         bytes memory path = swapData.data;
 
         // retrieve the first and last token in the path

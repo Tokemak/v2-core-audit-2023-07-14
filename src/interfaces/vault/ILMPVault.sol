@@ -16,7 +16,7 @@ interface ILMPVault is IERC4626, IERC20Permit {
     event DebtUpdated(uint256 oldDebt, uint256 newDebt);
     event RewarderSet(address rewarder);
     event DestinationDebtReporting(address destination, uint256 debtValue, uint256 claimed, uint256 claimGasUsed);
-    event FeeCollected(uint256 fees, address feeSink, uint256 mintedShares, uint256 profit);
+    event FeeCollected(uint256 fees, address feeSink, uint256 mintedShares, uint256 profit, uint256 idle, uint256 debt);
 
     /* ******************************** */
     /*      Errors                      */
@@ -34,18 +34,8 @@ interface ILMPVault is IERC4626, IERC20Permit {
     /// @notice Query the type of vault
     function vaultType() external view returns (bytes32);
 
-    /// @notice Allow Rebalancer to move tracked assets
-    function pullTokens(
-        address[] calldata tokens,
-        uint256[] calldata amounts,
-        address[] calldata destinations
-    ) external;
-
     /// @notice Allow token recoverer to collect dust / unintended transfers (non-tracked assets only)
     function recover(address[] calldata tokens, uint256[] calldata amounts, address[] calldata destinations) external;
-
-    /// @notice Migrate user assets to a new vault
-    function migrateVault(uint256 amount, address newLmpVault) external;
 
     /// @notice Set the order of destination vaults used for withdrawals
     // NOTE: will be done going directly to strategy (IStrategy) vault points to.

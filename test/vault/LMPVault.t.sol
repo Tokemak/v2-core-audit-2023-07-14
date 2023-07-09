@@ -33,8 +33,11 @@ contract LMPVaultTest is ERC4626Test, BaseTest {
         // create and set rewarder
         MainRewarder rewarder = createMainRewarder(_underlying_, address(vault));
         accessController.grantRole(Roles.DV_REWARD_MANAGER_ROLE, address(this));
+        accessController.grantRole(Roles.REGISTRY_UPDATER, address(this));
         rewarder.setTokeLockDuration(0);
         vault.setRewarder(address(rewarder));
+
+        lmpVaultRegistry.addVault(address(vault));
 
         _vault_ = address(vault);
         _delta_ = 0;

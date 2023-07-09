@@ -4,6 +4,7 @@ pragma solidity 0.8.17;
 
 import { Roles } from "src/libs/Roles.sol";
 import { Errors } from "src/utils/Errors.sol";
+import { Pausable } from "src/security/Pausable.sol";
 import { VaultTypes } from "src/vault/VaultTypes.sol";
 import { NonReentrant } from "src/utils/NonReentrant.sol";
 import { SystemComponent } from "src/SystemComponent.sol";
@@ -13,7 +14,6 @@ import { ILMPVault } from "src/interfaces/vault/ILMPVault.sol";
 import { IStrategy } from "src/interfaces/strategy/IStrategy.sol";
 import { Math } from "openzeppelin-contracts/utils/math/Math.sol";
 import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
-import { Pausable } from "openzeppelin-contracts/security/Pausable.sol";
 import { IERC4626 } from "openzeppelin-contracts/interfaces/IERC4626.sol";
 import { IMainRewarder } from "src/interfaces/rewarders/IMainRewarder.sol";
 import { IDestinationVault } from "src/interfaces/vault/IDestinationVault.sol";
@@ -97,7 +97,6 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     uint256 public navPerShareHighMark = MAX_FEE_BPS;
     uint256 public navPerShareHighMarkTimestamp;
 
-    EnumerableSet.AddressSet internal _trackedAssets;
     IERC20 internal immutable _baseAsset;
 
     error TooFewAssets(uint256 requested, uint256 actual);
@@ -107,32 +106,34 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     error RebalanceDestinationsMatch(address destinationVault);
     error InvalidDestination(address destination);
     error NavChanged(uint256 oldNav, uint256 newNav);
+    error NavOpsInProgress();
 
     event PerformanceFeeSet(uint256 newFee);
     event FeeSinkSet(address newFeeSink);
     event NewNavHighWatermark(uint256 navPerShare, uint256 timestamp);
-    event TotalAssetsProcessed(uint256 total);
 
     modifier noNavChange() {
         uint256 ts = totalSupply();
         if (ts > 0) {
-            uint256 oldNav = (totalAssets() * MAX_FEE_BPS) / totalSupply();
-            uint256 lowerBound = Math.max(oldNav, NAV_CHANGE_ROUNDING_BUFFER) - NAV_CHANGE_ROUNDING_BUFFER;
-            uint256 upperBound = oldNav > type(uint256).max - NAV_CHANGE_ROUNDING_BUFFER
-                ? type(uint256).max
-                : oldNav + NAV_CHANGE_ROUNDING_BUFFER;
+            uint256 oldNav = _snapStartNav();
             _;
-            ts = totalSupply();
-            if (ts > 0) {
-                uint256 newNav = (totalAssets() * MAX_FEE_BPS) / totalSupply();
-
-                if (newNav < lowerBound || newNav > upperBound) {
-                    revert NavChanged(oldNav, newNav);
-                }
-            }
+            _ensureNoNavChange(oldNav);
         } else {
             _;
         }
+    }
+
+    modifier ensureNoNavOps() {
+        if (systemRegistry.systemSecurity().navOpsInProgress() > 0) {
+            revert NavOpsInProgress();
+        }
+        _;
+    }
+
+    modifier trackNavOps() {
+        systemRegistry.systemSecurity().enterNavOperation();
+        _;
+        systemRegistry.systemSecurity().exitNavOperation();
     }
 
     constructor(
@@ -146,6 +147,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         )
         ERC20Permit(string(abi.encodePacked("lmp", ERC20(_vaultAsset).symbol())))
         SecurityBase(address(_systemRegistry.accessController()))
+        Pausable(_systemRegistry)
     {
         _baseAsset = IERC20(_vaultAsset);
         _baseAssetDecimals = IERC20(_vaultAsset).decimals();
@@ -254,7 +256,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     function deposit(
         uint256 assets,
         address receiver
-    ) public virtual override whenNotPaused nonReentrant noNavChange returns (uint256 shares) {
+    ) public virtual override whenNotPaused nonReentrant noNavChange ensureNoNavOps returns (uint256 shares) {
         Errors.verifyNotZero(assets, "assets");
         if (assets > maxDeposit(receiver)) {
             revert ERC4626DepositExceedsMax(assets, maxDeposit(receiver));
@@ -304,7 +306,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     function mint(
         uint256 shares,
         address receiver
-    ) public virtual override whenNotPaused nonReentrant noNavChange returns (uint256 assets) {
+    ) public virtual override whenNotPaused nonReentrant noNavChange ensureNoNavOps returns (uint256 assets) {
         if (shares > maxMint(receiver)) {
             revert ERC4626MintExceedsMax(shares, maxMint(receiver));
         }
@@ -323,7 +325,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         uint256 assets,
         address receiver,
         address owner
-    ) public virtual override whenNotPaused nonReentrant noNavChange returns (uint256 shares) {
+    ) public virtual override whenNotPaused nonReentrant noNavChange ensureNoNavOps returns (uint256 shares) {
         Errors.verifyNotZero(assets, "assets");
         // @audit where are we checking assets <= maxWithdraw
 
@@ -342,7 +344,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         uint256 shares,
         address receiver,
         address owner
-    ) public virtual override whenNotPaused nonReentrant noNavChange returns (uint256 assets) {
+    ) public virtual override whenNotPaused nonReentrant noNavChange ensureNoNavOps returns (uint256 assets) {
         // @audit where are we checking shares <= maxRedeem
 
         assets = previewRedeem(shares);
@@ -418,7 +420,12 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     }
 
     // slither-disable-next-line cyclomatic-complexity
-    function _withdraw(uint256 assets, uint256 shares, address receiver, address owner) private returns (uint256) {
+    function _withdraw(
+        uint256 assets,
+        uint256 shares,
+        address receiver,
+        address owner
+    ) internal virtual returns (uint256) {
         uint256 idle = totalIdle;
         WithdrawInfo memory info = WithdrawInfo({
             currentIdle: idle,
@@ -489,10 +496,9 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
 
         _burn(owner, shares);
 
-        _baseAsset.safeTransfer(receiver, returnedAssets);
-
-        // There is mix of usage of msg.sender and _msgSender, pick one
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
+
+        _baseAsset.safeTransfer(receiver, returnedAssets);
 
         return returnedAssets;
     }
@@ -501,87 +507,27 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         rewarder.getReward(msg.sender, true);
     }
 
-    function pullTokens(
-        address[] calldata tokens,
-        uint256[] calldata amounts,
-        address[] calldata _destinations
-    ) public virtual override hasRole(Roles.REBALANCER_ROLE) {
-        _bulkMoveTokens(tokens, amounts, _destinations, true);
-
-        emit TokensPulled(tokens, amounts, _destinations);
-    }
-
     function recover(
         address[] calldata tokens,
         uint256[] calldata amounts,
         address[] calldata _destinations
-    ) public virtual override hasRole(Roles.TOKEN_RECOVERY_ROLE) {
-        _bulkMoveTokens(tokens, amounts, _destinations, false);
-
-        emit TokensRecovered(tokens, amounts, _destinations);
-    }
-
-    function _bulkMoveTokens(
-        address[] calldata tokens,
-        uint256[] calldata amounts,
-        address[] calldata _destinations,
-        bool onlyDoTracked
-    ) private {
-        // check for param numbers match
-        if (!(tokens.length > 0) || tokens.length != amounts.length || tokens.length != _destinations.length) {
+    ) external virtual override hasRole(Roles.TOKEN_RECOVERY_ROLE) {
+        uint256 len = tokens.length;
+        if (len == 0 || len != amounts.length || len != _destinations.length) {
             revert Errors.InvalidParams();
         }
 
-        //
-        // Actually pull / recover tokens
-        //
-        for (uint256 i = 0; i < tokens.length; ++i) {
+        emit TokensRecovered(tokens, amounts, _destinations);
+
+        for (uint256 i = 0; i < len; ++i) {
             (address tokenAddress, uint256 amount, address destination) = (tokens[i], amounts[i], _destinations[i]);
 
-            if (
-                (onlyDoTracked && !_trackedAssets.contains(tokenAddress))
-                    || (!onlyDoTracked && _trackedAssets.contains(tokenAddress))
-            ) {
+            if (_isTrackedAsset(tokenAddress)) {
                 revert Errors.AssetNotAllowed(tokenAddress);
             }
 
-            IERC20 token = IERC20(tokenAddress);
-
-            // check balance / allowance
-            if (token.balanceOf(address(this)) < amount) revert Errors.InsufficientBalance(tokenAddress);
-
-            // if matches base asset, subtract from idle
-            if (onlyDoTracked && tokenAddress == address(_baseAsset)) {
-                // TODO: not sure if need this check, since checking balance above, but would prevent invalid state?
-                if (totalIdle < amount) revert Errors.InsufficientBalance(tokenAddress);
-                // subtract from idle
-                totalIdle -= amount;
-                totalDebt += amount;
-            }
-
-            // slither-disable-next-line reentrancy-events
-            token.safeTransfer(destination, amount);
+            IERC20(tokenAddress).safeTransfer(destination, amount);
         }
-    }
-
-    // solhint-disable-next-line no-unused-vars
-    function migrateVault(uint256 amount, address newLmpVault) public virtual override whenNotPaused nonReentrant {
-        // TODO: validate it's really a vault by calling Registry (requires SystemRegistry to be plugged in)
-
-        ILMPVault newVault = ILMPVault(newLmpVault);
-
-        // withdraw from here
-        claimRewards();
-        // TODO: do we need slippage parameter?
-        withdraw(amount, address(this), address(this));
-        // deposit to new vault
-        // TODO: slippage should be added below to compare expected shares?
-        // slither-disable-next-line unused-return
-        newVault.deposit(amount, msg.sender);
-
-        // TODO: pull all assets in from destinations
-        // TODO: push it to another vault
-        revert Errors.NotImplemented();
     }
 
     /**
@@ -617,13 +563,13 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         // Conclusion: we need to do the transfer before we mint so that any reentrancy would happen before the
         // assets are transferred and before the shares are minted, which is a valid state.
         // slither-disable-next-line reentrancy-no-eth
-        _baseAsset.safeTransferFrom(_msgSender(), address(this), assets);
+        _baseAsset.safeTransferFrom(msg.sender, address(this), assets);
 
         totalIdle += assets;
 
         _mint(receiver, shares);
 
-        emit Deposit(_msgSender(), receiver, assets, shares);
+        emit Deposit(msg.sender, receiver, assets, shares);
     }
 
     ///@dev Checks if vault is "healthy" in the sense of having assets backing the circulating shares.
@@ -631,7 +577,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         return totalAssets() > 0 || totalSupply() == 0;
     }
 
-    function updateDebtReporting(address[] calldata _destinations) external nonReentrant {
+    function updateDebtReporting(address[] calldata _destinations) external nonReentrant trackNavOps {
         _updateDebtReporting(_destinations);
     }
 
@@ -647,6 +593,10 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
 
     function getDestinations() public view override returns (address[] memory) {
         return destinations.values();
+    }
+
+    function isDestinationRegistered(address destination) external view returns (bool) {
+        return destinations.contains(destination);
     }
 
     function addDestinations(address[] calldata _destinations) public hasRole(Roles.DESTINATION_VAULTS_UPDATER) {
@@ -775,7 +725,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         address destinationOut,
         address tokenOut,
         uint256 amountOut
-    ) public nonReentrant hasRole(Roles.SOLVER_ROLE) {
+    ) public nonReentrant hasRole(Roles.SOLVER_ROLE) trackNavOps {
         uint256 debtDecrease = 0;
         uint256 debtIncrease = 0;
         uint256 idleDecrease = 0;
@@ -828,11 +778,17 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
 
             if (idleDecrease > 0 || idleIncrease > 0) {
                 idle = idle + idleIncrease - idleDecrease;
+
+                // Value always emitted in collectFees regardless of change
+                // slither-disable-next-line events-maths
                 totalIdle = idle;
             }
 
             if (debtDecrease > 0 || debtIncrease > 0) {
                 debt = debt + debtIncrease - debtDecrease;
+
+                // Value always emitted in collectFees regardless of change
+                // slither-disable-next-line events-maths
                 totalDebt = debt;
             }
 
@@ -844,7 +800,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     function flashRebalance(
         FlashRebalanceParams memory rebalanceParams,
         bytes calldata data
-    ) public nonReentrant hasRole(Roles.SOLVER_ROLE) {
+    ) public nonReentrant hasRole(Roles.SOLVER_ROLE) trackNavOps {
         uint256 debtDecrease = 0;
         uint256 debtIncrease = 0;
         uint256 idleDecrease = 0;
@@ -1092,8 +1048,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
             navPerShareHighMarkTimestamp = block.timestamp;
             emit NewNavHighWatermark(currentNavPerShare, block.timestamp);
         }
-        emit FeeCollected(fees, sink, shares, profit);
-        emit TotalAssetsProcessed(idle + debt);
+        emit FeeCollected(fees, sink, shares, profit, idle, debt);
     }
 
     function _recalculateDestInfo(
@@ -1152,6 +1107,38 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         if (to != address(0)) {
             rewarder.stake(to, amount);
         }
+    }
+
+    function _snapStartNav() private view returns (uint256 oldNav) {
+        oldNav = (totalAssets() * MAX_FEE_BPS) / totalSupply();
+    }
+
+    function _ensureNoNavChange(uint256 oldNav) private view {
+        uint256 lowerBound = Math.max(oldNav, NAV_CHANGE_ROUNDING_BUFFER) - NAV_CHANGE_ROUNDING_BUFFER;
+        uint256 upperBound = oldNav > type(uint256).max - NAV_CHANGE_ROUNDING_BUFFER
+            ? type(uint256).max
+            : oldNav + NAV_CHANGE_ROUNDING_BUFFER;
+        uint256 ts = totalSupply();
+        if (ts > 0) {
+            uint256 newNav = (totalAssets() * MAX_FEE_BPS) / ts;
+
+            if (newNav < lowerBound || newNav > upperBound) {
+                revert NavChanged(oldNav, newNav);
+            }
+        }
+    }
+
+    function _isTrackedAsset(address _asset) private view returns (bool) {
+        if (_asset == address(this)) {
+            return true;
+        }
+        if (_asset == address(_baseAsset)) {
+            return true;
+        }
+        if (destinations.contains(_asset)) {
+            return true;
+        }
+        return false;
     }
 }
 
