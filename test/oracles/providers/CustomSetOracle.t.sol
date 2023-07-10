@@ -21,6 +21,8 @@ contract CustomSetOracleTest is Test {
 
     event TokensRegistered(address[] tokens, uint256[] maxAges);
     event PricesSet(address[] tokens, uint256[] ethPrices, uint256[] queriedTimestamps);
+    event MaxAgeSet(uint256 maxAge);
+    event TokensUnregistered(address[] tokens);
 
     function setUp() external {
         _systemRegistry = new SystemRegistry(vm.addr(100), vm.addr(101));
@@ -97,6 +99,20 @@ contract CustomSetOracleTest is Test {
         _oracle.registerTokens(tokens, ages);
     }
 
+    function test_registerToken_RevertIf_NotCalledByOwner() public {
+        address[] memory tokens = new address[](1);
+        uint256[] memory ages = new uint256[](1);
+        address caller = address(5);
+
+        tokens[0] = address(1);
+        ages[0] = 100;
+
+        vm.startPrank(caller);
+        vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
+        _oracle.registerTokens(tokens, ages);
+        vm.stopPrank();
+    }
+
     function test_registerToken_RegistersMultipleTokens() public {
         address[] memory tokens = new address[](2);
         uint256[] memory ages = new uint256[](2);
@@ -158,6 +174,239 @@ contract CustomSetOracleTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(CustomSetOracle.InvalidAge.selector, maxAge + 1));
         _oracle.registerTokens(tokens, ages);
+    }
+
+    function test_registerToken_RevertsIf_RegisteredTheSameTokenTwice() public {
+        address[] memory tokens = new address[](2);
+        uint256[] memory ages = new uint256[](2);
+
+        tokens[0] = address(1);
+        ages[0] = 100;
+
+        tokens[1] = address(2);
+        ages[1] = maxAge - 1;
+
+        _oracle.registerTokens(tokens, ages);
+
+        vm.expectRevert(abi.encodeWithSelector(CustomSetOracle.AlreadyRegistered.selector, address(1)));
+        _oracle.registerTokens(tokens, ages);
+    }
+
+    function test_setMaxAge_RevertIf_NotCalledByOwner() public {
+        address caller = address(5);
+
+        vm.startPrank(caller);
+        vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
+        _oracle.setMaxAge(10_000);
+        vm.stopPrank();
+    }
+
+    function test_setMaxAge_UpdatesMaxAge() public {
+        assertFalse(_oracle.maxAge() == 888);
+        _oracle.setMaxAge(888);
+        assertEq(_oracle.maxAge(), 888);
+    }
+
+    function test_setMaxAge_EmitsMaxAgeSetEvent() public {
+        vm.expectEmit(true, true, true, true);
+        emit MaxAgeSet(888);
+        _oracle.setMaxAge(888);
+    }
+
+    function test_setMaxAge_RevertIf_AgeGreaterThanUint32() public {
+        uint256 invalidAge = uint256(type(uint32).max) + 1;
+
+        vm.expectRevert(abi.encodeWithSelector(CustomSetOracle.InvalidAge.selector, invalidAge));
+        _oracle.setMaxAge(invalidAge);
+    }
+
+    function test_setMaxAge_RevertIf_AgeZero() public {
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidParam.selector, "maxAge"));
+        _oracle.setMaxAge(0);
+    }
+
+    function test_setMaxAge_PreventsNewlyTokensRegisteredFromBeingLess() public {
+        address[] memory tokens = new address[](1);
+        uint256[] memory ages = new uint256[](1);
+
+        tokens[0] = address(1);
+        ages[0] = 100;
+
+        _oracle.registerTokens(tokens, ages);
+
+        _oracle.setMaxAge(99);
+
+        tokens[0] = address(2);
+
+        vm.expectRevert(abi.encodeWithSelector(CustomSetOracle.InvalidAge.selector, 100));
+        _oracle.registerTokens(tokens, ages);
+    }
+
+    function test_updateTokenMaxAge_AllowsUpdateOfAge() public {
+        address[] memory tokens = new address[](2);
+        uint256[] memory ages = new uint256[](2);
+
+        tokens[0] = address(1);
+        ages[0] = 100;
+
+        tokens[1] = address(2);
+        ages[1] = 100;
+
+        _oracle.registerTokens(tokens, ages);
+
+        ages[0] = 200;
+        ages[1] = 201;
+
+        _oracle.updateTokenMaxAges(tokens, ages);
+
+        (, uint32 ageOne,) = _oracle.prices(address(1));
+        (, uint32 ageTwo,) = _oracle.prices(address(2));
+
+        assertEq(ageOne, 200);
+        assertEq(ageTwo, 201);
+    }
+
+    function test_updateTokenMaxAge_RevertIf_NotCalledByOwner() public {
+        address[] memory tokens = new address[](2);
+        uint256[] memory ages = new uint256[](2);
+        address caller = address(5);
+
+        tokens[0] = address(1);
+        ages[0] = 100;
+
+        tokens[1] = address(2);
+        ages[1] = 100;
+
+        _oracle.registerTokens(tokens, ages);
+
+        ages[0] = 200;
+        ages[1] = 201;
+
+        vm.startPrank(caller);
+        vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
+        _oracle.updateTokenMaxAges(tokens, ages);
+        vm.stopPrank();
+    }
+
+    function test_updateTokenMaxAge_EmitsTokensRegisteredEvent() public {
+        address[] memory tokens = new address[](2);
+        uint256[] memory ages = new uint256[](2);
+
+        tokens[0] = address(1);
+        ages[0] = 100;
+
+        tokens[1] = address(2);
+        ages[1] = 100;
+
+        _oracle.registerTokens(tokens, ages);
+
+        ages[0] = 200;
+        ages[1] = 201;
+
+        vm.expectEmit(true, true, true, true);
+        emit TokensRegistered(tokens, ages);
+        _oracle.updateTokenMaxAges(tokens, ages);
+    }
+
+    function test_updateTokenMaxAge_RevertIf_MaxAgeIsGreaterThanSystemAllows() public {
+        address[] memory tokens = new address[](2);
+        uint256[] memory ages = new uint256[](2);
+
+        tokens[0] = address(1);
+        ages[0] = 100;
+
+        tokens[1] = address(2);
+        ages[1] = 100;
+
+        _oracle.registerTokens(tokens, ages);
+
+        ages[0] = 200;
+        ages[1] = maxAge + 1;
+
+        vm.expectRevert(abi.encodeWithSelector(CustomSetOracle.InvalidAge.selector, maxAge + 1));
+        _oracle.updateTokenMaxAges(tokens, ages);
+    }
+
+    function test_unregisterTokens_RemovesRegisteredTokens() public {
+        address[] memory tokens = new address[](1);
+        uint256[] memory ages = new uint256[](1);
+        uint256[] memory prices = new uint256[](1);
+        uint256[] memory timestamps = new uint256[](1);
+
+        vm.warp(10_000_000);
+
+        tokens[0] = address(1);
+        ages[0] = 1000;
+        prices[0] = 1e18;
+        timestamps[0] = 10_000_000 - 100;
+
+        _oracle.registerTokens(tokens, ages);
+
+        _oracle.setPrices(tokens, prices, timestamps);
+
+        assertEq(_oracle.getPriceInEth(address(1)), 1e18);
+
+        _oracle.unregisterTokens(tokens);
+
+        vm.expectRevert(abi.encodeWithSelector(CustomSetOracle.TokenNotRegistered.selector, address(1)));
+        _oracle.getPriceInEth(address(1));
+    }
+
+    function test_unregisterTokens_EmitsTokenUnregisteredEvent() public {
+        address[] memory tokens = new address[](1);
+        uint256[] memory ages = new uint256[](1);
+
+        tokens[0] = address(1);
+        ages[0] = 1000;
+
+        _oracle.registerTokens(tokens, ages);
+
+        vm.expectEmit(true, true, true, true);
+        emit TokensUnregistered(tokens);
+        _oracle.unregisterTokens(tokens);
+    }
+
+    function test_unregisterTokens_RevertIf_NoDataIsPassed() public {
+        address[] memory tokens = new address[](1);
+        uint256[] memory ages = new uint256[](1);
+
+        tokens[0] = address(1);
+        ages[0] = 1000;
+
+        _oracle.registerTokens(tokens, ages);
+
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidParam.selector, "len"));
+        _oracle.unregisterTokens(new address[](0));
+    }
+
+    function test_unregisterTokens_RevertIf_ZeroAddressPassed() public {
+        address[] memory tokens = new address[](1);
+        uint256[] memory ages = new uint256[](1);
+
+        tokens[0] = address(1);
+        ages[0] = 1000;
+
+        _oracle.registerTokens(tokens, ages);
+
+        tokens[0] = address(0);
+
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "token"));
+        _oracle.unregisterTokens(tokens);
+    }
+
+    function test_unregisterTokens_RevertIf_TokenIsntRegistered() public {
+        address[] memory tokens = new address[](1);
+        uint256[] memory ages = new uint256[](1);
+
+        tokens[0] = address(1);
+        ages[0] = 1000;
+
+        _oracle.registerTokens(tokens, ages);
+
+        tokens[0] = address(2);
+
+        vm.expectRevert(abi.encodeWithSelector(CustomSetOracle.InvalidToken.selector, address(2)));
+        _oracle.unregisterTokens(tokens);
     }
 
     function test_isRegistered_ReturnsTrueForRegisteredToken() public {

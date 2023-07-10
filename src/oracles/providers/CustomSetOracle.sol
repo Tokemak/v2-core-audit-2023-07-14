@@ -24,7 +24,7 @@ contract CustomSetOracle is SystemComponent, SecurityBase, IPriceOracle {
 
     /// @notice Maximum age a price can be from when it was originally queried
     /// @dev Will revert on getPriceInEth if older
-    uint256 public immutable maxAge;
+    uint256 public maxAge;
 
     /// @notice All current prices for registered tokens
     /// @dev If maxAge is 0 then the token isn't registered
@@ -32,10 +32,14 @@ contract CustomSetOracle is SystemComponent, SecurityBase, IPriceOracle {
 
     event TokensRegistered(address[] tokens, uint256[] maxAges);
     event PricesSet(address[] tokens, uint256[] ethPrices, uint256[] queriedTimestamps);
+    event MaxAgeSet(uint256 maxAge);
+    event TokensUnregistered(address[] tokens);
 
     error InvalidAge(uint256 age);
     error InvalidPrice(address token, uint256 price);
     error InvalidTimestamp(address token, uint256 timestamp);
+    error InvalidToken(address token);
+    error AlreadyRegistered(address token);
     error TokenNotRegistered(address token);
     error TimestampOlderThanCurrent(address token, uint256 current, uint256 newest);
 
@@ -43,38 +47,49 @@ contract CustomSetOracle is SystemComponent, SecurityBase, IPriceOracle {
         ISystemRegistry _systemRegistry,
         uint256 _maxAge
     ) SystemComponent(_systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
-        Errors.verifyNotZero(_maxAge, "maxAge");
-        if (_maxAge > type(uint32).max) {
-            revert InvalidAge(_maxAge);
-        }
-        maxAge = _maxAge;
+        _setMaxAge(_maxAge);
+    }
+
+    /// @notice Change the max allowable per-token age
+    /// @param age New allowed age
+    function setMaxAge(uint256 age) external onlyOwner {
+        _setMaxAge(age);
     }
 
     /// @notice Register tokens that should be resolvable through this oracle
     /// @param tokens addresses of tokens to register
     /// @param maxAges the max allowed age of a tokens price before it will revert on retrieval
     function registerTokens(address[] memory tokens, uint256[] memory maxAges) external onlyOwner {
+        _registerTokens(tokens, maxAges, false);
+    }
+
+    /// @notice Update the max age of tokens that are already registered
+    /// @param tokens addresses of tokens to update
+    /// @param maxAges the max allowed age of a tokens price before it will revert on retrieval
+    function updateTokenMaxAges(address[] memory tokens, uint256[] memory maxAges) external onlyOwner {
+        _registerTokens(tokens, maxAges, true);
+    }
+
+    /// @notice Unregister tokens that have been previously configured
+    /// @param tokens addresses of the tokens to unregister
+    function unregisterTokens(address[] memory tokens) external onlyOwner {
         uint256 len = tokens.length;
         Errors.verifyNotZero(len, "len");
-        Errors.verifyArrayLengths(len, maxAges.length, "token+ages");
 
-        // Process incoming tokens ensure that the token isn't 0
-        // That the age isn't over the max
-        // We can update the configured age through this function
+        // slither-disable-start costly-loop
         for (uint256 i = 0; i < len; ++i) {
             address token = tokens[i];
             Errors.verifyNotZero(token, "token");
 
-            uint256 maxTokenAge = maxAges[i];
-            Errors.verifyNotZero(maxTokenAge, "maxAge");
-            if (maxTokenAge > maxAge) {
-                revert InvalidAge(maxTokenAge);
+            if (prices[token].maxAge == 0) {
+                revert InvalidToken(token);
             }
 
-            prices[token].maxAge = uint32(maxTokenAge);
+            delete prices[token];
         }
+        // slither-disable-end costly-loop
 
-        emit TokensRegistered(tokens, maxAges);
+        emit TokensUnregistered(tokens);
     }
 
     /// @notice Update the price of one or more registered tokens
@@ -153,5 +168,50 @@ contract CustomSetOracle is SystemComponent, SecurityBase, IPriceOracle {
         }
 
         price = data.price;
+    }
+
+    function _setMaxAge(uint256 _maxAge) private {
+        Errors.verifyNotZero(_maxAge, "maxAge");
+        if (_maxAge > type(uint32).max) {
+            revert InvalidAge(_maxAge);
+        }
+        maxAge = _maxAge;
+
+        emit MaxAgeSet(_maxAge);
+    }
+
+    /// @notice Register tokens that should be resolvable through this oracle
+    /// @param tokens addresses of tokens to register
+    /// @param maxAges the max allowed age of a tokens price before it will revert on retrieval
+    function _registerTokens(address[] memory tokens, uint256[] memory maxAges, bool allowUpdate) private {
+        uint256 len = tokens.length;
+        Errors.verifyNotZero(len, "len");
+        Errors.verifyArrayLengths(len, maxAges.length, "token+ages");
+
+        // Process incoming tokens ensure that the token isn't 0
+        // That the age isn't over the max
+        // We can update the configured age through this function
+        for (uint256 i = 0; i < len; ++i) {
+            address token = tokens[i];
+            Errors.verifyNotZero(token, "token");
+
+            uint256 currentAge = prices[token].maxAge;
+            if (!allowUpdate && currentAge > 0) {
+                revert AlreadyRegistered(token);
+            }
+            if (allowUpdate && currentAge == 0) {
+                revert TokenNotRegistered(token);
+            }
+
+            uint256 maxTokenAge = maxAges[i];
+            Errors.verifyNotZero(maxTokenAge, "maxAge");
+            if (maxTokenAge > maxAge) {
+                revert InvalidAge(maxTokenAge);
+            }
+
+            prices[token].maxAge = uint32(maxTokenAge);
+        }
+
+        emit TokensRegistered(tokens, maxAges);
     }
 }
