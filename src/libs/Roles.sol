@@ -30,4 +30,6 @@ library Roles {
     bytes32 public constant LMP_FEE_SETTER_ROLE = keccak256("LMP_FEE_SETTER_ROLE");
 
     bytes32 public constant EMERGENCY_PAUSER = keccak256("EMERGENCY_PAUSER");
+
+    bytes32 public constant ORACLE_MANAGER_ROLE = keccak256("ORACLE_MANAGER_ROLE");
 }
