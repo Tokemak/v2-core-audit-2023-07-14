@@ -32,4 +32,6 @@ library Roles {
     bytes32 public constant EMERGENCY_PAUSER = keccak256("EMERGENCY_PAUSER");
 
     bytes32 public constant ORACLE_MANAGER_ROLE = keccak256("ORACLE_MANAGER_ROLE");
+
+    bytes32 public constant LSD_BACKING_UPDATER = keccak256("LSD_BACKING_UPDATER");
 }
