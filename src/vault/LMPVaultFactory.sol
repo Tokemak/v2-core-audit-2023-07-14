@@ -45,7 +45,9 @@ contract LMPVaultFactory is ILMPVaultFactory, SecurityBase {
         newVaultAddress = address(
             new LMPVault(
                 systemRegistry,
-                _vaultAsset
+                _vaultAsset,
+                type(uint256).max, // TODO: pass these in. Just need to refactor a couple other things first
+                type(uint256).max
             )
         );
 

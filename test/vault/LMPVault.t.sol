@@ -27,7 +27,9 @@ contract LMPVaultTest is ERC4626Test, BaseTest {
         // create vault
         LMPVault vault = new LMPVault(
                 systemRegistry,
-                _underlying_
+                _underlying_,
+                type(uint256).max,
+                type(uint256).max
             );
 
         // create and set rewarder

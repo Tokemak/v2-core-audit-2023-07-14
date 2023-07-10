@@ -26,9 +26,6 @@ abstract contract Pausable {
     /// @dev Emitted when the pause is lifted by `account`.
     event Unpaused(address account);
 
-    error AlreadyPaused();
-    error NotPaused();
-
     error IsPaused();
     error IsNotPaused();
 
@@ -77,7 +74,7 @@ abstract contract Pausable {
     /// @dev Reverts if already paused or not EMERGENCY_PAUSER role
     function pause() external virtual isPauser {
         if (_paused) {
-            revert AlreadyPaused();
+            revert IsPaused();
         }
 
         _paused = true;
@@ -89,7 +86,7 @@ abstract contract Pausable {
     /// @dev Reverts if not paused or not EMERGENCY_PAUSER role
     function unpause() external virtual isPauser {
         if (!_paused) {
-            revert NotPaused();
+            revert IsNotPaused();
         }
 
         _paused = false;

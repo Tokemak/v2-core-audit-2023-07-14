@@ -8,6 +8,7 @@ import { Roles } from "src/libs/Roles.sol";
 import { Errors } from "src/utils/Errors.sol";
 import { LMPVault } from "src/vault/LMPVault.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
+import { Pausable } from "src/security/Pausable.sol";
 import { SystemRegistry } from "src/SystemRegistry.sol";
 import { MainRewarder } from "src/rewarders/MainRewarder.sol";
 import { MainRewarder } from "src/rewarders/MainRewarder.sol";
@@ -107,6 +108,11 @@ contract LMPVaultMintingTests is Test {
     address[] private _destinations = new address[](2);
 
     event FeeCollected(uint256 fees, address feeSink, uint256 mintedShares, uint256 profit, uint256 idle, uint256 debt);
+    event PerformanceFeeSet(uint256 newFee);
+    event FeeSinkSet(address newFeeSink);
+    event NewNavHighWatermark(uint256 navPerShare, uint256 timestamp);
+    event TotalSupplyLimitSet(uint256 limit);
+    event PerWalletLimitSet(uint256 limit);
 
     function setUp() public {
         vm.label(address(this), "testContract");
@@ -407,6 +413,64 @@ contract LMPVaultMintingTests is Test {
         assertEq(_lmpVault.totalIdle(), 0, "totalIdlePost");
     }
 
+    function test_setTotalSupplyLimit_AllowsZeroValue() public {
+        _lmpVault.setTotalSupplyLimit(1);
+        _lmpVault.setTotalSupplyLimit(0);
+    }
+
+    function test_setTotalSupplyLimit_SavesValue() public {
+        _lmpVault.setTotalSupplyLimit(999);
+        assertEq(_lmpVault.totalSupplyLimit(), 999);
+    }
+
+    function test_setTotalSupplyLimit_RevertIf_NotCalledByOwner() public {
+        _lmpVault.setTotalSupplyLimit(0);
+
+        vm.startPrank(address(1));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
+        _lmpVault.setTotalSupplyLimit(999);
+        vm.stopPrank();
+
+        assertEq(_lmpVault.totalSupplyLimit(), 0);
+        _lmpVault.setTotalSupplyLimit(999);
+        assertEq(_lmpVault.totalSupplyLimit(), 999);
+    }
+
+    function test_setTotalSupplyLimit_EmitsTotalSupplyLimitSetEvent() public {
+        vm.expectEmit(true, true, true, true);
+        emit TotalSupplyLimitSet(999);
+        _lmpVault.setTotalSupplyLimit(999);
+    }
+
+    function test_setPerWalletLimit_RevertIf_ZeroIsSet() public {
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidParam.selector, "newWalletLimit"));
+        _lmpVault.setPerWalletLimit(0);
+    }
+
+    function test_setPerWalletLimit_SavesValue() public {
+        _lmpVault.setPerWalletLimit(999);
+        assertEq(_lmpVault.perWalletLimit(), 999);
+    }
+
+    function test_setPerWalletLimit_RevertIf_NotCalledByOwner() public {
+        _lmpVault.setPerWalletLimit(1);
+
+        vm.startPrank(address(1));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
+        _lmpVault.setPerWalletLimit(999);
+        vm.stopPrank();
+
+        assertEq(_lmpVault.perWalletLimit(), 1);
+        _lmpVault.setPerWalletLimit(999);
+        assertEq(_lmpVault.perWalletLimit(), 999);
+    }
+
+    function test_setPerWalletLimit_EmitsPerWalletLimitSetEvent() public {
+        vm.expectEmit(true, true, true, true);
+        emit PerWalletLimitSet(999);
+        _lmpVault.setPerWalletLimit(999);
+    }
+
     function test_deposit_InitialSharesMintedOneToOneIntoIdle() public {
         _asset.mint(address(this), 1000);
         _asset.approve(address(_lmpVault), 1000);
@@ -491,6 +555,96 @@ contract LMPVaultMintingTests is Test {
         );
     }
 
+    function test_deposit_RevertIf_Paused() public {
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        _accessController.grantRole(Roles.EMERGENCY_PAUSER, address(this));
+        _lmpVault.pause();
+
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626DepositExceedsMax.selector, 1000, 0));
+        _lmpVault.deposit(1000, address(this));
+
+        _lmpVault.unpause();
+        _lmpVault.deposit(1000, address(this));
+    }
+
+    function test_deposit_RevertIf_PerWalletLimitIsHit() public {
+        _lmpVault.setPerWalletLimit(50);
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626DepositExceedsMax.selector, 1000, 50));
+        _lmpVault.deposit(1000, address(this));
+
+        _lmpVault.deposit(40, address(this));
+
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626DepositExceedsMax.selector, 11, 10));
+        _lmpVault.deposit(11, address(this));
+    }
+
+    function test_deposit_RevertIf_TotalSupplyLimitIsHit() public {
+        _lmpVault.setTotalSupplyLimit(50);
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626DepositExceedsMax.selector, 1000, 50));
+        _lmpVault.deposit(1000, address(this));
+
+        _lmpVault.deposit(40, address(this));
+
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626DepositExceedsMax.selector, 11, 10));
+        _lmpVault.deposit(11, address(this));
+    }
+
+    function test_deposit_RevertIf_TotalSupplyLimitIsSubsequentlyLowered() public {
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        _lmpVault.deposit(500, address(this));
+
+        _lmpVault.setTotalSupplyLimit(50);
+
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626DepositExceedsMax.selector, 1, 0));
+        _lmpVault.deposit(1, address(this));
+    }
+
+    function test_deposit_RevertIf_WalletLimitIsSubsequentlyLowered() public {
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        _lmpVault.deposit(500, address(this));
+
+        _lmpVault.setPerWalletLimit(50);
+
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626DepositExceedsMax.selector, 1, 0));
+        _lmpVault.deposit(1, address(this));
+    }
+
+    function test_deposit_LowerPerWalletLimitIsRespected() public {
+        _lmpVault.setPerWalletLimit(25);
+        _lmpVault.setTotalSupplyLimit(50);
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626DepositExceedsMax.selector, 40, 25));
+        _lmpVault.deposit(40, address(this));
+    }
+
+    function test_mint_RevertIf_Paused() public {
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        _accessController.grantRole(Roles.EMERGENCY_PAUSER, address(this));
+        _lmpVault.pause();
+
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626MintExceedsMax.selector, 1000, 0));
+        _lmpVault.mint(1000, address(this));
+
+        _lmpVault.unpause();
+        _lmpVault.mint(1000, address(this));
+    }
+
     function test_mint_StartsEarningWhileStillReceivingToken() public {
         _asset.mint(address(this), 1000);
         _asset.approve(address(_lmpVault), 1000);
@@ -557,6 +711,84 @@ contract LMPVaultMintingTests is Test {
             }),
             abi.encode("")
         );
+    }
+
+    function test_mint_RevertIf_PerWalletLimitIsHit() public {
+        _lmpVault.setPerWalletLimit(50);
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626MintExceedsMax.selector, 1000, 50));
+        _lmpVault.mint(1000, address(this));
+
+        _lmpVault.mint(40, address(this));
+
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626MintExceedsMax.selector, 11, 10));
+        _lmpVault.mint(11, address(this));
+    }
+
+    function test_mint_RevertIf_TotalSupplyLimitIsHit() public {
+        _lmpVault.setTotalSupplyLimit(50);
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626MintExceedsMax.selector, 1000, 50));
+        _lmpVault.mint(1000, address(this));
+
+        _lmpVault.mint(40, address(this));
+
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626MintExceedsMax.selector, 11, 10));
+        _lmpVault.mint(11, address(this));
+    }
+
+    function test_mint_RevertIf_TotalSupplyLimitIsSubsequentlyLowered() public {
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        _lmpVault.mint(500, address(this));
+
+        _lmpVault.setTotalSupplyLimit(50);
+
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626MintExceedsMax.selector, 1, 0));
+        _lmpVault.mint(1, address(this));
+    }
+
+    function test_mint_RevertIf_WalletLimitIsSubsequentlyLowered() public {
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        _lmpVault.mint(500, address(this));
+
+        _lmpVault.setPerWalletLimit(50);
+
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626MintExceedsMax.selector, 1, 0));
+        _lmpVault.mint(1, address(this));
+    }
+
+    function test_mint_LowerPerWalletLimitIsRespected() public {
+        _lmpVault.setPerWalletLimit(25);
+        _lmpVault.setTotalSupplyLimit(50);
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626MintExceedsMax.selector, 40, 25));
+        _lmpVault.mint(40, address(this));
+    }
+
+    function test_withdraw_RevertIf_Paused() public {
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        _lmpVault.mint(1000, address(this));
+
+        _accessController.grantRole(Roles.EMERGENCY_PAUSER, address(this));
+        _lmpVault.pause();
+
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626ExceededMaxWithdraw.selector, address(this), 10, 0));
+        _lmpVault.withdraw(10, address(this), address(this));
+
+        _lmpVault.unpause();
+        _lmpVault.withdraw(10, address(this), address(this));
     }
 
     function test_withdraw_AssetsComeFromIdleOneToOne() public {
@@ -646,6 +878,22 @@ contract LMPVaultMintingTests is Test {
         );
     }
 
+    function test_redeem_RevertIf_Paused() public {
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        _lmpVault.mint(1000, address(this));
+
+        _accessController.grantRole(Roles.EMERGENCY_PAUSER, address(this));
+        _lmpVault.pause();
+
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626ExceededMaxRedeem.selector, address(this), 10, 0));
+        _lmpVault.redeem(10, address(this), address(this));
+
+        _lmpVault.unpause();
+        _lmpVault.redeem(10, address(this), address(this));
+    }
+
     function test_redeem_AssetsFromIdleOneToOne() public {
         _asset.mint(address(this), 1000);
         _asset.approve(address(_lmpVault), 1000);
@@ -731,6 +979,41 @@ contract LMPVaultMintingTests is Test {
             }),
             abi.encode("")
         );
+    }
+
+    function test_transfer_RevertIf_Paused() public {
+        address recipient = address(4);
+
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        _lmpVault.mint(1000, address(this));
+
+        _accessController.grantRole(Roles.EMERGENCY_PAUSER, address(this));
+        _lmpVault.pause();
+
+        vm.expectRevert(abi.encodeWithSelector(Pausable.IsPaused.selector));
+        _lmpVault.transfer(recipient, 10);
+    }
+
+    function test_transferFrom_RevertIf_Paused() public {
+        address recipient = address(4);
+        address user = address(5);
+
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        _lmpVault.mint(1000, address(this));
+
+        _lmpVault.approve(user, 500);
+
+        _accessController.grantRole(Roles.EMERGENCY_PAUSER, address(this));
+        _lmpVault.pause();
+
+        vm.startPrank(user);
+        vm.expectRevert(abi.encodeWithSelector(Pausable.IsPaused.selector));
+        _lmpVault.transferFrom(address(this), recipient, 10);
+        vm.stopPrank();
     }
 
     function test_transfer_ClaimsRewardedTokensAndRecipientStartsEarning() public {
@@ -896,7 +1179,7 @@ contract LMPVaultMintingTests is Test {
 
         // Just as a test, we should only have 300 more to pull, trying to pull
         // more would require more shares which we don't have
-        vm.expectRevert("ERC20: burn amount exceeds balance");
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626ExceededMaxWithdraw.selector, address(this), 400, 300));
         _lmpVault.withdraw(400, address(this), address(this));
 
         // Pull the amount of assets we have shares for
@@ -1003,7 +1286,7 @@ contract LMPVaultMintingTests is Test {
         assertEq(_underlyerTwo.balanceOf(address(_destVaultTwo)), 200);
         assertEq(_destVaultTwo.balanceOf(address(_lmpVault)), 200);
 
-        vm.expectRevert("ERC20: burn amount exceeds balance");
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626ExceededMaxWithdraw.selector, address(this), 400, 200));
         _lmpVault.withdraw(400, address(this), address(this));
 
         // Pull the amount of assets we have shares for
@@ -1175,7 +1458,7 @@ contract LMPVaultMintingTests is Test {
 
         // Just as a test, we should only have 300 more to pull, trying to pull
         // more would require more shares which we don't have
-        vm.expectRevert("ERC20: burn amount exceeds balance");
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626ExceededMaxWithdraw.selector, address(this), 400, 300));
         _lmpVault.withdraw(400, address(this), address(this));
 
         // Pull the amount of assets we have shares for
@@ -2125,7 +2408,10 @@ contract LMPVaultMintingTests is Test {
 }
 
 contract LMPVaultMinting is LMPVault {
-    constructor(ISystemRegistry _systemRegistry, address _vaultAsset) LMPVault(_systemRegistry, _vaultAsset) { }
+    constructor(
+        ISystemRegistry _systemRegistry,
+        address _vaultAsset
+    ) LMPVault(_systemRegistry, _vaultAsset, type(uint256).max, type(uint256).max) { }
 
     bool private _rebalanceVerifies;
     string private _rebalanceVerifyError;
@@ -2666,7 +2952,10 @@ contract FlashRebalancerReentrant is IERC3156FlashBorrower {
 }
 
 contract TestWithdrawSharesLMPVault is LMPVault {
-    constructor(ISystemRegistry _systemRegistry, address _vaultAsset) LMPVault(_systemRegistry, _vaultAsset) { }
+    constructor(
+        ISystemRegistry _systemRegistry,
+        address _vaultAsset
+    ) LMPVault(_systemRegistry, _vaultAsset, type(uint256).max, type(uint256).max) { }
 
     function setDestInfoDebtBasis(address destVault, uint256 debtBasis) public {
         destinationInfo[destVault].debtBasis = debtBasis;

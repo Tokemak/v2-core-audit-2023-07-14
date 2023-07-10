@@ -24,6 +24,8 @@ interface ILMPVault is IERC4626, IERC20Permit {
 
     error ERC4626MintExceedsMax(uint256 shares, uint256 maxMint);
     error ERC4626DepositExceedsMax(uint256 assets, uint256 maxDeposit);
+    error ERC4626ExceededMaxWithdraw(address owner, uint256 assets, uint256 max);
+    error ERC4626ExceededMaxRedeem(address owner, uint256 shares, uint256 max);
     error AmountExceedsAllowance(uint256 shares, uint256 allowed);
 
     error WithdrawalFailed();

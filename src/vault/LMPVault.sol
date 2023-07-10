@@ -71,33 +71,50 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     /// @notice Overarching baseAsset type
     bytes32 public immutable vaultType = VaultTypes.LST;
 
+    /// @dev The asset that is deposited into the vault
+    IERC20 internal immutable _baseAsset;
+
+    /// @notice Decimals of the base asset. Used as the decimals for the vault itself
+    uint8 internal immutable _baseAssetDecimals;
+
+    /// @dev Full list of possible destinations that could be deployed to
+    EnumerableSet.AddressSet internal destinations;
+
+    /// @dev Destinations that queued for removal
+    EnumerableSet.AddressSet internal removalQueue;
+
+    /// @dev destinationVaultAddress -> Info .. Debt reporting snapshot info
+    mapping(address => DestinationInfo) internal destinationInfo;
+
     /// @notice The amount of baseAsset deposited into the contract pending deployment
     uint256 public totalIdle = 0;
 
     /// @notice The current (though cached) value of assets we've deployed
     uint256 public totalDebt = 0;
 
-    uint8 private _baseAssetDecimals;
-
-    EnumerableSet.AddressSet internal destinations;
-    EnumerableSet.AddressSet internal removalQueue;
-
+    /// @notice The destinations, in order, in which withdrawals will be attempted from
     IDestinationVault[] public withdrawalQueue;
 
+    /// @notice Main rewarder for this contract
     IMainRewarder public rewarder;
 
-    /// @dev destinationVaultAddress -> Info
-    mapping(address => DestinationInfo) internal destinationInfo;
-
+    /// @notice Current performance fee taken on profit. 100% == 10000
     uint256 public performanceFeeBps;
 
-    /// @notice where claimed fees are sent
+    /// @notice Where claimed fees are sent
     address public feeSink;
 
+    /// @notice The last nav/share height we took fees at
     uint256 public navPerShareHighMark = MAX_FEE_BPS;
+
+    /// @notice The last timestamp we took fees at
     uint256 public navPerShareHighMarkTimestamp;
 
-    IERC20 internal immutable _baseAsset;
+    /// @notice The max total supply of shares we'll allowed to be minted
+    uint256 public totalSupplyLimit;
+
+    /// @notice The max shares a single wallet is allowed to hold
+    uint256 public perWalletLimit;
 
     error TooFewAssets(uint256 requested, uint256 actual);
     error WithdrawShareCalcInvalid(uint256 currentShares, uint256 cachedShares);
@@ -111,6 +128,8 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     event PerformanceFeeSet(uint256 newFee);
     event FeeSinkSet(address newFeeSink);
     event NewNavHighWatermark(uint256 navPerShare, uint256 timestamp);
+    event TotalSupplyLimitSet(uint256 limit);
+    event PerWalletLimitSet(uint256 limit);
 
     modifier noNavChange() {
         uint256 ts = totalSupply();
@@ -138,7 +157,9 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
 
     constructor(
         ISystemRegistry _systemRegistry,
-        address _vaultAsset
+        address _vaultAsset,
+        uint256 supplyLimit,
+        uint256 walletLimit
     )
         SystemComponent(_systemRegistry)
         ERC20(
@@ -157,11 +178,27 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
 
         factory = msg.sender;
         navPerShareHighMarkTimestamp = block.timestamp;
+
+        _setTotalSupplyLimit(supplyLimit);
+        _setPerWalletLimit(walletLimit);
     }
 
     /// @inheritdoc IERC20
     function decimals() public view virtual override(ERC20, IERC20) returns (uint8) {
         return _baseAssetDecimals;
+    }
+
+    /// @notice Set the global share limit
+    /// @dev Zero is allowed here and used as a way to stop deposits but allow withdrawals
+    /// @param newSupplyLimit new total amount of shares allowed to be minted
+    function setTotalSupplyLimit(uint256 newSupplyLimit) external onlyOwner {
+        _setTotalSupplyLimit(newSupplyLimit);
+    }
+
+    /// @notice Set the per-wallet share limit
+    /// @param newWalletLimit new total shares a wallet is allowed to hold
+    function setPerWalletLimit(uint256 newWalletLimit) external onlyOwner {
+        _setPerWalletLimit(newWalletLimit);
     }
 
     /// @notice Set the fee that will be taken when profit is realized
@@ -228,14 +265,12 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     }
 
     /// @dev See {IERC4626-convertToShares}.
-    function convertToShares(uint256 assets) public view virtual whenNotPaused returns (uint256 shares) {
-        // @audit Why whenNotPaused?
+    function convertToShares(uint256 assets) public view virtual returns (uint256 shares) {
         shares = _convertToShares(assets, Math.Rounding.Down);
     }
 
     /// @dev See {IERC4626-convertToAssets}.
-    function convertToAssets(uint256 shares) public view virtual whenNotPaused returns (uint256 assets) {
-        // @audit Why whenNotPaused?
+    function convertToAssets(uint256 shares) public view virtual returns (uint256 assets) {
         assets = _convertToAssets(shares, Math.Rounding.Down);
     }
 
@@ -244,8 +279,8 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     //////////////////////////////////////////////////////////////////////
 
     /// @dev See {IERC4626-maxDeposit}.
-    function maxDeposit(address) public view virtual override returns (uint256 maxAssets) {
-        maxAssets = paused() || !_isVaultCollateralized() ? 0 : type(uint256).max;
+    function maxDeposit(address wallet) public view virtual override returns (uint256 maxAssets) {
+        maxAssets = convertToAssets(_maxMint(wallet));
     }
 
     /// @dev See {IERC4626-previewDeposit}.
@@ -256,7 +291,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     function deposit(
         uint256 assets,
         address receiver
-    ) public virtual override whenNotPaused nonReentrant noNavChange ensureNoNavOps returns (uint256 shares) {
+    ) public virtual override nonReentrant noNavChange ensureNoNavOps returns (uint256 shares) {
         Errors.verifyNotZero(assets, "assets");
         if (assets > maxDeposit(receiver)) {
             revert ERC4626DepositExceedsMax(assets, maxDeposit(receiver));
@@ -268,8 +303,8 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     }
 
     /// @dev See {IERC4626-maxMint}.
-    function maxMint(address) public view virtual override returns (uint256 maxShares) {
-        return paused() ? 0 : type(uint256).max;
+    function maxMint(address wallet) public view virtual override returns (uint256 maxShares) {
+        maxShares = _maxMint(wallet);
     }
 
     /// @dev See {IERC4626-maxWithdraw}.
@@ -306,7 +341,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     function mint(
         uint256 shares,
         address receiver
-    ) public virtual override whenNotPaused nonReentrant noNavChange ensureNoNavOps returns (uint256 assets) {
+    ) public virtual override nonReentrant noNavChange ensureNoNavOps returns (uint256 assets) {
         if (shares > maxMint(receiver)) {
             revert ERC4626MintExceedsMax(shares, maxMint(receiver));
         }
@@ -325,9 +360,12 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         uint256 assets,
         address receiver,
         address owner
-    ) public virtual override whenNotPaused nonReentrant noNavChange ensureNoNavOps returns (uint256 shares) {
+    ) public virtual override nonReentrant noNavChange ensureNoNavOps returns (uint256 shares) {
         Errors.verifyNotZero(assets, "assets");
-        // @audit where are we checking assets <= maxWithdraw
+        uint256 maxAssets = maxWithdraw(owner);
+        if (assets > maxAssets) {
+            revert ERC4626ExceededMaxWithdraw(owner, assets, maxAssets);
+        }
 
         // query number of shares these assets match
         shares = previewWithdraw(assets);
@@ -344,8 +382,11 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         uint256 shares,
         address receiver,
         address owner
-    ) public virtual override whenNotPaused nonReentrant noNavChange ensureNoNavOps returns (uint256 assets) {
-        // @audit where are we checking shares <= maxRedeem
+    ) public virtual override nonReentrant noNavChange ensureNoNavOps returns (uint256 assets) {
+        uint256 maxShares = maxRedeem(owner);
+        if (shares > maxShares) {
+            revert ERC4626ExceededMaxRedeem(owner, shares, maxShares);
+        }
 
         assets = previewRedeem(shares);
 
@@ -1089,7 +1130,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         totalDebtIncrease = dvDebtValue;
     }
 
-    function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual override {
+    function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual override whenNotPaused {
         if (from == to) {
             return;
         }
@@ -1139,6 +1180,61 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
             return true;
         }
         return false;
+    }
+
+    function _maxMint(address wallet) internal view virtual returns (uint256 shares) {
+        if (paused()) {
+            return 0;
+        }
+
+        uint256 tsLimit = totalSupplyLimit;
+        uint256 walletLimit = perWalletLimit;
+
+        if (!_isVaultCollateralized()) {
+            return Math.min(tsLimit, walletLimit);
+        }
+
+        // Return max if there is no limit
+        if (tsLimit == type(uint256).max && walletLimit == type(uint256).max) {
+            return type(uint256).max;
+        }
+
+        // Ensure we aren't over the total supply limit
+        uint256 totalSupply = totalSupply();
+        if (totalSupply >= tsLimit) {
+            return 0;
+        }
+
+        // Ensure the wallet isn't over the per wallet limit
+        uint256 walletBalance = balanceOf(wallet);
+
+        if (walletBalance >= perWalletLimit) {
+            return 0;
+        }
+
+        shares = Math.min(tsLimit - totalSupply, walletLimit - walletBalance);
+    }
+
+    /// @notice Set the global share limit
+    /// @dev Zero is allowed here and used as a way to stop deposits but allow withdrawals
+    /// @param newSupplyLimit new total amount of shares allowed to be minted
+    function _setTotalSupplyLimit(uint256 newSupplyLimit) private {
+        // We do not expect that a decrease in this value will affect any shares already minted
+        // Just that new shares won't be minted until existing fall below the limit
+
+        totalSupplyLimit = newSupplyLimit;
+
+        emit TotalSupplyLimitSet(newSupplyLimit);
+    }
+
+    /// @notice Set the per-wallet share limit
+    /// @param newWalletLimit new total shares a wallet is allowed to hold
+    function _setPerWalletLimit(uint256 newWalletLimit) private {
+        Errors.verifyNotZero(newWalletLimit, "newWalletLimit");
+
+        perWalletLimit = newWalletLimit;
+
+        emit PerWalletLimitSet(newWalletLimit);
     }
 }
 

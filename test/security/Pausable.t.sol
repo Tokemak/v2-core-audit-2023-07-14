@@ -89,7 +89,7 @@ contract PausableTests is Test {
 
     function test_pause_RevertsIf_PausingWhenAlreadyPaused() public {
         _pausable.pause();
-        vm.expectRevert(abi.encodeWithSelector(Pausable.AlreadyPaused.selector));
+        vm.expectRevert(abi.encodeWithSelector(Pausable.IsPaused.selector));
         _pausable.pause();
     }
 
@@ -136,7 +136,7 @@ contract PausableTests is Test {
     function test_unpause_RevertsIf_UnpausingWhenNotAlreadyPaused() public {
         _pausable.pause();
         _pausable.unpause();
-        vm.expectRevert(abi.encodeWithSelector(Pausable.NotPaused.selector));
+        vm.expectRevert(abi.encodeWithSelector(Pausable.IsNotPaused.selector));
         _pausable.unpause();
     }
 
