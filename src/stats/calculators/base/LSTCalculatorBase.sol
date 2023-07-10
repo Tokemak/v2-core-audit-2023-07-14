@@ -12,6 +12,7 @@ import { SecurityBase } from "src/security/SecurityBase.sol";
 
 abstract contract LSTCalculatorBase is ILSTStats, BaseStatsCalculator, Initializable {
     uint256 public constant APR_SNAPSHOT_INTERVAL_IN_SEC = 3 * 24 * 60 * 60; // 3 days
+    uint256 public constant APR_FILTER_INIT_INTERVAL_IN_SEC = 9 * 24 * 60 * 60; // 9 days
     uint256 public constant SLASHING_SNAPSHOT_INTERVAL_IN_SEC = 24 * 60 * 60; // 1 day
     uint256 public constant ALPHA = 1e17; // 0.1; must be less than 1e18
 
@@ -22,6 +23,7 @@ abstract contract LSTCalculatorBase is ILSTStats, BaseStatsCalculator, Initializ
     uint256 public lastSlashingSnapshotTimestamp;
 
     uint256 public baseApr;
+    bool public baseAprFilterInitialized; // indicates if baseApr filter is initialized
     uint256[] public slashingCosts;
     uint256[] public slashingTimestamps;
 
@@ -57,6 +59,7 @@ abstract contract LSTCalculatorBase is ILSTStats, BaseStatsCalculator, Initializ
         uint256 currentEthPerToken = calculateEthPerToken();
         lastBaseAprEthPerToken = currentEthPerToken;
         lastBaseAprSnapshotTimestamp = block.timestamp;
+        baseAprFilterInitialized = false;
         lastSlashingEthPerToken = currentEthPerToken;
         lastSlashingSnapshotTimestamp = block.timestamp;
     }
@@ -77,7 +80,14 @@ abstract contract LSTCalculatorBase is ILSTStats, BaseStatsCalculator, Initializ
             uint256 currentApr = Stats.calculateAnnualizedChangeMinZero(
                 lastBaseAprSnapshotTimestamp, lastBaseAprEthPerToken, block.timestamp, currentEthPerToken
             );
-            uint256 newBaseApr = ((baseApr * (1e18 - ALPHA)) + (currentApr * ALPHA)) / 1e18;
+            uint256 newBaseApr;
+            if (baseAprFilterInitialized) {
+                newBaseApr = ((baseApr * (1e18 - ALPHA)) + (currentApr * ALPHA)) / 1e18;
+            } else {
+                // Speed up the baseApr filter ramp
+                newBaseApr = currentApr;
+                baseAprFilterInitialized = true;
+            }
 
             emit BaseAprSnapshotTaken(
                 lastBaseAprEthPerToken,
@@ -133,8 +143,13 @@ abstract contract LSTCalculatorBase is ILSTStats, BaseStatsCalculator, Initializ
     }
 
     function _timeForAprSnapshot() private view returns (bool) {
-        // slither-disable-next-line timestamp
-        return block.timestamp >= lastBaseAprSnapshotTimestamp + APR_SNAPSHOT_INTERVAL_IN_SEC;
+        if (baseAprFilterInitialized) {
+            // slither-disable-next-line timestamp
+            return block.timestamp >= lastBaseAprSnapshotTimestamp + APR_SNAPSHOT_INTERVAL_IN_SEC;
+        } else {
+            // slither-disable-next-line timestamp
+            return block.timestamp >= lastBaseAprSnapshotTimestamp + APR_FILTER_INIT_INTERVAL_IN_SEC;
+        }
     }
 
     function _timeForSlashingSnapshot() private view returns (bool) {

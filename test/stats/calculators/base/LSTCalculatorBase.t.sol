@@ -23,7 +23,7 @@ contract LSTCalculatorBaseTest is Test {
     uint256 private constant START_BLOCK = 17_371_713;
     uint256 private constant START_TIMESTAMP = 1_685_449_343;
     uint256 private constant END_BLOCK = 17_393_019;
-    uint256 private constant END_TIMESTAMP = 1_685_708_543;
+    uint256 private constant END_TIMESTAMP = 1_686_486_143;
 
     event BaseAprSnapshotTaken(
         uint256 priorEthPerToken,
@@ -52,7 +52,9 @@ contract LSTCalculatorBaseTest is Test {
         testCalculator = new TestLSTCalculator(systemRegistry);
     }
 
-    function testAprIncreaseSnapshot() public {
+    function testAprInitIncreaseSnapshot() public {
+        // Test intializes the baseApr filter and processes the next snapshot
+        // where eth backing increases
         uint256 startingEthPerShare = 1_126_467_900_855_209_627;
         mockCalculateEthPerToken(startingEthPerShare);
         initCalculator();
@@ -62,20 +64,66 @@ contract LSTCalculatorBaseTest is Test {
         assertEq(testCalculator.lastSlashingSnapshotTimestamp(), START_TIMESTAMP);
         assertEq(testCalculator.lastSlashingEthPerToken(), startingEthPerShare);
 
-        vm.warp(END_TIMESTAMP);
         uint256 endingEthPerShare = 1_126_897_087_511_522_171;
+        uint256 endingTimestamp = START_TIMESTAMP + testCalculator.APR_FILTER_INIT_INTERVAL_IN_SEC();
+        vm.warp(endingTimestamp);
         mockCalculateEthPerToken(endingEthPerShare);
 
         uint256 annualizedApr = Stats.calculateAnnualizedChangeMinZero(
-            START_TIMESTAMP, startingEthPerShare, END_TIMESTAMP, endingEthPerShare
+            START_TIMESTAMP, startingEthPerShare, endingTimestamp, endingEthPerShare
         );
 
-        // the starting baseApr is 0 so the result is annualizedApr * ALPHA
-        uint256 expectedBaseApr = annualizedApr * testCalculator.ALPHA() / 1e18;
+        // the starting baseApr is equal to the init value measured over init interval
+        uint256 expectedBaseApr = annualizedApr;
 
         vm.expectEmit(true, true, true, true);
         emit BaseAprSnapshotTaken(
-            startingEthPerShare, START_TIMESTAMP, endingEthPerShare, END_TIMESTAMP, 0, expectedBaseApr
+            startingEthPerShare, START_TIMESTAMP, endingEthPerShare, endingTimestamp, 0, expectedBaseApr
+        );
+
+        testCalculator.snapshot();
+
+        assertEq(testCalculator.lastBaseAprSnapshotTimestamp(), endingTimestamp);
+        assertEq(testCalculator.lastBaseAprEthPerToken(), endingEthPerShare);
+        assertEq(testCalculator.lastSlashingSnapshotTimestamp(), endingTimestamp);
+        assertEq(testCalculator.lastSlashingEthPerToken(), endingEthPerShare);
+
+        ILSTStats.LSTStatsData memory stats = testCalculator.current();
+        assertEq(stats.baseApr, expectedBaseApr);
+        assertEq(stats.slashingCosts.length, 0);
+        assertEq(stats.slashingTimestamps.length, 0);
+
+        // APR Increase
+        startingEthPerShare = 1_126_897_087_511_522_171;
+
+        uint256 postInitTimestamp = START_TIMESTAMP + testCalculator.APR_FILTER_INIT_INTERVAL_IN_SEC();
+        assertEq(testCalculator.lastBaseAprSnapshotTimestamp(), postInitTimestamp);
+        assertEq(testCalculator.lastBaseAprEthPerToken(), startingEthPerShare);
+        assertEq(testCalculator.lastSlashingSnapshotTimestamp(), postInitTimestamp);
+        assertEq(testCalculator.lastSlashingEthPerToken(), startingEthPerShare);
+
+        vm.warp(END_TIMESTAMP);
+        endingEthPerShare = 1_127_097_087_511_522_171;
+        mockCalculateEthPerToken(endingEthPerShare);
+
+        annualizedApr = Stats.calculateAnnualizedChangeMinZero(
+            postInitTimestamp, startingEthPerShare, END_TIMESTAMP, endingEthPerShare
+        );
+
+        // the starting baseApr is non-zero so the result is filtered with ALPHA
+        expectedBaseApr = (
+            ((testCalculator.baseApr() * (1e18 - testCalculator.ALPHA())) + annualizedApr * testCalculator.ALPHA())
+                / 1e18
+        );
+
+        vm.expectEmit(true, true, false, false);
+        emit BaseAprSnapshotTaken(
+            startingEthPerShare,
+            postInitTimestamp,
+            endingEthPerShare,
+            END_TIMESTAMP,
+            testCalculator.baseApr(),
+            expectedBaseApr
         );
 
         testCalculator.snapshot();
@@ -85,14 +133,16 @@ contract LSTCalculatorBaseTest is Test {
         assertEq(testCalculator.lastSlashingSnapshotTimestamp(), END_TIMESTAMP);
         assertEq(testCalculator.lastSlashingEthPerToken(), endingEthPerShare);
 
-        ILSTStats.LSTStatsData memory stats = testCalculator.current();
+        stats = testCalculator.current();
         assertEq(stats.baseApr, expectedBaseApr);
         assertEq(stats.slashingCosts.length, 0);
         assertEq(stats.slashingTimestamps.length, 0);
     }
 
-    function testAprDecreaseSnapshot() public {
-        uint256 startingEthPerShare = 1e18;
+    function testAprInitDecreaseSnapshot() public {
+        // Test intializes the baseApr filter and processes the next snapshot
+        // where eth backing decreases. Slashing event list should be updated
+        uint256 startingEthPerShare = 1_126_467_900_855_209_627;
         mockCalculateEthPerToken(startingEthPerShare);
         initCalculator();
 
@@ -101,13 +151,58 @@ contract LSTCalculatorBaseTest is Test {
         assertEq(testCalculator.lastSlashingSnapshotTimestamp(), START_TIMESTAMP);
         assertEq(testCalculator.lastSlashingEthPerToken(), startingEthPerShare);
 
+        uint256 endingEthPerShare = 1_126_897_087_511_522_171;
+        uint256 endingTimestamp = START_TIMESTAMP + testCalculator.APR_FILTER_INIT_INTERVAL_IN_SEC();
+        vm.warp(endingTimestamp);
+        mockCalculateEthPerToken(endingEthPerShare);
+
+        uint256 annualizedApr = Stats.calculateAnnualizedChangeMinZero(
+            START_TIMESTAMP, startingEthPerShare, endingTimestamp, endingEthPerShare
+        );
+
+        // the starting baseApr is equal to the init value measured over init interval
+        uint256 expectedBaseApr = annualizedApr;
+
+        vm.expectEmit(true, true, true, true);
+        emit BaseAprSnapshotTaken(
+            startingEthPerShare, START_TIMESTAMP, endingEthPerShare, endingTimestamp, 0, expectedBaseApr
+        );
+
+        testCalculator.snapshot();
+
+        assertEq(testCalculator.lastBaseAprSnapshotTimestamp(), endingTimestamp);
+        assertEq(testCalculator.lastBaseAprEthPerToken(), endingEthPerShare);
+        assertEq(testCalculator.lastSlashingSnapshotTimestamp(), endingTimestamp);
+        assertEq(testCalculator.lastSlashingEthPerToken(), endingEthPerShare);
+
+        ILSTStats.LSTStatsData memory stats = testCalculator.current();
+        assertEq(stats.baseApr, expectedBaseApr);
+        assertEq(stats.slashingCosts.length, 0);
+        assertEq(stats.slashingTimestamps.length, 0);
+
+        // APR Decrease
+        startingEthPerShare = 1_126_897_087_511_522_171;
+
+        uint256 postInitTimestamp = START_TIMESTAMP + testCalculator.APR_FILTER_INIT_INTERVAL_IN_SEC();
+        assertEq(testCalculator.lastBaseAprSnapshotTimestamp(), postInitTimestamp);
+        assertEq(testCalculator.lastBaseAprEthPerToken(), startingEthPerShare);
+        assertEq(testCalculator.lastSlashingSnapshotTimestamp(), postInitTimestamp);
+        assertEq(testCalculator.lastSlashingEthPerToken(), startingEthPerShare);
+
         vm.warp(END_TIMESTAMP);
-        uint256 endingEthPerShare = startingEthPerShare - 1e17;
+        endingEthPerShare = startingEthPerShare - 1e17;
 
         mockCalculateEthPerToken(endingEthPerShare);
         assertTrue(testCalculator.shouldSnapshot());
 
         mockCalculateEthPerToken(endingEthPerShare);
+
+        // the starting baseApr is non-zero so the result is filtered with ALPHA
+        // Current value is 0 since current interval ETH backing decreased
+        expectedBaseApr =
+            (((testCalculator.baseApr() * (1e18 - testCalculator.ALPHA())) + 0 * testCalculator.ALPHA()) / 1e18);
+        // Determine slashing cost
+        uint256 slashingCost = Stats.calculateUnannualizedNegativeChange(startingEthPerShare, endingEthPerShare);
 
         testCalculator.snapshot();
 
@@ -116,12 +211,12 @@ contract LSTCalculatorBaseTest is Test {
         assertEq(testCalculator.lastSlashingSnapshotTimestamp(), END_TIMESTAMP);
         assertEq(testCalculator.lastSlashingEthPerToken(), endingEthPerShare);
 
-        ILSTStats.LSTStatsData memory stats = testCalculator.current();
-        assertEq(stats.baseApr, 0);
+        stats = testCalculator.current();
+        assertEq(stats.baseApr, expectedBaseApr);
         assertEq(stats.slashingCosts.length, 1);
         assertEq(stats.slashingTimestamps.length, 1);
         assertEq(stats.slashingTimestamps[0], END_TIMESTAMP);
-        assertEq(stats.slashingCosts[0], 1e17);
+        assertEq(stats.slashingCosts[0], slashingCost);
     }
 
     function testRevertNoSnapshot() public {
