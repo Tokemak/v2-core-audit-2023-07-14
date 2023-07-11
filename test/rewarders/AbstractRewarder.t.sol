@@ -667,9 +667,30 @@ contract _getReward is AbstractRewarderTest {
         rewarder.getRewardWrapper(RANDOM);
     }
 
+    // @dev see above for doc: for gpToke amounts had to be bumped up due to new mins
+    function _runDefaultScenarioGpToke() internal returns (uint256) {
+        uint256 balance = 1000;
+        uint256 newReward = 50_000;
+
+        deal(TOKE_MAINNET, address(rewarder), 100_000_000_000);
+
+        vm.startPrank(liquidator);
+        rewardToken.approve(address(rewarder), 100_000_000_000);
+        rewarder.queueNewRewards(newReward);
+
+        vm.mockCall(
+            address(stakeTracker), abi.encodeWithSelector(IBaseRewarder.balanceOf.selector), abi.encode(balance)
+        );
+
+        // go to the middle of the period
+        vm.roll(block.number + durationInBlock / 2);
+
+        return 5;
+    }
+
     function test_StakeRewardsToGptTokeWhenRewardTokenIsTokeAndFeatureIsEnabled() public {
         GPToke gPToke = _setupGpTokeAndTokeRewarder();
-        _runDefaultScenario();
+        _runDefaultScenarioGpToke();
 
         vm.prank(operator);
         rewarder.setTokeLockDuration(30 days);
