@@ -20,10 +20,7 @@ contract BeaconChainBackingTest is Test {
     AccessController private accessController;
     BeaconChainBacking private beaconBaking;
 
-    struct Ratio {
-        uint256 ratio;
-        uint256 timestamp;
-    }
+    event RatioUpdated(uint208 ratio, uint48 timestamp);
 
     function setUp() public {
         uint256 mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"));
@@ -42,53 +39,42 @@ contract BeaconChainBackingTest is Test {
     }
 
     function testUpdateRatio() public {
-        uint256 totalAssets = 90;
-        uint256 totalLiabilities = 10;
-        uint256 queriedTimestamp = 999;
+        uint208 totalAssets = 90;
+        uint208 totalLiabilities = 10;
+        uint48 queriedTimestamp = 999;
+
+        uint208 expectedRatio = 9_000_000_000_000_000_000;
+
+        vm.expectEmit(true, true, true, true);
+        emit RatioUpdated(expectedRatio, queriedTimestamp);
 
         beaconBaking.update(totalAssets, totalLiabilities, queriedTimestamp);
 
-        (uint256 ratio, uint256 timestamp) = beaconBaking.current();
+        (uint208 ratio, uint48 timestamp) = beaconBaking.current();
 
-        assertEq(ratio, 9_000_000_000_000_000_000);
+        assertEq(expectedRatio, ratio);
         assertEq(queriedTimestamp, timestamp);
     }
 
     function testRevertOnUpdateRatioWithoutRole() public {
         accessController.revokeRole(Roles.LSD_BACKING_UPDATER, address(this));
 
-        uint256 totalAssets = 90;
-        uint256 totalLiabilities = 10;
-        uint256 queriedTimestamp = 999;
+        uint208 totalAssets = 90;
+        uint208 totalLiabilities = 10;
+        uint48 queriedTimestamp = 999;
 
         vm.expectRevert();
         beaconBaking.update(totalAssets, totalLiabilities, queriedTimestamp);
     }
 
-    function testRevertUpdateRatioOnTooBigTotalAssets() public {
-        uint256 totalAssets = type(uint208).max;
-        uint256 totalLiabilities = 10;
-        uint256 queriedTimestamp = 999;
+    function testRevertOnUpdateRatioWhenTimestampIsLessThanCurrent() public {
+        uint208 totalAssets = 90;
+        uint208 totalLiabilities = 10;
+        uint48 queriedTimestamp = 999;
 
-        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidParam.selector, "totalAssets"));
-        beaconBaking.update(totalAssets + 1, totalLiabilities, queriedTimestamp);
-    }
-
-    function testRevertUpdateRatioOnTooBigTotalLiabilities() public {
-        uint256 totalAssets = 90;
-        uint256 totalLiabilities = type(uint208).max;
-        uint256 queriedTimestamp = 999;
-
-        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidParam.selector, "totalLiabilities"));
-        beaconBaking.update(totalAssets, totalLiabilities + 1, queriedTimestamp);
-    }
-
-    function testRevertUpdateRatioOnTooBigQueriedTimestamp() public {
-        uint256 totalAssets = 90;
-        uint256 totalLiabilities = 10;
-        uint256 queriedTimestamp = type(uint48).max;
+        beaconBaking.update(totalAssets, totalLiabilities, queriedTimestamp);
 
         vm.expectRevert(abi.encodeWithSelector(Errors.InvalidParam.selector, "queriedTimestamp"));
-        beaconBaking.update(totalAssets, totalLiabilities, queriedTimestamp + 1);
+        beaconBaking.update(totalAssets, totalLiabilities, queriedTimestamp - 1);
     }
 }

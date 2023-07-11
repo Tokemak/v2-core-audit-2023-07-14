@@ -16,12 +16,12 @@ interface IBeaconChainBacking {
      * @param totalLiabilities Amount of protocol's liability funds
      * @param queriedTimestamp Time-point when the value is actual
      */
-    function update(uint256 totalAssets, uint256 totalLiabilities, uint256 queriedTimestamp) external;
+    function update(uint208 totalAssets, uint208 totalLiabilities, uint48 queriedTimestamp) external;
 
     /**
      * @notice Returns the most recent ratio and it's timestamp
      * @return ratio Amount of funds staked on the Beacon Chain
      * @return queriedTimestamp Last time the `ratio` was set
      */
-    function current() external view returns (uint256 ratio, uint256 queriedTimestamp);
+    function current() external view returns (uint208 ratio, uint48 queriedTimestamp);
 }

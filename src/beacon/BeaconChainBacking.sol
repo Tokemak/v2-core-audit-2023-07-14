@@ -13,14 +13,16 @@ import { Roles } from "src/libs/Roles.sol";
 
 contract BeaconChainBacking is SystemComponent, SecurityBase, IBeaconChainBacking {
     address public immutable token;
-    uint256 public immutable decimalPad;
+    uint208 public immutable decimalPad;
 
     Ratio public currentRatio;
 
     struct Ratio {
-        uint256 ratio;
-        uint256 timestamp;
+        uint208 ratio;
+        uint48 timestamp;
     }
+
+    event RatioUpdated(uint208 ratio, uint48 timestamp);
 
     constructor(
         ISystemRegistry _systemRegistry,
@@ -29,30 +31,26 @@ contract BeaconChainBacking is SystemComponent, SecurityBase, IBeaconChainBackin
         Errors.verifyNotZero(_token, "_token");
         // slither-disable-next-line missing-zero-check
         token = _token;
-        decimalPad = 10 ** IERC20Metadata(token).decimals();
+        decimalPad = uint208(10 ** IERC20Metadata(token).decimals());
     }
 
     /// @inheritdoc IBeaconChainBacking
     function update(
-        uint256 totalAssets,
-        uint256 totalLiabilities,
-        uint256 queriedTimestamp
+        uint208 totalAssets,
+        uint208 totalLiabilities,
+        uint48 queriedTimestamp
     ) public hasRole(Roles.LSD_BACKING_UPDATER) {
-        if (totalAssets > type(uint208).max) {
-            revert Errors.InvalidParam("totalAssets");
-        }
-        if (totalLiabilities > type(uint208).max) {
-            revert Errors.InvalidParam("totalLiabilities");
-        }
-        if (queriedTimestamp > type(uint48).max) {
+        if (queriedTimestamp < currentRatio.timestamp) {
             revert Errors.InvalidParam("queriedTimestamp");
         }
-        uint256 ratio = totalAssets * decimalPad / totalLiabilities;
+        uint208 ratio = totalAssets * decimalPad / totalLiabilities;
         currentRatio = Ratio(ratio, queriedTimestamp);
+
+        emit RatioUpdated(ratio, queriedTimestamp);
     }
 
     /// @inheritdoc IBeaconChainBacking
-    function current() public view returns (uint256 ratio, uint256 queriedTimestamp) {
+    function current() external view returns (uint208 ratio, uint48 queriedTimestamp) {
         ratio = currentRatio.ratio;
         queriedTimestamp = currentRatio.timestamp;
     }
