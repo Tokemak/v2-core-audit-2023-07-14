@@ -7,6 +7,7 @@ import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
 library Stats {
     uint256 public constant SECONDS_IN_YEAR = 365 * 24 * 60 * 60;
     uint256 public constant DEX_FEE_APR_SNAPSHOT_INTERVAL = 24 * 60 * 60; // daily
+    uint256 public constant DEX_FEE_APR_FILTER_INIT_INTERVAL = 9 * 24 * 60 * 60; // 9 days
     uint256 public constant DEX_FEE_ALPHA = 1e17; // 0.1; must be less than 1e18
 
     address public constant CURVE_ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;

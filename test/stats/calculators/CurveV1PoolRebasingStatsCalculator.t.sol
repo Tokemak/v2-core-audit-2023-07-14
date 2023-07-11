@@ -165,13 +165,13 @@ contract CurveV1PoolRebasingStatsCalculatorTest is Test {
         initializeSuccessfully(startingEthPerShare);
 
         // move past allowed snapshot time
-        uint256 newTimestamp = TARGET_BLOCK_TIMESTAMP + Stats.DEX_FEE_APR_SNAPSHOT_INTERVAL;
+        uint256 newTimestamp = TARGET_BLOCK_TIMESTAMP + Stats.DEX_FEE_APR_FILTER_INIT_INTERVAL;
         vm.warp(newTimestamp);
         assertTrue(calculator.shouldSnapshot());
         assertEq(calculator.feeApr(), 0);
 
-        uint256 newVirtualPrice = TARGET_BLOCK_VIRTUAL_PRICE * 105 / 100; // increase by 5%
-        uint256 newEthPerShare = startingEthPerShare * 101 / 100; // increase by 1%
+        uint256 newVirtualPrice = (TARGET_BLOCK_VIRTUAL_PRICE * 109) / 100; // increase by 9% over 9 days
+        uint256 newEthPerShare = startingEthPerShare * 109 / 100; // increase by 4% over 9 days
 
         mockVirtualPrice(newVirtualPrice);
         mockStatsEthPerToken(mockStethStats, newEthPerShare);
@@ -179,14 +179,45 @@ contract CurveV1PoolRebasingStatsCalculatorTest is Test {
         mockTokenPrice(STETH_MAINNET, 1e18);
         calculator.snapshot();
 
-        uint256 annualizedBaseApr = (1 * 1e16 * 365); // 1% annualized
+        uint256 annualizedFeeChg = 9 * 1e16 / 9 * 365; // 9% change over 9 days then annualized w/ *365
+
+        uint256 annualizedBaseApr = (9 / 9 * 1e16 * 365); // 9% over 9 days
         uint256 scaledBaseApr =
             annualizedBaseApr * TARGET_BLOCK_RESERVE_1 / (TARGET_BLOCK_RESERVE_0 + TARGET_BLOCK_RESERVE_1);
 
-        uint256 annualizedFeeChg = (5 * 1e16 * 365); // 5% annualized
+        // expectedFeeApr = feeChg - scaledBaseYield
+        uint256 expectedFeeApr = (annualizedFeeChg - scaledBaseApr);
+
+        assertApproxEqAbs(calculator.feeApr(), expectedFeeApr, 50); // allow for rounding loss
+        assertEq(calculator.lastSnapshotTimestamp(), newTimestamp);
+        assertEq(calculator.lastVirtualPrice(), newVirtualPrice);
+        assertEq(calculator.lastRebasingTokenEthPerShare(), newEthPerShare);
+
+        // next sample: move past allowed snapshot time
+        newTimestamp = newTimestamp + Stats.DEX_FEE_APR_SNAPSHOT_INTERVAL;
+        vm.warp(newTimestamp);
+        assertTrue(calculator.shouldSnapshot());
+
+        newVirtualPrice = newVirtualPrice * 105 / 100; // increase by 5%
+        newEthPerShare = newEthPerShare * 101 / 100; // increase by 1%
+
+        mockVirtualPrice(newVirtualPrice);
+        mockStatsEthPerToken(mockStethStats, newEthPerShare);
+        mockTokenPrice(Stats.CURVE_ETH, 1e18);
+        mockTokenPrice(STETH_MAINNET, 1e18);
+
+        annualizedBaseApr = (1 * 1e16 * 365); // 1% annualized
+        scaledBaseApr = annualizedBaseApr * TARGET_BLOCK_RESERVE_1 / (TARGET_BLOCK_RESERVE_0 + TARGET_BLOCK_RESERVE_1);
+
+        annualizedFeeChg = (5 * 1e16 * 365); // 5% annualized
 
         // expectedFeeApr = feeChg - scaledBaseYield
-        uint256 expectedFeeApr = (annualizedFeeChg - scaledBaseApr) / 10; // alpha = 0.1
+        expectedFeeApr = (
+            (calculator.feeApr() * (1e18 - Stats.DEX_FEE_ALPHA))
+                + ((annualizedFeeChg - scaledBaseApr) * Stats.DEX_FEE_ALPHA)
+        ) / 1e18;
+
+        calculator.snapshot();
 
         assertApproxEqAbs(calculator.feeApr(), expectedFeeApr, 50); // allow for rounding loss
         assertEq(calculator.lastSnapshotTimestamp(), newTimestamp);
@@ -199,13 +230,42 @@ contract CurveV1PoolRebasingStatsCalculatorTest is Test {
         initializeSuccessfully(startingEthPerShare);
 
         // move past allowed snapshot time
-        uint256 newTimestamp = TARGET_BLOCK_TIMESTAMP + Stats.DEX_FEE_APR_SNAPSHOT_INTERVAL;
+        uint256 newTimestamp = TARGET_BLOCK_TIMESTAMP + Stats.DEX_FEE_APR_FILTER_INIT_INTERVAL;
+        vm.warp(newTimestamp);
+        assertTrue(calculator.shouldSnapshot());
+        assertEq(calculator.feeApr(), 0);
+
+        uint256 newVirtualPrice = (TARGET_BLOCK_VIRTUAL_PRICE * 109) / 100; // increase by 9% over 9 days
+        uint256 newEthPerShare = startingEthPerShare * 109 / 100; // increase by 4% over 9 days
+
+        mockVirtualPrice(newVirtualPrice);
+        mockStatsEthPerToken(mockStethStats, newEthPerShare);
+        mockTokenPrice(Stats.CURVE_ETH, 1e18);
+        mockTokenPrice(STETH_MAINNET, 1e18);
+        calculator.snapshot();
+
+        uint256 annualizedFeeChg = 9 * 1e16 / 9 * 365; // 9% change over 9 days then annualized w/ *365
+
+        uint256 annualizedBaseApr = (9 / 9 * 1e16 * 365); // 9% over 9 days
+        uint256 scaledBaseApr =
+            annualizedBaseApr * TARGET_BLOCK_RESERVE_1 / (TARGET_BLOCK_RESERVE_0 + TARGET_BLOCK_RESERVE_1);
+
+        // expectedFeeApr = feeChg - scaledBaseYield
+        uint256 expectedFeeApr = (annualizedFeeChg - scaledBaseApr);
+
+        assertApproxEqAbs(calculator.feeApr(), expectedFeeApr, 50); // allow for rounding loss
+        assertEq(calculator.lastSnapshotTimestamp(), newTimestamp);
+        assertEq(calculator.lastVirtualPrice(), newVirtualPrice);
+        assertEq(calculator.lastRebasingTokenEthPerShare(), newEthPerShare);
+
+        // next sample: move past allowed snapshot time
+        newTimestamp = newTimestamp + Stats.DEX_FEE_APR_SNAPSHOT_INTERVAL;
         vm.warp(newTimestamp);
 
         // after this snapshot the feeApr = 5% * 365 * 0.1
         // we hold the ethPerShare constant so that the feeReturn == change in virtualPrice
-        uint256 newVirtualPrice = (TARGET_BLOCK_VIRTUAL_PRICE * 105) / 100; // increase by 5%
-        uint256 newEthPerShare = startingEthPerShare; // hold ethPerShare constant
+        newVirtualPrice = (newVirtualPrice * 105) / 100; // increase by 5%
+        newEthPerShare = startingEthPerShare; // hold ethPerShare constant
         mockVirtualPrice(newVirtualPrice);
         mockStatsEthPerToken(mockStethStats, newEthPerShare);
         mockTokenPrice(Stats.CURVE_ETH, 1e18);
@@ -223,10 +283,9 @@ contract CurveV1PoolRebasingStatsCalculatorTest is Test {
         mockStatsEthPerToken(mockStethStats, newEthPerShare);
         mockTokenPrice(Stats.CURVE_ETH, 1e18);
         mockTokenPrice(STETH_MAINNET, 1e18);
-        calculator.snapshot();
 
-        uint256 annualizedChg = 5 * 1e16 * 365; // 5% annualized
-        uint256 expectedFeeApr = annualizedChg / 10 * 9e17 / 1e18; // (5% * 0.1) * 0.9 + (0% * 0.1)
+        expectedFeeApr = ((calculator.feeApr() * (1e18 - Stats.DEX_FEE_ALPHA)) + (0 * Stats.DEX_FEE_ALPHA)) / 1e18;
+        calculator.snapshot();
 
         assertApproxEqAbs(calculator.feeApr(), expectedFeeApr, 50); // allow for rounding loss
         assertEq(calculator.lastSnapshotTimestamp(), newTimestamp);
@@ -235,9 +294,41 @@ contract CurveV1PoolRebasingStatsCalculatorTest is Test {
     }
 
     function testSnapshotShouldHandleZeroReserves() public {
-        initializeSuccessfully(1);
+        uint256 startingEthPerShare = 1e18;
+        initializeSuccessfully(startingEthPerShare);
+
         // move past allowed snapshot time
-        uint256 newTimestamp = TARGET_BLOCK_TIMESTAMP + Stats.DEX_FEE_APR_SNAPSHOT_INTERVAL;
+        uint256 newTimestamp = TARGET_BLOCK_TIMESTAMP + Stats.DEX_FEE_APR_FILTER_INIT_INTERVAL;
+        vm.warp(newTimestamp);
+        assertTrue(calculator.shouldSnapshot());
+        assertEq(calculator.feeApr(), 0);
+
+        uint256 newVirtualPrice = (TARGET_BLOCK_VIRTUAL_PRICE * 109) / 100; // increase by 9% over 9 days
+        uint256 newEthPerShare = startingEthPerShare * 109 / 100; // increase by 4% over 9 days
+
+        mockVirtualPrice(newVirtualPrice);
+        mockStatsEthPerToken(mockStethStats, newEthPerShare);
+        mockTokenPrice(Stats.CURVE_ETH, 1e18);
+        mockTokenPrice(STETH_MAINNET, 1e18);
+        calculator.snapshot();
+
+        uint256 annualizedFeeChg = 9 * 1e16 / 9 * 365; // 9% change over 9 days then annualized w/ *365
+
+        uint256 annualizedBaseApr = (9 / 9 * 1e16 * 365); // 9% over 9 days
+        uint256 scaledBaseApr =
+            annualizedBaseApr * TARGET_BLOCK_RESERVE_1 / (TARGET_BLOCK_RESERVE_0 + TARGET_BLOCK_RESERVE_1);
+
+        // expectedFeeApr = feeChg - scaledBaseYield
+        uint256 expectedFeeApr = (annualizedFeeChg - scaledBaseApr);
+
+        assertApproxEqAbs(calculator.feeApr(), expectedFeeApr, 50); // allow for rounding loss
+        assertEq(calculator.lastSnapshotTimestamp(), newTimestamp);
+        assertEq(calculator.lastVirtualPrice(), newVirtualPrice);
+        assertEq(calculator.lastRebasingTokenEthPerShare(), newEthPerShare);
+
+        // next sample: move past allowed snapshot time
+        uint256 lastfeeApr = calculator.feeApr(); // record last fee APR
+        newTimestamp = newTimestamp + Stats.DEX_FEE_APR_SNAPSHOT_INTERVAL;
         vm.warp(newTimestamp);
 
         mockVirtualPrice(TARGET_BLOCK_VIRTUAL_PRICE + 1e12);
@@ -249,7 +340,7 @@ contract CurveV1PoolRebasingStatsCalculatorTest is Test {
         calculator.snapshot();
 
         // just check that it has moved
-        assertGt(calculator.feeApr(), 0);
+        assertFalse(calculator.feeApr() == lastfeeApr);
     }
 
     function testItShouldHandleReserveTokensDecimals() public {

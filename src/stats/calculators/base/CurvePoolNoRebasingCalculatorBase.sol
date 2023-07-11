@@ -45,6 +45,9 @@ abstract contract CurvePoolNoRebasingCalculatorBase is IDexLSTStats, BaseStatsCa
     /// @notice The most recent filtered feeApr. Typically retrieved via the current method
     uint256 public feeApr;
 
+    /// @notice Flag indicating if the feeApr filter is initialized
+    bool public feeAprFilterInitialized;
+
     /// @notice The last time a snapshot was taken
     uint256 public lastSnapshotTimestamp;
 
@@ -123,12 +126,18 @@ abstract contract CurvePoolNoRebasingCalculatorBase is IDexLSTStats, BaseStatsCa
 
         lastSnapshotTimestamp = block.timestamp;
         lastVirtualPrice = getVirtualPrice();
+        feeAprFilterInitialized = false;
     }
 
     /// @inheritdoc IStatsCalculator
     function shouldSnapshot() public view override returns (bool) {
-        // slither-disable-next-line timestamp
-        return block.timestamp >= lastSnapshotTimestamp + Stats.DEX_FEE_APR_SNAPSHOT_INTERVAL;
+        if (feeAprFilterInitialized) {
+            // slither-disable-next-line timestamp
+            return block.timestamp >= lastSnapshotTimestamp + Stats.DEX_FEE_APR_SNAPSHOT_INTERVAL;
+        } else {
+            // slither-disable-next-line timestamp
+            return block.timestamp >= lastSnapshotTimestamp + Stats.DEX_FEE_APR_FILTER_INIT_INTERVAL;
+        }
     }
 
     /// @inheritdoc IDexLSTStats
@@ -160,7 +169,15 @@ abstract contract CurvePoolNoRebasingCalculatorBase is IDexLSTStats, BaseStatsCa
             lastSnapshotTimestamp, lastVirtualPrice, block.timestamp, currentVirtualPrice
         );
 
-        uint256 newFeeApr = ((feeApr * (1e18 - Stats.DEX_FEE_ALPHA)) + (currentFeeApr * Stats.DEX_FEE_ALPHA)) / 1e18;
+        uint256 newFeeApr;
+        if (feeAprFilterInitialized) {
+            // filter normally once the filter has been initialized
+            newFeeApr = ((feeApr * (1e18 - Stats.DEX_FEE_ALPHA)) + (currentFeeApr * Stats.DEX_FEE_ALPHA)) / 1e18;
+        } else {
+            // first raw sample is used to initialize the filter
+            newFeeApr = currentFeeApr;
+            feeAprFilterInitialized = true;
+        }
 
         lastSnapshotTimestamp = block.timestamp;
         lastVirtualPrice = currentVirtualPrice;
