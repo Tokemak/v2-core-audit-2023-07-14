@@ -398,15 +398,6 @@ contract ClaimsVaultRewards is LiquidationRowTest {
         liquidationRow.claimsVaultRewards(vaults);
     }
 
-    function test_RevertIf_AtLeastOneVaultHasZeroAddress() public {
-        IDestinationVault[] memory vaults = new IDestinationVault[](1);
-        vaults[0] = IDestinationVault(address(0));
-
-        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "vault"));
-
-        liquidationRow.claimsVaultRewards(vaults);
-    }
-
     function test_RevertIf_AtLeastOneVaultIsNotInRegistry() public {
         IDestinationVault[] memory vaults = _initArrayOfOneTestVault();
 

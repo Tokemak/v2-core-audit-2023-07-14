@@ -47,7 +47,9 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
     uint256 public feeBps = 0;
 
     /// @notice Address to receive the fees
-    address public feeReceiver = address(0);
+    address public feeReceiver;
+
+    uint256 public constant MAX_PCT = 10_000;
 
     constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
         destinationVaultRegistry = _systemRegistry.destinationVaultRegistry();
@@ -84,8 +86,8 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
 
     /// @inheritdoc ILiquidationRow
     function setFeeAndReceiver(address _feeReceiver, uint256 _feeBps) external hasRole(Roles.LIQUIDATOR_ROLE) {
-        // feeBps should be less than or equal to 10_000 (100%) to prevent overflows
-        if (_feeBps > 10_000) revert FeeTooHigh();
+        // feeBps should be less than or equal to MAX_PCT (100%) to prevent overflows
+        if (_feeBps > MAX_PCT) revert FeeTooHigh();
 
         feeBps = _feeBps;
         // slither-disable-next-line missing-zero-check
@@ -93,7 +95,7 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
     }
 
     function calculateFee(uint256 amount) public view returns (uint256) {
-        return (amount * feeBps) / 10_000;
+        return (amount * feeBps) / MAX_PCT;
     }
 
     /// @inheritdoc ILiquidationRow
@@ -107,8 +109,6 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
         for (uint256 i = 0; i < vaults.length; ++i) {
             uint256 gasBefore = gasleft();
             IDestinationVault vault = vaults[i];
-
-            Errors.verifyNotZero(address(vault), "vault");
 
             destinationVaultRegistry.verifyIsRegistered(address(vault));
 
