@@ -10,17 +10,17 @@ import { Errors } from "src/utils/Errors.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { SystemRegistry } from "src/SystemRegistry.sol";
 import { IAccessController, AccessController } from "src/security/AccessController.sol";
-import { BeaconChainBacking } from "src/beacon/BeaconChainBacking.sol";
+import { FrxBeaconChainBacking } from "src/beacon/FrxBeaconChainBacking.sol";
 import { IBeaconChainBacking } from "src/interfaces/beacon/IBeaconChainBacking.sol";
 import { PRANK_ADDRESS, RANDOM, TOKE_MAINNET, WETH_MAINNET, FRXETH_MAINNET } from "test/utils/Addresses.sol";
 
 import { BaseTest } from "test/BaseTest.t.sol";
 
-contract BeaconChainBackingTest is Test {
+contract FrxBeaconChainBackingTest is Test {
     AccessController private accessController;
-    BeaconChainBacking private beaconBaking;
+    FrxBeaconChainBacking private beaconBaking;
 
-    event RatioUpdated(uint208 ratio, uint48 timestamp);
+    event RatioUpdated(uint208 ratio, uint208 totalAssets, uint208 totalLiabilities, uint48 timestamp);
 
     function setUp() public {
         uint256 mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"));
@@ -35,7 +35,7 @@ contract BeaconChainBackingTest is Test {
 
         systemRegistry.setAccessController(address(accessController));
 
-        beaconBaking = new BeaconChainBacking(systemRegistry, FRXETH_MAINNET);
+        beaconBaking = new FrxBeaconChainBacking(systemRegistry, FRXETH_MAINNET);
     }
 
     function testUpdateRatio() public {
@@ -46,7 +46,7 @@ contract BeaconChainBackingTest is Test {
         uint208 expectedRatio = 9_000_000_000_000_000_000;
 
         vm.expectEmit(true, true, true, true);
-        emit RatioUpdated(expectedRatio, queriedTimestamp);
+        emit RatioUpdated(expectedRatio, totalAssets, totalLiabilities, queriedTimestamp);
 
         beaconBaking.update(totalAssets, totalLiabilities, queriedTimestamp);
 

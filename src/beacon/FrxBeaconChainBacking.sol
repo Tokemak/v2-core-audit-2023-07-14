@@ -11,7 +11,7 @@ import { SystemComponent } from "src/SystemComponent.sol";
 import { Errors } from "src/utils/Errors.sol";
 import { Roles } from "src/libs/Roles.sol";
 
-contract BeaconChainBacking is SystemComponent, SecurityBase, IBeaconChainBacking {
+contract FrxBeaconChainBacking is SystemComponent, SecurityBase, IBeaconChainBacking {
     address public immutable token;
     uint208 public immutable decimalPad;
 
@@ -22,7 +22,7 @@ contract BeaconChainBacking is SystemComponent, SecurityBase, IBeaconChainBackin
         uint48 timestamp;
     }
 
-    event RatioUpdated(uint208 ratio, uint48 timestamp);
+    event RatioUpdated(uint208 ratio, uint208 totalAssets, uint208 totalLiabilities, uint48 timestamp);
 
     constructor(
         ISystemRegistry _systemRegistry,
@@ -46,7 +46,7 @@ contract BeaconChainBacking is SystemComponent, SecurityBase, IBeaconChainBackin
         uint208 ratio = totalAssets * decimalPad / totalLiabilities;
         currentRatio = Ratio(ratio, queriedTimestamp);
 
-        emit RatioUpdated(ratio, queriedTimestamp);
+        emit RatioUpdated(ratio, totalAssets, totalLiabilities, queriedTimestamp);
     }
 
     /// @inheritdoc IBeaconChainBacking
