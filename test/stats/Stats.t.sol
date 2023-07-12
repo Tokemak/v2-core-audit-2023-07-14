@@ -72,6 +72,22 @@ contract StatsTest is Test {
         assertGt(result, 0);
     }
 
+    function testGetFilteredValueRevertIfAlphaTooBig() public {
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidParam.selector, "alpha"));
+        Stats.getFilteredValue(1e18 + 1, 1, 1);
+    }
+
+    function testGetFilteredValueSuccess() public {
+        uint256 alpha = 1e17;
+        uint256 prior = 55e18;
+        uint256 current = 1e16;
+
+        uint256 expected = (prior * 9e17 + current * 1e17) / 1e18;
+        uint256 actual = Stats.getFilteredValue(alpha, prior, current);
+
+        assertEq(actual, expected);
+    }
+
     function _checkComputeAnnualizedChangeMinZero(
         uint256 startTimestamp,
         uint256 startValue,

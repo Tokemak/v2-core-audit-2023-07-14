@@ -75,4 +75,13 @@ library Stats {
 
         return (startValue - endValue) * 1e18 / startValue;
     }
+
+    function getFilteredValue(
+        uint256 alpha,
+        uint256 priorValue,
+        uint256 currentValue
+    ) internal pure returns (uint256) {
+        if (alpha > 1e18) revert Errors.InvalidParam("alpha");
+        return ((priorValue * (1e18 - alpha)) + (currentValue * alpha)) / 1e18;
+    }
 }

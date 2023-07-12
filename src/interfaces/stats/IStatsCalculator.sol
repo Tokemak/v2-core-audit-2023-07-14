@@ -2,9 +2,6 @@
 // Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
-import { Stats } from "src/stats/Stats.sol";
-import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
-
 /// @title Capture information about a pool or destination
 interface IStatsCalculator {
     /// @notice thrown when no snapshot is taken
