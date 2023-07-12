@@ -22,4 +22,8 @@ interface ICryptoSwapPool is IPool {
 
     function remove_liquidity_one_coin(uint256 token_amount, uint256 i, uint256 min_amount) external;
     // slither-disable-end naming-convention
+
+    function get_virtual_price() external returns (uint256);
+
+    function claim_admin_fees() external;
 }
