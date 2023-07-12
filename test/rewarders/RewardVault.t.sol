@@ -69,7 +69,8 @@ contract MainRewarderTest is BaseTest {
             address(stakeTracker),
             address(mainReward),
             newRewardRatio,
-            durationInBlock
+            durationInBlock,
+            true
         );
 
         extraReward1Vault = new ExtraRewarder(
@@ -166,7 +167,8 @@ contract MainRewarderTest is BaseTest {
             address(stakeTracker),
             address(toke),
             newRewardRatio,
-            durationInBlock
+            durationInBlock,
+            true
         );
 
         // set duration

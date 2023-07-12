@@ -146,7 +146,8 @@ contract LMPVaultMintingTests is Test {
             address(_lmpVault), // stakeTracker
             address(_toke),
             800, // newRewardRatio
-            100 // durationInBlock
+            100, // durationInBlock
+            true // allowExtraRewards
         );
 
         _lmpVault.setRewarder(address(_rewarder));
@@ -164,7 +165,8 @@ contract LMPVaultMintingTests is Test {
             address(_lmpVault2), // stakeTracker
             address(_toke),
             800, // newRewardRatio
-            100 // durationInBlock
+            100, // durationInBlock
+            true // allowExtraRewards
         );
 
         _lmpVault2.setRewarder(address(_rewarder2));
@@ -981,6 +983,30 @@ contract LMPVaultMintingTests is Test {
         );
     }
 
+    function test_transfer_RevertIf_DestinationWalletLimitReached() public {
+        address user1 = address(4);
+        address user2 = address(5);
+        address user3 = address(6);
+
+        _asset.mint(address(this), 1500);
+        _asset.approve(address(_lmpVault), 1500);
+
+        _lmpVault.mint(500, user1);
+        _lmpVault.mint(500, user2);
+        _lmpVault.mint(500, user3);
+
+        _lmpVault.setPerWalletLimit(1000);
+
+        // User 2 should have exactly limit
+        vm.prank(user1);
+        _lmpVault.transfer(user2, 500);
+
+        vm.startPrank(user3);
+        vm.expectRevert(abi.encodeWithSelector(LMPVault.OverWalletLimit.selector, user2));
+        _lmpVault.transfer(user2, 1);
+        vm.stopPrank();
+    }
+
     function test_transfer_RevertIf_Paused() public {
         address recipient = address(4);
 
@@ -994,6 +1020,33 @@ contract LMPVaultMintingTests is Test {
 
         vm.expectRevert(abi.encodeWithSelector(Pausable.IsPaused.selector));
         _lmpVault.transfer(recipient, 10);
+    }
+
+    function test_transferFrom_RevertIf_DestinationWalletLimitReached() public {
+        address user1 = address(4);
+        address user2 = address(5);
+        address user3 = address(6);
+
+        _asset.mint(address(this), 1500);
+        _asset.approve(address(_lmpVault), 1500);
+
+        _lmpVault.mint(500, user1);
+        _lmpVault.mint(500, user2);
+        _lmpVault.mint(500, user3);
+
+        _lmpVault.setPerWalletLimit(1000);
+
+        // User 2 should have exactly limit
+        vm.prank(user1);
+        _lmpVault.approve(address(this), 500);
+
+        vm.prank(user3);
+        _lmpVault.approve(address(this), 1);
+
+        _lmpVault.transferFrom(user1, user2, 500);
+
+        vm.expectRevert(abi.encodeWithSelector(LMPVault.OverWalletLimit.selector, user2));
+        _lmpVault.transferFrom(user3, user2, 1);
     }
 
     function test_transferFrom_RevertIf_Paused() public {
@@ -1110,6 +1163,78 @@ contract LMPVaultMintingTests is Test {
         uint256 totalIdleAfterSecondRebalance = _lmpVault.totalIdle();
         uint256 totalDebtAfterSecondRebalance = _lmpVault.totalDebt();
         assertEq(totalIdleAfterSecondRebalance, 637, "totalIdleAfterSecondRebalance");
+        assertEq(totalDebtAfterSecondRebalance, 250, "totalDebtAfterSecondRebalance");
+        assertEq(balanceOfUnderlyerAfter - balanceOfUnderlyerBefore, 125);
+    }
+
+    function test_rebalance_AccountsForClaimedDvRewardsIntoIdle() public {
+        _accessController.grantRole(Roles.SOLVER_ROLE, address(this));
+
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+        _lmpVault.deposit(1000, address(this));
+
+        // Queue up some Destination Vault rewards
+        _accessController.grantRole(Roles.DV_REWARD_MANAGER_ROLE, address(this));
+        _accessController.grantRole(Roles.LIQUIDATOR_ROLE, address(this));
+        _asset.mint(address(this), 2000);
+        _asset.approve(_destVaultOne.rewarder(), 2000);
+        IMainRewarder(_destVaultOne.rewarder()).queueNewRewards(2000);
+
+        // At time of writing LMPVault always returned true for verifyRebalance
+        // Rebalance 500 baseAsset for 250 underlyerOne+destVaultOne
+        uint256 assetBalBefore = _asset.balanceOf(address(this));
+        _underlyerOne.mint(address(this), 500);
+        _underlyerOne.approve(address(_lmpVault), 500);
+        _lmpVault.rebalance(
+            address(_destVaultOne),
+            address(_underlyerOne), // tokenIn
+            250,
+            address(0), // destinationOut, none when sending out baseAsset
+            address(_asset), // baseAsset, tokenOut
+            500
+        );
+        uint256 assetBalAfter = _asset.balanceOf(address(this));
+
+        // LMP Vault is correctly tracking 500 remaining in idle, 500 out as debt
+        uint256 totalIdleAfterFirstRebalance = _lmpVault.totalIdle();
+        uint256 totalDebtAfterFirstRebalance = _lmpVault.totalDebt();
+        assertEq(totalIdleAfterFirstRebalance, 500, "totalIdleAfterFirstRebalance");
+        assertEq(totalDebtAfterFirstRebalance, 500, "totalDebtAfterFirstRebalance");
+        // The destination vault has the 250 underlying
+        assertEq(_underlyerOne.balanceOf(address(_destVaultOne)), 250);
+        // The lmp vault has the 250 of the destination
+        assertEq(_destVaultOne.balanceOf(address(_lmpVault)), 250);
+        // Ensure the solver got their funds
+        assertEq(assetBalAfter - assetBalBefore, 500, "solverAssetBal");
+
+        // Rebalance some of the baseAsset back
+        // We want 137 of the base asset back from the destination vault
+        // For 125 of the destination (bad deal but eh)
+        uint256 balanceOfUnderlyerBefore = _underlyerOne.balanceOf(address(this));
+
+        // Roll the block so that the rewards we queued earlier will become available
+        vm.roll(block.number + 100);
+
+        _asset.mint(address(this), 137);
+        _asset.approve(address(_lmpVault), 137);
+        _lmpVault.rebalance(
+            address(0), // none when sending in base asset
+            address(_asset), // tokenIn
+            137,
+            address(_destVaultOne), // destinationOut
+            address(_underlyerOne), // tokenOut
+            125
+        );
+
+        uint256 balanceOfUnderlyerAfter = _underlyerOne.balanceOf(address(this));
+
+        uint256 totalIdleAfterSecondRebalance = _lmpVault.totalIdle();
+        uint256 totalDebtAfterSecondRebalance = _lmpVault.totalDebt();
+
+        // Without the DV rewards, we should be at 637. Since we'll claim those rewards
+        // as part of the rebalance, they'll get factored into idle
+        assertEq(totalIdleAfterSecondRebalance, 837, "totalIdleAfterSecondRebalance");
         assertEq(totalDebtAfterSecondRebalance, 250, "totalDebtAfterSecondRebalance");
         assertEq(balanceOfUnderlyerAfter - balanceOfUnderlyerBefore, 125);
     }
@@ -1380,6 +1505,94 @@ contract LMPVaultMintingTests is Test {
         uint256 totalIdleAfterSecondRebalance = _lmpVault.totalIdle();
         uint256 totalDebtAfterSecondRebalance = _lmpVault.totalDebt();
         assertEq(totalIdleAfterSecondRebalance, 637, "totalIdleAfterSecondRebalance");
+        assertEq(totalDebtAfterSecondRebalance, 250, "totalDebtAfterSecondRebalance");
+        assertEq(balanceOfUnderlyerAfter - balanceOfUnderlyerBefore, 125);
+    }
+
+    function test_flashRebalance_AccountsForClaimedDvRewardsIntoIdle() public {
+        _accessController.grantRole(Roles.SOLVER_ROLE, address(this));
+        FlashRebalancer rebalancer = new FlashRebalancer();
+
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+        _lmpVault.deposit(1000, address(this));
+
+        _accessController.grantRole(Roles.LIQUIDATOR_ROLE, address(this));
+        _asset.mint(address(this), 2000);
+        _asset.approve(_destVaultOne.rewarder(), 2000);
+        IMainRewarder(_destVaultOne.rewarder()).queueNewRewards(2000);
+
+        // At time of writing LMPVault always returned true for verifyRebalance
+        // Rebalance 500 baseAsset for 250 underlyerOne+destVaultOne
+        uint256 assetBalBefore = _asset.balanceOf(address(rebalancer));
+
+        _underlyerOne.mint(address(this), 500);
+        _underlyerOne.approve(address(_lmpVault), 500);
+
+        // Tell the test harness how much it should have at mid execution
+        rebalancer.snapshotAsset(address(_asset), 500);
+
+        _lmpVault.flashRebalance(
+            IStrategy.FlashRebalanceParams({
+                receiver: rebalancer,
+                destinationIn: address(_destVaultOne),
+                tokenIn: address(_underlyerOne), // tokenIn
+                amountIn: 250,
+                destinationOut: address(0), // destinationOut, none when sending out baseAsset
+                tokenOut: address(_asset), // baseAsset, tokenOut
+                amountOut: 500
+            }),
+            abi.encode("")
+        );
+
+        uint256 assetBalAfter = _asset.balanceOf(address(rebalancer));
+
+        // LMP Vault is correctly tracking 500 remaining in idle, 500 out as debt
+        uint256 totalIdleAfterFirstRebalance = _lmpVault.totalIdle();
+        uint256 totalDebtAfterFirstRebalance = _lmpVault.totalDebt();
+        assertEq(totalIdleAfterFirstRebalance, 500, "totalIdleAfterFirstRebalance");
+        assertEq(totalDebtAfterFirstRebalance, 500, "totalDebtAfterFirstRebalance");
+        // The destination vault has the 250 underlying
+        assertEq(_underlyerOne.balanceOf(address(_destVaultOne)), 250);
+        // The lmp vault has the 250 of the destination
+        assertEq(_destVaultOne.balanceOf(address(_lmpVault)), 250);
+        // Ensure the solver got their funds
+        assertEq(assetBalAfter - assetBalBefore, 500, "solverAssetBal");
+
+        // Rebalance some of the baseAsset back
+        // We want 137 of the base asset back from the destination vault
+        // For 125 of the destination (bad deal but eh)
+        uint256 balanceOfUnderlyerBefore = _underlyerOne.balanceOf(address(rebalancer));
+
+        // Roll the block so that the rewards we queued earlier will become available
+        vm.roll(block.number + 100);
+
+        // Tell the test harness how much it should have at mid execution
+        rebalancer.snapshotAsset(address(_underlyerOne), 125);
+
+        _asset.mint(address(this), 137);
+        _asset.approve(address(_lmpVault), 137);
+        _lmpVault.flashRebalance(
+            IStrategy.FlashRebalanceParams({
+                receiver: rebalancer,
+                destinationIn: address(0), // none when sending in base asset
+                tokenIn: address(_asset), // tokenIn
+                amountIn: 137,
+                destinationOut: address(_destVaultOne), // destinationOut
+                tokenOut: address(_underlyerOne), // tokenOut
+                amountOut: 125
+            }),
+            abi.encode("")
+        );
+
+        uint256 balanceOfUnderlyerAfter = _underlyerOne.balanceOf(address(rebalancer));
+
+        uint256 totalIdleAfterSecondRebalance = _lmpVault.totalIdle();
+        uint256 totalDebtAfterSecondRebalance = _lmpVault.totalDebt();
+
+        // Without the DV rewards, we should be at 637. Since we'll claim those rewards
+        // as part of the rebalance, they'll get factored into idle
+        assertEq(totalIdleAfterSecondRebalance, 837, "totalIdleAfterSecondRebalance");
         assertEq(totalDebtAfterSecondRebalance, 250, "totalDebtAfterSecondRebalance");
         assertEq(balanceOfUnderlyerAfter - balanceOfUnderlyerBefore, 125);
     }

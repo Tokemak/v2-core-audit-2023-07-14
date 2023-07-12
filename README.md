@@ -17,14 +17,14 @@ A fairly strict and opinionated Foundry-based template for developing Solidity s
 
 ## TODOs
 
--   Update liquidator with access control
--   Update liquidator to call "collectRewards" from destination vaults (dv)
--   Update liquidator to query main rewarder from dv and queue new rewards
+-   ~~Update liquidator with access control~~
+-   ~~Update liquidator to call "collectRewards" from destination vaults (dv)~~
+-   ~~Update liquidator to query main rewarder from dv and queue new rewards~~
 -   ~~Add 0x integration to lmp router~~
 -   ~~LMP debt reporting and updated withdrawal~~
 -   ~~LMP fee collection~~
 -   ~~Taking used gas out of liquidations~~
--   Add a fee to liquidations, allow the fee to modified
+-   ~~Add a fee to liquidations, allow the fee to modified~~
 -   ~~Figure out how the veOGV rewarder works and add it in~~
 -   ~~Ensure rewarder + lmp vault is working and setup correctly~~
 -   Consider switching rewarders to initializable so we can copy cheaply
@@ -41,13 +41,14 @@ A fairly strict and opinionated Foundry-based template for developing Solidity s
 -   Nic's Lens Contract
 -   NPM package for
 -   Add rewarder events
--   Stats calculator for the destination vault
--   Add our own oracle setup
--   frxETH backing tracker - Parker
+-   ~~Stats calculator for the destination vault~~
+-   ~~Add our own oracle setup~~
+-   ~~frxETH backing tracker - Parker~~
 -   frxETH price Oracle
--   LMP deposit limits
--   Consider LMP withdrawal short circuits
--   Do not allow nav changing operations and non-nav changing operations in the same tx
+-   Destinations Rewards + Transers + Rebalances
+-   ~~LMP deposit limits~~
+-   ~~Consider LMP withdrawal short circuits~~
+-   ~~Do not allow nav changing operations and non-nav changing operations in the same tx~~
 
 ## What are you getting
 

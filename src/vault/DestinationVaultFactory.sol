@@ -80,7 +80,8 @@ contract DestinationVaultFactory is SystemComponent, IDestinationVaultFactory, S
             newVaultAddress,
             baseAsset, // Main rewards for a dv are always in base asset
             defaultRewardRatio,
-            defaultRewardBlockDuration
+            defaultRewardBlockDuration,
+            false // allowExtraRewards
         );
 
         // Copy and set it up

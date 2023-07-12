@@ -136,11 +136,11 @@ contract BaseTest is Test {
         return newMock;
     }
 
-    function createMainRewarder(address asset) public returns (MainRewarder) {
-        return createMainRewarder(asset, address(new StakeTrackingMock()));
+    function createMainRewarder(address asset, bool allowExtras) public returns (MainRewarder) {
+        return createMainRewarder(asset, address(new StakeTrackingMock()), allowExtras);
     }
 
-    function createMainRewarder(address asset, address lmpVault) public returns (MainRewarder) {
+    function createMainRewarder(address asset, address lmpVault, bool allowExtras) public returns (MainRewarder) {
         // We use mock since this function is called not from owner and
         // SystemRegistry.addRewardToken is not accessible from the ownership perspective
         vm.mockCall(
@@ -151,7 +151,8 @@ contract BaseTest is Test {
             lmpVault, // stakeTracker
             asset, // address(mockAsset("MAIN_REWARD", "MAIN_REWARD", 0)), // rewardToken
             800, // newRewardRatio
-            100 // durationInBlock
+            100, // durationInBlock
+            allowExtras
         );
         vm.label(address(mainRewarder), "Main Rewarder");
 

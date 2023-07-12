@@ -183,6 +183,7 @@ contract CustomSetOracle is SystemComponent, SecurityBase, IPriceOracle {
     /// @notice Register tokens that should be resolvable through this oracle
     /// @param tokens addresses of tokens to register
     /// @param maxAges the max allowed age of a tokens price before it will revert on retrieval
+    /// @param allowUpdate whether to allow a change to an already registered token
     function _registerTokens(address[] memory tokens, uint256[] memory maxAges, bool allowUpdate) private {
         uint256 len = tokens.length;
         Errors.verifyNotZero(len, "len");

@@ -52,12 +52,6 @@ abstract contract DestinationVault is SecurityBase, ERC20, Initializable, IDesti
         _systemRegistry = sysRegistry;
     }
 
-    modifier onlyOperator() {
-        // TODO: Fix access control
-        // if (!_hasRole(Roles.DESTINATION_VAULT_OPERATOR_ROLE, msg.sender)) revert Errors.AccessDenied();
-        _;
-    }
-
     modifier onlyLMPVault() {
         if (!_systemRegistry.lmpVaultRegistry().isVault(msg.sender)) {
             revert Errors.AccessDenied();
@@ -184,22 +178,13 @@ abstract contract DestinationVault is SecurityBase, ERC20, Initializable, IDesti
     }
 
     /// @inheritdoc IDestinationVault
-    function donate(uint256 amount) external onlyOperator {
-        emit Donated(msg.sender, amount);
-
-        IERC20(_underlying).safeTransferFrom(msg.sender, address(this), amount);
-
-        _onDeposit(amount);
-    }
-
-    /// @inheritdoc IDestinationVault
     function depositUnderlying(uint256 amount) external onlyLMPVault returns (uint256 shares) {
         Errors.verifyNotZero(amount, "amount");
 
+        emit UnderlyingDeposited(amount, msg.sender);
+
         IERC20(_underlying).safeTransferFrom(msg.sender, address(this), amount);
         _mint(msg.sender, amount);
-
-        emit UnderlyingDeposited(amount, msg.sender);
 
         _onDeposit(amount);
 
@@ -211,12 +196,12 @@ abstract contract DestinationVault is SecurityBase, ERC20, Initializable, IDesti
         Errors.verifyNotZero(shares, "shares");
         Errors.verifyNotZero(to, "to");
 
-        // Does a balance check, will revert if trying to burn too much
-        _burn(msg.sender, shares);
-
         amount = shares;
 
         emit UnderlyingWithdraw(amount, msg.sender, to);
+
+        // Does a balance check, will revert if trying to burn too much
+        _burn(msg.sender, shares);
 
         _ensureLocalUnderlyingBalance(amount);
 
@@ -236,10 +221,10 @@ abstract contract DestinationVault is SecurityBase, ERC20, Initializable, IDesti
     function withdrawBaseAsset(uint256 shares, address to) external returns (uint256 amount) {
         Errors.verifyNotZero(shares, "shares");
 
+        emit BaseAssetWithdraw(shares, msg.sender, to);
+
         // Does a balance check, will revert if trying to burn too much
         _burn(msg.sender, shares);
-
-        emit BaseAssetWithdraw(shares, msg.sender, to);
 
         // Accounts for shares that may be staked
         _ensureLocalUnderlyingBalance(shares);
@@ -286,7 +271,7 @@ abstract contract DestinationVault is SecurityBase, ERC20, Initializable, IDesti
         address[] calldata tokens,
         uint256[] calldata amounts,
         address[] calldata destinations
-    ) external override onlyOperator {
+    ) external override hasRole(Roles.TOKEN_RECOVERY_ROLE) {
         uint256 length = tokens.length;
         if (length == 0 || length != amounts.length || length != destinations.length) {
             revert ArrayLengthMismatch();
@@ -329,5 +314,25 @@ abstract contract DestinationVault is SecurityBase, ERC20, Initializable, IDesti
         uint256 baseAssetPriceInEth = _systemRegistry.rootPriceOracle().getPriceInEth(address(_baseAsset));
 
         value = ((price * shares) * 1e18) / (baseAssetPriceInEth * (10 ** _underlyingDecimals));
+    }
+
+    function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual override {
+        if (from == to) {
+            return;
+        }
+
+        if (from != address(0)) {
+            _rewarder.withdraw(from, amount, true);
+        }
+    }
+
+    function _afterTokenTransfer(address from, address to, uint256 amount) internal virtual override {
+        if (from == to) {
+            return;
+        }
+
+        if (to != address(0)) {
+            _rewarder.stake(to, amount);
+        }
     }
 }

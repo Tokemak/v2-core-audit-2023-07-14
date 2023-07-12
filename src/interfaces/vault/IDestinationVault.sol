@@ -88,11 +88,6 @@ interface IDestinationVault is IBaseAssetVault, IERC20 {
     /// @return tokens tokens claimed
     function collectRewards() external returns (uint256[] memory amounts, address[] memory tokens);
 
-    /// @notice Deposit specified amount of the underlying asset
-    /// @dev Receives no token or share in response
-    /// @param amount Amount of underlying asset to deposit
-    function donate(uint256 amount) external;
-
     /// @notice Pull any non-tracked token to the specified destination
     /// @dev Should be limited to TOKEN_RECOVERY_ROLE
     function recover(address[] calldata tokens, uint256[] calldata amounts, address[] calldata destinations) external;

@@ -64,7 +64,8 @@ contract LMPVaultFactory is ILMPVaultFactory, SecurityBase {
                 newVaultAddress, // stakeTracker
                 _vaultAsset, // rewardToken
                 800, // newRewardRatio
-                100 // durationInBlock
+                100, // durationInBlock
+                true // allowExtraRewards
                 )
             );
         }

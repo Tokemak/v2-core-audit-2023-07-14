@@ -110,7 +110,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     /// @notice The last timestamp we took fees at
     uint256 public navPerShareHighMarkTimestamp;
 
-    /// @notice The max total supply of shares we'll allowed to be minted
+    /// @notice The max total supply of shares we'll allow to be minted
     uint256 public totalSupplyLimit;
 
     /// @notice The max shares a single wallet is allowed to hold
@@ -124,6 +124,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     error InvalidDestination(address destination);
     error NavChanged(uint256 oldNav, uint256 newNav);
     error NavOpsInProgress();
+    error OverWalletLimit(address to);
 
     event PerformanceFeeSet(uint256 newFee);
     event FeeSinkSet(address newFeeSink);
@@ -554,9 +555,8 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         address[] calldata _destinations
     ) external virtual override hasRole(Roles.TOKEN_RECOVERY_ROLE) {
         uint256 len = tokens.length;
-        if (len == 0 || len != amounts.length || len != _destinations.length) {
-            revert Errors.InvalidParams();
-        }
+        Errors.verifyArrayLengths(len, amounts.length, "tokens+amounts");
+        Errors.verifyArrayLengths(len, _destinations.length, "tokens+_destinations");
 
         emit TokensRecovered(tokens, amounts, _destinations);
 
@@ -793,7 +793,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         // Handle decrease (shares going "Out", cashing in shares and sending underlying back to swapper)
         // If the tokenOut is _asset we assume they are taking idle
         // which is already in the contract
-        (debtDecrease, debtIncrease, idleDecrease) =
+        (debtDecrease, debtIncrease, idleDecrease, idleIncrease) =
             _handleRebalanceOut(msg.sender, destinationOut, amountOut, tokenOut);
 
         // Handle increase (shares coming "In", getting underlying from the swapper and trading for new shares)
@@ -809,7 +809,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
                 debtDecrease += debtDecreaseIn;
                 debtIncrease += debtIncreaseIn;
             } else {
-                idleIncrease = amountIn;
+                idleIncrease += amountIn;
             }
         }
 
@@ -874,7 +874,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         // Handle decrease (shares going "Out", cashing in shares and sending underlying back to swapper)
         // If the tokenOut is _asset we assume they are taking idle
         // which is already in the contract
-        (debtDecrease, debtIncrease, idleDecrease) = _handleRebalanceOut(
+        (debtDecrease, debtIncrease, idleDecrease, idleIncrease) = _handleRebalanceOut(
             address(rebalanceParams.receiver),
             rebalanceParams.destinationOut,
             rebalanceParams.amountOut,
@@ -970,12 +970,13 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     /// @return debtDecrease The previous amount of debt destinationOut accounted for in totalDebt
     /// @return debtIncrease The current amount of debt destinationOut should account for in totalDebt
     /// @return idleDecrease Amount of baseAsset that was sent from the vault. > 0 only when tokenOut == baseAsset
+    /// @return idleIncrease Amount of baseAsset that was claimed from Destination Vault
     function _handleRebalanceOut(
         address receiver,
         address destinationOut,
         uint256 amountOut,
         address tokenOut
-    ) private returns (uint256 debtDecrease, uint256 debtIncrease, uint256 idleDecrease) {
+    ) private returns (uint256 debtDecrease, uint256 debtIncrease, uint256 idleDecrease, uint256 idleIncrease) {
         // Handle decrease (shares going "Out", cashing in shares and sending underlying back to swapper)
         // If the tokenOut is _asset we assume they are taking idle
         // which is already in the contract
@@ -986,9 +987,16 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
                 // Snapshot our current shares so we know how much to back out
                 uint256 originalShareBal = dvOut.balanceOf(address(this));
 
+                // Burning our shares will claim any pending baseAsset
+                // rewards and send them to us. Make sure we capture them
+                // so they can end up in idle
+                uint256 beforeBaseAssetBal = _baseAsset.balanceOf(address(this));
+
                 // withdraw underlying from dv
                 // slither-disable-next-line unused-return
                 dvOut.withdrawUnderlying(amountOut, receiver);
+
+                idleIncrease = _baseAsset.balanceOf(address(this)) - beforeBaseAssetBal;
 
                 // Update the debt info snapshot
                 (debtDecrease, debtIncrease) =
@@ -1074,7 +1082,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         }
 
         uint256 currentNavPerShare = ((idle + debt) * MAX_FEE_BPS) / totalSupply;
-        uint256 effectiveNavPerShareHighMark = navPerShareHighMark; // TODO: Add in any decay we want here
+        uint256 effectiveNavPerShareHighMark = navPerShareHighMark;
 
         if (currentNavPerShare > effectiveNavPerShareHighMark) {
             profit = (currentNavPerShare - effectiveNavPerShareHighMark) * totalSupply;
@@ -1131,20 +1139,33 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual override whenNotPaused {
+        // Nothing to do really do here
         if (from == to) {
             return;
         }
 
+        // If this isn't a mint of new tokens, then they are being transferred
+        // from someone who is "staked" in the rewarder. Make sure they stop earning
+        // When they transfer those funds
         if (from != address(0)) {
             rewarder.withdraw(from, amount, true);
+        }
+
+        // Make sure the destination wallet total share balance doesn't go above the
+        // current perWalletLimit
+        if (balanceOf(to) + amount > perWalletLimit) {
+            revert OverWalletLimit(to);
         }
     }
 
     function _afterTokenTransfer(address from, address to, uint256 amount) internal virtual override {
+        // Nothing to do really do here
         if (from == to) {
             return;
         }
 
+        // If this isn't a burn, then the recipient should be earning in the rewarder
+        // "Stake" the tokens there so they start earning
         if (to != address(0)) {
             rewarder.stake(to, amount);
         }
@@ -1170,16 +1191,10 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     }
 
     function _isTrackedAsset(address _asset) private view returns (bool) {
-        if (_asset == address(this)) {
+        if (_asset == address(this) || _asset == address(_baseAsset)) {
             return true;
         }
-        if (_asset == address(_baseAsset)) {
-            return true;
-        }
-        if (destinations.contains(_asset)) {
-            return true;
-        }
-        return false;
+        return destinations.contains(_asset);
     }
 
     function _maxMint(address wallet) internal view virtual returns (uint256 shares) {

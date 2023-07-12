@@ -22,21 +22,33 @@ import { Errors } from "src/utils/Errors.sol";
  * from ExtraRewarder contracts.
  */
 contract MainRewarder is AbstractRewarder, IMainRewarder, ReentrancyGuard {
+    /// @notice True if additional reward tokens/contracts are allowed to be added
+    /// @dev Destination Vaults should not allow extras. LMP should.
+    bool public immutable allowExtraRewards;
+
     address[] public extraRewards;
+
+    error ExtraRewardsNotAllowed();
 
     constructor(
         ISystemRegistry _systemRegistry,
         address _stakeTracker,
         address _rewardToken,
         uint256 _newRewardRatio,
-        uint256 _durationInBlock
-    ) AbstractRewarder(_systemRegistry, _stakeTracker, _rewardToken, _newRewardRatio, _durationInBlock) { }
+        uint256 _durationInBlock,
+        bool _allowExtraRewards
+    ) AbstractRewarder(_systemRegistry, _stakeTracker, _rewardToken, _newRewardRatio, _durationInBlock) {
+        allowExtraRewards = _allowExtraRewards;
+    }
 
     function extraRewardsLength() external view returns (uint256) {
         return extraRewards.length;
     }
 
     function addExtraReward(address reward) external hasRole(Roles.DV_REWARD_MANAGER_ROLE) {
+        if (!allowExtraRewards) {
+            revert ExtraRewardsNotAllowed();
+        }
         Errors.verifyNotZero(reward, "reward");
 
         extraRewards.push(reward);
