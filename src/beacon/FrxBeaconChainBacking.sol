@@ -13,7 +13,7 @@ import { Roles } from "src/libs/Roles.sol";
 
 contract FrxBeaconChainBacking is SystemComponent, SecurityBase, IBeaconChainBacking {
     address public immutable token;
-    uint208 public immutable decimalPad;
+    uint96 public immutable decimalPad;
 
     Ratio public currentRatio;
 
@@ -31,7 +31,7 @@ contract FrxBeaconChainBacking is SystemComponent, SecurityBase, IBeaconChainBac
         Errors.verifyNotZero(_token, "_token");
         // slither-disable-next-line missing-zero-check
         token = _token;
-        decimalPad = uint208(10 ** IERC20Metadata(token).decimals());
+        decimalPad = uint96(10 ** IERC20Metadata(token).decimals());
     }
 
     /// @inheritdoc IBeaconChainBacking
@@ -40,6 +40,9 @@ contract FrxBeaconChainBacking is SystemComponent, SecurityBase, IBeaconChainBac
         uint208 totalLiabilities,
         uint48 queriedTimestamp
     ) public hasRole(Roles.LSD_BACKING_UPDATER) {
+        Errors.verifyNotZero(totalAssets, "totalAssets");
+        Errors.verifyNotZero(totalLiabilities, "totalLiabilities");
+
         if (queriedTimestamp < currentRatio.timestamp) {
             revert Errors.InvalidParam("queriedTimestamp");
         }

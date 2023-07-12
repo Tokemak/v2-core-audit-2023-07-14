@@ -18,7 +18,7 @@ import { BaseTest } from "test/BaseTest.t.sol";
 
 contract FrxBeaconChainBackingTest is Test {
     AccessController private accessController;
-    FrxBeaconChainBacking private beaconBaking;
+    FrxBeaconChainBacking private beaconBacking;
 
     event RatioUpdated(uint208 ratio, uint208 totalAssets, uint208 totalLiabilities, uint48 timestamp);
 
@@ -35,7 +35,7 @@ contract FrxBeaconChainBackingTest is Test {
 
         systemRegistry.setAccessController(address(accessController));
 
-        beaconBaking = new FrxBeaconChainBacking(systemRegistry, FRXETH_MAINNET);
+        beaconBacking = new FrxBeaconChainBacking(systemRegistry, FRXETH_MAINNET);
     }
 
     function testUpdateRatio() public {
@@ -48,9 +48,9 @@ contract FrxBeaconChainBackingTest is Test {
         vm.expectEmit(true, true, true, true);
         emit RatioUpdated(expectedRatio, totalAssets, totalLiabilities, queriedTimestamp);
 
-        beaconBaking.update(totalAssets, totalLiabilities, queriedTimestamp);
+        beaconBacking.update(totalAssets, totalLiabilities, queriedTimestamp);
 
-        (uint208 ratio, uint48 timestamp) = beaconBaking.current();
+        (uint208 ratio, uint48 timestamp) = beaconBacking.current();
 
         assertEq(expectedRatio, ratio);
         assertEq(queriedTimestamp, timestamp);
@@ -64,7 +64,25 @@ contract FrxBeaconChainBackingTest is Test {
         uint48 queriedTimestamp = 999;
 
         vm.expectRevert();
-        beaconBaking.update(totalAssets, totalLiabilities, queriedTimestamp);
+        beaconBacking.update(totalAssets, totalLiabilities, queriedTimestamp);
+    }
+
+    function testRevertOnUpdateRatioWhenTotalAssetsIsZero() public {
+        uint208 totalAssets = 0;
+        uint208 totalLiabilities = 10;
+        uint48 queriedTimestamp = 999;
+
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidParam.selector, "totalAssets"));
+        beaconBacking.update(totalAssets, totalLiabilities, queriedTimestamp - 1);
+    }
+
+    function testRevertOnUpdateRatioWhenTotalLiabilitiesIsZero() public {
+        uint208 totalAssets = 90;
+        uint208 totalLiabilities = 0;
+        uint48 queriedTimestamp = 999;
+
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidParam.selector, "totalLiabilities"));
+        beaconBacking.update(totalAssets, totalLiabilities, queriedTimestamp - 1);
     }
 
     function testRevertOnUpdateRatioWhenTimestampIsLessThanCurrent() public {
@@ -72,9 +90,9 @@ contract FrxBeaconChainBackingTest is Test {
         uint208 totalLiabilities = 10;
         uint48 queriedTimestamp = 999;
 
-        beaconBaking.update(totalAssets, totalLiabilities, queriedTimestamp);
+        beaconBacking.update(totalAssets, totalLiabilities, queriedTimestamp);
 
         vm.expectRevert(abi.encodeWithSelector(Errors.InvalidParam.selector, "queriedTimestamp"));
-        beaconBaking.update(totalAssets, totalLiabilities, queriedTimestamp - 1);
+        beaconBacking.update(totalAssets, totalLiabilities, queriedTimestamp - 1);
     }
 }
