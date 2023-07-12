@@ -11,6 +11,7 @@ import { SystemComponent } from "src/SystemComponent.sol";
 import { LMPStrategy } from "src/strategy/LMPStrategy.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
 import { ILMPVault } from "src/interfaces/vault/ILMPVault.sol";
+import { LMPDestinations } from "src/vault/libs/LMPDestinations.sol";
 import { IStrategy } from "src/interfaces/strategy/IStrategy.sol";
 import { Math } from "openzeppelin-contracts/utils/math/Math.sol";
 import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
@@ -660,51 +661,11 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     }
 
     function addDestinations(address[] calldata _destinations) public hasRole(Roles.DESTINATION_VAULTS_UPDATER) {
-        IDestinationVaultRegistry destinationRegistry = systemRegistry.destinationVaultRegistry();
-
-        uint256 numDestinations = _destinations.length;
-        if (numDestinations == 0) revert Errors.InvalidParams();
-
-        address dAddress;
-        for (uint256 i = 0; i < numDestinations; ++i) {
-            dAddress = _destinations[i];
-
-            if (dAddress == address(0) || !destinationRegistry.isRegistered(dAddress)) {
-                revert Errors.InvalidAddress(dAddress);
-            }
-
-            if (!destinations.add(dAddress)) {
-                revert Errors.ItemExists();
-            }
-
-            // just in case it's in removal queue, take it out
-            // slither-disable-next-line unused-return
-            removalQueue.remove(dAddress);
-
-            emit DestinationVaultAdded(dAddress);
-        }
+        LMPDestinations.addDestinations(removalQueue, destinations, _destinations, systemRegistry);
     }
 
     function removeDestinations(address[] calldata _destinations) public hasRole(Roles.DESTINATION_VAULTS_UPDATER) {
-        for (uint256 i = 0; i < _destinations.length; ++i) {
-            address dAddress = _destinations[i];
-            IDestinationVault destination = IDestinationVault(dAddress);
-
-            // remove from main list (NOTE: done here so balance check below doesn't explode if address is invalid)
-            if (!destinations.remove(dAddress)) {
-                revert Errors.ItemNotFound();
-            }
-
-            if (destination.balanceOf(address(this)) > 0 && !removalQueue.contains(dAddress)) {
-                // we still have funds in it! move it to removalQueue for rebalancer to handle it later
-                // slither-disable-next-line unused-return
-                removalQueue.add(dAddress);
-
-                emit AddedToRemovalQueue(dAddress);
-            }
-
-            emit DestinationVaultRemoved(dAddress);
-        }
+        LMPDestinations.removeDestinations(removalQueue, destinations, _destinations);
     }
 
     function getRemovalQueue() public view override returns (address[] memory) {
@@ -712,11 +673,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     }
 
     function removeFromRemovalQueue(address vaultToRemove) public override hasRole(Roles.REBALANCER_ROLE) {
-        if (!removalQueue.remove(vaultToRemove)) {
-            revert Errors.ItemNotFound();
-        }
-
-        emit RemovedFromRemovalQueue(vaultToRemove);
+        LMPDestinations.removeFromRemovalQueue(removalQueue, vaultToRemove);
     }
 
     // @dev Order is set as list of interfaces to minimize gas for our users
@@ -725,43 +682,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         override
         hasRole(Roles.SET_WITHDRAWAL_QUEUE_ROLE)
     {
-        IDestinationVaultRegistry destinationVaultRegistry = systemRegistry.destinationVaultRegistry();
-        (uint256 oldLength, uint256 newLength) = (withdrawalQueue.length, _destinations.length);
-
-        // run through new destinations list and propagate the values to our existing collection
-        uint256 i;
-        for (i = 0; i < newLength; ++i) {
-            address destAddress = _destinations[i];
-            Errors.verifyNotZero(destAddress, "destination");
-
-            // check if destination vault is registered with the system
-            if (!destinationVaultRegistry.isRegistered(destAddress)) {
-                revert Errors.InvalidAddress(destAddress);
-            }
-
-            IDestinationVault destination = IDestinationVault(destAddress);
-
-            // if we're still overwriting, just set the value
-            if (i < oldLength) {
-                // only write if values differ
-                if (withdrawalQueue[i] != destination) {
-                    withdrawalQueue[i] = destination;
-                }
-            } else {
-                // if already past old bounds, append new values
-                withdrawalQueue.push(destination);
-            }
-        }
-
-        // if old list was larger than new list, pop the remaining values
-        if (oldLength > newLength) {
-            for (; i < oldLength; ++i) {
-                // slither-disable-next-line costly-loop
-                withdrawalQueue.pop();
-            }
-        }
-
-        emit WithdrawalQueueSet(_destinations);
+        LMPDestinations.setWithdrawalQueue(withdrawalQueue, _destinations, systemRegistry);
     }
 
     function getWithdrawalQueue() public view override returns (IDestinationVault[] memory withdrawalDestinations) {
@@ -852,7 +773,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
                 totalDebt = debt;
             }
 
-            _collectFees(idle, debt);
+            _collectFees(idle, debt, totalSupply());
         }
     }
 
@@ -949,7 +870,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
                 totalDebt = debt;
             }
 
-            _collectFees(idle, debt);
+            _collectFees(idle, debt, totalSupply());
         }
     }
 
@@ -1090,16 +1011,14 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         totalIdle = idle;
         totalDebt = debt;
 
-        _collectFees(idle, debt);
+        _collectFees(idle, debt, totalSupply());
     }
 
-    function _collectFees(uint256 idle, uint256 debt) private {
+    function _collectFees(uint256 idle, uint256 debt, uint256 totalSupply) internal {
         address sink = feeSink;
         uint256 fees = 0;
         uint256 shares = 0;
         uint256 profit = 0;
-
-        uint256 totalSupply = totalSupply();
 
         if (totalSupply == 0) {
             return;
