@@ -17,9 +17,6 @@ import { IStatsCalculatorRegistry } from "src/interfaces/stats/IStatsCalculatorR
 abstract contract BaseStatsCalculator is IStatsCalculator, SecurityBase {
     ISystemRegistry public immutable systemRegistry;
 
-    /// @notice Dependent calculators that should be rolled into this one
-    IStatsCalculator[] public calculators;
-
     modifier onlyStatsSnapshot() {
         if (!_hasRole(Roles.STATS_SNAPSHOT_ROLE, msg.sender)) {
             revert Errors.MissingRole(Roles.STATS_SNAPSHOT_ROLE, msg.sender);

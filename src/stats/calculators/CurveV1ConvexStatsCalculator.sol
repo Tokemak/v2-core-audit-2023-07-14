@@ -14,8 +14,10 @@ import { BaseStatsCalculator } from "src/stats/calculators/base/BaseStatsCalcula
 import { IStatsCalculatorRegistry } from "src/interfaces/stats/IStatsCalculatorRegistry.sol";
 import { ILSTStats } from "src/interfaces/stats/ILSTStats.sol";
 
-/// @notice Calculate stats for a Curve V1 StableSwap pool whose LP is staked in Convex
+/// @notice Calculate stats for a Curve pool whose LP is staked in Convex
 contract CurveV1ConvexStatsCalculator is IDexLSTStats, BaseStatsCalculator, Initializable {
+    IDexLSTStats public underlyerStats;
+
     address private _addressId;
     bytes32 private _aprId;
 
@@ -24,7 +26,8 @@ contract CurveV1ConvexStatsCalculator is IDexLSTStats, BaseStatsCalculator, Init
 
     address public curvePoolAddress;
     uint256 public convexPoolId;
-    uint256 public lastIncentiveApr;
+
+    uint256 public lastSnapshotTimestamp;
 
     struct InitData {
         address curvePoolAddress;
@@ -81,7 +84,7 @@ contract CurveV1ConvexStatsCalculator is IDexLSTStats, BaseStatsCalculator, Init
         if (curveQueriedLpToken != convexQueriedLpToken) {
             revert MismatchLPTokens(convexQueriedLpToken, curveQueriedLpToken, decodedInitData.curvePoolAddress);
         }
-        _aprId = keccak256(abi.encode("curveV1Convex", curveQueriedLpToken, decodedInitData.convexPoolId));
+        _aprId = keccak256(abi.encode("curveConvex", curveQueriedLpToken, convexPoolId));
 
         if (dependentAprIds.length != 1) {
             revert InvalidNumDependentAprIds(dependentAprIds.length);
@@ -94,14 +97,17 @@ contract CurveV1ConvexStatsCalculator is IDexLSTStats, BaseStatsCalculator, Init
         if (calculator.getAddressId() != curveQueriedLpToken) {
             revert Stats.CalculatorAssetMismatch(dependentAprIds[0], address(calculator), curveQueriedLpToken);
         }
-        calculators.push(calculator);
+
+        underlyerStats = IDexLSTStats(address(calculator));
     }
 
     /// @inheritdoc IDexLSTStats
-    function current() external pure override returns (DexLSTStatsData memory) {
-        ILSTStats.LSTStatsData[] memory lstStatsData = new ILSTStats.LSTStatsData[](0);
-        uint256[] memory reservesInEth = new uint256[](0);
-        return DexLSTStatsData({ feeApr: 0, lstStatsData: lstStatsData, reservesInEth: reservesInEth });
+    function current() external override returns (DexLSTStatsData memory) {
+        DexLSTStatsData memory data = underlyerStats.current();
+
+        // TODO: override incentive information
+
+        return data;
     }
 
     /// @inheritdoc IStatsCalculator
@@ -113,6 +119,6 @@ contract CurveV1ConvexStatsCalculator is IDexLSTStats, BaseStatsCalculator, Init
     /// @notice Capture stat data about this setup
     /// @dev This is protected by the STATS_SNAPSHOT_ROLE
     function _snapshot() internal override {
-        lastIncentiveApr = block.number / 1000;
+        lastSnapshotTimestamp = block.timestamp;
     }
 }

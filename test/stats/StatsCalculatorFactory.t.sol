@@ -188,8 +188,6 @@ contract StatsCalculatorFactoryTests is Test {
 }
 
 contract TestCalculator is IStatsCalculator {
-    Stats.CalculatedStats private stats;
-
     string public constant BASE_APR_ID_KEY = "tokeDexV1";
 
     bytes32 private aprId;
@@ -217,10 +215,6 @@ contract TestCalculator is IStatsCalculator {
     function initialize(bytes32[] calldata, bytes calldata initData) external {
         InitData memory init = abi.decode(initData, (InitData));
         aprId = keccak256(abi.encode(BASE_APR_ID_KEY, init.poolAddress, init.stakingAddress));
-    }
-
-    function current() external view returns (Stats.CalculatedStats memory st) {
-        st = stats;
     }
 
     function snapshot() external { }

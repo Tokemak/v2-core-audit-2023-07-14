@@ -11,7 +11,12 @@ import { AccessController } from "src/security/AccessController.sol";
 import { LSTCalculatorBase } from "src/stats/calculators/base/LSTCalculatorBase.sol";
 import { StethLSTCalculator } from "src/stats/calculators/StethLSTCalculator.sol";
 import {
-    TOKE_MAINNET, WETH_MAINNET, RETH_WSTETH_CURVE_POOL, RETH_MAINNET, WSTETH_MAINNET
+    TOKE_MAINNET,
+    WETH_MAINNET,
+    RETH_WSTETH_CURVE_POOL,
+    RETH_MAINNET,
+    WSTETH_MAINNET,
+    CURVE_META_REGISTRY_MAINNET
 } from "test/utils/Addresses.sol";
 import { Roles } from "src/libs/Roles.sol";
 import { Errors } from "src/utils/Errors.sol";
@@ -30,8 +35,6 @@ import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IE
 import { IPool } from "src/interfaces/external/curve/IPool.sol";
 
 contract CurveV1PoolNoRebasingStatsCalculatorTest is Test {
-    address private constant CURVE_META_REGISTRY = 0xF98B45FA17DE75FB1aD0e7aFD971b0ca00e379fC;
-
     uint256 private constant TARGET_BLOCK = 17_580_732;
     uint256 private constant TARGET_BLOCK_TIMESTAMP = 1_687_990_535;
     uint256 private constant TARGET_BLOCK_VIRTUAL_PRICE = 1_002_795_943_264_983_155;
@@ -55,7 +58,7 @@ contract CurveV1PoolNoRebasingStatsCalculatorTest is Test {
         accessController = new AccessController(address(systemRegistry));
         systemRegistry.setAccessController(address(accessController));
         accessController.grantRole(Roles.STATS_SNAPSHOT_ROLE, address(this));
-        curveResolver = new CurveResolverMainnet(ICurveMetaRegistry(CURVE_META_REGISTRY));
+        curveResolver = new CurveResolverMainnet(ICurveMetaRegistry(CURVE_META_REGISTRY_MAINNET));
 
         calculator = new CurveV1PoolNoRebasingStatsCalculator(systemRegistry);
 

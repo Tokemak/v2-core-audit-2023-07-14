@@ -11,18 +11,9 @@ library Stats {
     uint256 public constant DEX_FEE_APR_FILTER_INIT_INTERVAL = 9 * 24 * 60 * 60; // 9 days
     uint256 public constant DEX_FEE_ALPHA = 1e17; // 0.1; must be less than 1e18
 
+    uint256 public constant INCENTIVE_INFO_SNAPSHOT_INTERVAL = 24 * 60 * 60; // daily
+
     address public constant CURVE_ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-
-    enum StatsType {
-        LST,
-        DEX
-    }
-
-    struct CalculatedStats {
-        StatsType statsType;
-        bytes data;
-        IStatsCalculator[] dependentStats;
-    }
 
     /// @notice thrown if end timestamp is before start timestamp
     error IncorrectTimestamps();

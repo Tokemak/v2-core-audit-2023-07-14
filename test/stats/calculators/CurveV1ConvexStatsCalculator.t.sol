@@ -2,7 +2,7 @@
 // Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity >=0.8.7;
 
-import { Test } from "forge-std/Test.sol";
+import { Test, console2 as console } from "forge-std/Test.sol";
 import { Stats } from "src/stats/Stats.sol";
 import { Roles } from "src/libs/Roles.sol";
 import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
@@ -19,9 +19,11 @@ import { CurveV1PoolNoRebasingStatsCalculator } from "src/stats/calculators/Curv
 import { CurveV1ConvexStatsCalculator } from "src/stats/calculators/CurveV1ConvexStatsCalculator.sol";
 import { CurvePoolNoRebasingCalculatorBase } from "src/stats/calculators/base/CurvePoolNoRebasingCalculatorBase.sol";
 import { IConvexBooster } from "src/interfaces/external/convex/IConvexBooster.sol";
-import { TOKE_MAINNET, WETH_MAINNET } from "test/utils/Addresses.sol";
+import { TOKE_MAINNET, WETH_MAINNET, CURVE_META_REGISTRY_MAINNET } from "test/utils/Addresses.sol";
+import { CurveResolverMainnet } from "src/utils/CurveResolverMainnet.sol";
+import { ICurveMetaRegistry } from "src/interfaces/external/curve/ICurveMetaRegistry.sol";
 
-contract CurveV1ConvexStatsCalculatorFrxEthEthTests is Test {
+contract CurveV1ConvexStatsCalculatorTests is Test {
     ICurveRegistry private constant CURVE_REGISTRY = ICurveRegistry(0x90E00ACe148ca3b23Ac1bC8C240C2a7Dd9c2d7f5);
     address private constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address private constant FRXETH = 0x5E8422345238F34275888049021821E8E08CAa1f;
@@ -32,6 +34,7 @@ contract CurveV1ConvexStatsCalculatorFrxEthEthTests is Test {
     AccessController private accessController;
     StatsCalculatorRegistry private statsRegistry;
     StatsCalculatorFactory private statsFactory;
+    CurveResolverMainnet private curveResolver;
 
     IStatsCalculator private frxEthCurvePoolCalc;
     IStatsCalculator private frxEthCurveConvexWrapCalc;
@@ -55,9 +58,12 @@ contract CurveV1ConvexStatsCalculatorFrxEthEthTests is Test {
         accessController.grantRole(Roles.STATS_CALC_TEMPLATE_MGMT_ROLE, address(this));
         accessController.grantRole(Roles.STATS_SNAPSHOT_ROLE, address(this));
 
+        // setup curve resolver in system systemRegistry
+        curveResolver = new CurveResolverMainnet(ICurveMetaRegistry(CURVE_META_REGISTRY_MAINNET));
+        systemRegistry.setCurveResolver(address(curveResolver));
+
         // We're setting up the frxETH/ETH pool
         // So we need an adapter for frxETH, the pool, then Convex
-
         // Setup the templates
         CurveV1PoolNoRebasingStatsCalculator curveV1CalculatorTemplate =
             new CurveV1PoolNoRebasingStatsCalculator(systemRegistry);
@@ -76,6 +82,7 @@ contract CurveV1ConvexStatsCalculatorFrxEthEthTests is Test {
         bytes32[] memory curveDeps = new bytes32[](2);
         curveDeps[0] = Stats.NOOP_APR_ID; //ETH
         curveDeps[1] = Stats.NOOP_APR_ID; //frxETH
+
         (address curveCalc) = statsFactory.create(curveV1Id, curveDeps, encodedCurvePoolInitData);
         frxEthCurvePoolCalc = IStatsCalculator(curveCalc);
         bytes32 frxEthEthPoolId = frxEthCurvePoolCalc.getAprId();
@@ -91,4 +98,6 @@ contract CurveV1ConvexStatsCalculatorFrxEthEthTests is Test {
         (address convexCalc) = statsFactory.create(curveV1ConvexId, curveConvexDeps, encodedCurveConvexPoolInitData);
         frxEthCurveConvexWrapCalc = IStatsCalculator(convexCalc);
     }
+
+    function testStuff() public { }
 }
