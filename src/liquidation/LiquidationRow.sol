@@ -14,6 +14,7 @@ import { ILiquidationRow } from "src/interfaces/liquidation/ILiquidationRow.sol"
 import { IDestinationVault } from "src/interfaces/vault/IDestinationVault.sol";
 import { IMainRewarder } from "src/interfaces/rewarders/IMainRewarder.sol";
 import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
 import { LibAdapter } from "src/libs/LibAdapter.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
 import { Roles } from "src/libs/Roles.sol";
@@ -21,7 +22,7 @@ import { Errors } from "src/utils/Errors.sol";
 
 // TODO: Swap roles addAllowedSwapper/remove to onlyOwner
 
-contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
+contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SystemComponent, SecurityBase {
     using Address for address;
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -51,7 +52,10 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
 
     uint256 public constant MAX_PCT = 10_000;
 
-    constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
+    constructor(ISystemRegistry _systemRegistry)
+        SystemComponent(_systemRegistry)
+        SecurityBase(address(_systemRegistry.accessController()))
+    {
         destinationVaultRegistry = _systemRegistry.destinationVaultRegistry();
 
         // System registry must be properly initialized first
