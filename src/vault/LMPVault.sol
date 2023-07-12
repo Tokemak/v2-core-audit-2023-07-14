@@ -86,6 +86,9 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     /// @dev destinationVaultAddress -> Info .. Debt reporting snapshot info
     mapping(address => DestinationInfo) internal destinationInfo;
 
+    /// @dev whether or not the vault has been shutdown
+    bool internal _shutdown;
+
     /// @notice The amount of baseAsset deposited into the contract pending deployment
     uint256 public totalIdle = 0;
 
@@ -125,6 +128,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     error NavChanged(uint256 oldNav, uint256 newNav);
     error NavOpsInProgress();
     error OverWalletLimit(address to);
+    error VaultShutdown();
 
     event PerformanceFeeSet(uint256 newFee);
     event FeeSinkSet(address newFeeSink);
@@ -574,6 +578,18 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         }
     }
 
+    /// @inheritdoc ILMPVault
+    function shutdown() external onlyOwner {
+        _shutdown = true;
+
+        emit Shutdown();
+    }
+
+    /// @inheritdoc ILMPVault
+    function isShutdown() external view returns (bool) {
+        return _shutdown;
+    }
+
     /**
      * @dev Internal conversion function (from assets to shares) with support for rounding direction.
      *
@@ -1005,6 +1021,11 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
                 (debtDecrease, debtIncrease) =
                     _recalculateDestInfo(dvOut, originalShareBal, originalShareBal - amountOut, true);
             } else {
+                // If we are shutdown then the only operations we should be performing are those that get
+                // the base asset back to the vault. We shouldn't be sending out more
+                if (_shutdown) {
+                    revert VaultShutdown();
+                }
                 // Working with idle baseAsset which should be in the vault already
                 // Just send it out
                 IERC20(tokenOut).safeTransfer(receiver, amountOut);
@@ -1201,7 +1222,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     }
 
     function _maxMint(address wallet) internal view virtual returns (uint256 shares) {
-        if (paused()) {
+        if (paused() || _shutdown) {
             return 0;
         }
 

@@ -17,6 +17,7 @@ interface ILMPVault is IERC4626, IERC20Permit {
     event RewarderSet(address rewarder);
     event DestinationDebtReporting(address destination, uint256 debtValue, uint256 claimed, uint256 claimGasUsed);
     event FeeCollected(uint256 fees, address feeSink, uint256 mintedShares, uint256 profit, uint256 idle, uint256 debt);
+    event Shutdown();
 
     /* ******************************** */
     /*      Errors                      */
@@ -59,4 +60,10 @@ interface ILMPVault is IERC4626, IERC20Permit {
 
     /// @notice Remove emptied destination vault from pending removal queue
     function removeFromRemovalQueue(address vaultToRemove) external;
+
+    /// @notice Initiate the shutdown procedures for this vault
+    function shutdown() external;
+
+    /// @notice True if the vault has been shutdown
+    function isShutdown() external view returns (bool);
 }

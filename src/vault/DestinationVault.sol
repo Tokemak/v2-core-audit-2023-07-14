@@ -24,12 +24,14 @@ abstract contract DestinationVault is SecurityBase, ERC20, Initializable, IDesti
     event UnderlyingWithdraw(uint256 amount, address owner, address to);
     event BaseAssetWithdraw(uint256 amount, address owner, address to);
     event UnderlyingDeposited(uint256 amount, address sender);
+    event Shutdown();
 
     error ArrayLengthMismatch();
     error PullingNonTrackedToken(address token);
     error RecoveringTrackedToken(address token);
     error RecoveringMoreThanAvailable(address token, uint256 amount, uint256 availableAmount);
     error DuplicateToken(address token);
+    error VaultShutdown();
 
     ISystemRegistry internal immutable _systemRegistry;
 
@@ -48,6 +50,8 @@ abstract contract DestinationVault is SecurityBase, ERC20, Initializable, IDesti
 
     EnumerableSet.AddressSet internal _trackedTokens;
 
+    bool internal _shutdown;
+
     constructor(ISystemRegistry sysRegistry) SecurityBase(address(sysRegistry.accessController())) ERC20("", "") {
         _systemRegistry = sysRegistry;
     }
@@ -55,6 +59,13 @@ abstract contract DestinationVault is SecurityBase, ERC20, Initializable, IDesti
     modifier onlyLMPVault() {
         if (!_systemRegistry.lmpVaultRegistry().isVault(msg.sender)) {
             revert Errors.AccessDenied();
+        }
+        _;
+    }
+
+    modifier notShutdown() {
+        if (_shutdown) {
+            revert VaultShutdown();
         }
         _;
     }
@@ -162,6 +173,18 @@ abstract contract DestinationVault is SecurityBase, ERC20, Initializable, IDesti
     /// @return tokens tokens claimed
     function _collectRewards() internal virtual returns (uint256[] memory amounts, address[] memory tokens);
 
+    /// @inheritdoc IDestinationVault
+    function shutdown() external onlyOwner {
+        _shutdown = true;
+
+        emit Shutdown();
+    }
+
+    /// @inheritdoc IDestinationVault
+    function isShutdown() external view returns (bool) {
+        return _shutdown;
+    }
+
     function trackedTokens() public view virtual returns (address[] memory trackedTokensArr) {
         uint256 arLen = _trackedTokens.length();
         trackedTokensArr = new address[](arLen);
@@ -178,7 +201,7 @@ abstract contract DestinationVault is SecurityBase, ERC20, Initializable, IDesti
     }
 
     /// @inheritdoc IDestinationVault
-    function depositUnderlying(uint256 amount) external onlyLMPVault returns (uint256 shares) {
+    function depositUnderlying(uint256 amount) external onlyLMPVault notShutdown returns (uint256 shares) {
         Errors.verifyNotZero(amount, "amount");
 
         emit UnderlyingDeposited(amount, msg.sender);

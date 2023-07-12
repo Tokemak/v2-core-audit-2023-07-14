@@ -113,6 +113,7 @@ contract LMPVaultMintingTests is Test {
     event NewNavHighWatermark(uint256 navPerShare, uint256 timestamp);
     event TotalSupplyLimitSet(uint256 limit);
     event PerWalletLimitSet(uint256 limit);
+    event Shutdown();
 
     function setUp() public {
         vm.label(address(this), "testContract");
@@ -473,6 +474,37 @@ contract LMPVaultMintingTests is Test {
         _lmpVault.setPerWalletLimit(999);
     }
 
+    function test_shutdown_ProperlyReports() public {
+        assertEq(_lmpVault.isShutdown(), false);
+        _lmpVault.shutdown();
+        assertEq(_lmpVault.isShutdown(), true);
+    }
+
+    function test_shutdown_EmitsShutdownEvent() public {
+        vm.expectEmit(true, true, true, true);
+        emit Shutdown();
+        _lmpVault.shutdown();
+    }
+
+    function test_shutdown_OnlyCallableByOwner() public {
+        vm.startPrank(address(5));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
+        _lmpVault.shutdown();
+        vm.stopPrank();
+
+        _lmpVault.shutdown();
+    }
+
+    function test_deposit_RevertIf_Shutdown() public {
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        _lmpVault.shutdown();
+
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626DepositExceedsMax.selector, 1000, 0));
+        _lmpVault.deposit(1000, address(this));
+    }
+
     function test_deposit_InitialSharesMintedOneToOneIntoIdle() public {
         _asset.mint(address(this), 1000);
         _asset.approve(address(_lmpVault), 1000);
@@ -631,6 +663,16 @@ contract LMPVaultMintingTests is Test {
 
         vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626DepositExceedsMax.selector, 40, 25));
         _lmpVault.deposit(40, address(this));
+    }
+
+    function test_mint_RevertIf_Shutdown() public {
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+
+        _lmpVault.shutdown();
+
+        vm.expectRevert(abi.encodeWithSelector(ILMPVault.ERC4626MintExceedsMax.selector, 1000, 0));
+        _lmpVault.mint(1000, address(this));
     }
 
     function test_mint_RevertIf_Paused() public {
@@ -1167,6 +1209,29 @@ contract LMPVaultMintingTests is Test {
         assertEq(balanceOfUnderlyerAfter - balanceOfUnderlyerBefore, 125);
     }
 
+    function test_rebalance_IdleCantLeaveIfShutdown() public {
+        _accessController.grantRole(Roles.SOLVER_ROLE, address(this));
+
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+        _lmpVault.deposit(1000, address(this));
+
+        _underlyerOne.mint(address(this), 500);
+        _underlyerOne.approve(address(_lmpVault), 500);
+
+        _lmpVault.shutdown();
+
+        vm.expectRevert(abi.encodeWithSelector(LMPVault.VaultShutdown.selector));
+        _lmpVault.rebalance(
+            address(_destVaultOne),
+            address(_underlyerOne), // tokenIn
+            250,
+            address(0), // destinationOut, none when sending out baseAsset
+            address(_asset), // baseAsset, tokenOut
+            500
+        );
+    }
+
     function test_rebalance_AccountsForClaimedDvRewardsIntoIdle() public {
         _accessController.grantRole(Roles.SOLVER_ROLE, address(this));
 
@@ -1430,6 +1495,37 @@ contract LMPVaultMintingTests is Test {
         // Ensure this is still true after reporting
         assertEq(_lmpVault.totalDebt(), 0);
         assertEq(_lmpVault.totalIdle(), 0);
+    }
+
+    function test_flashRebalance_IdleCantLeaveIfShutdown() public {
+        _accessController.grantRole(Roles.SOLVER_ROLE, address(this));
+        FlashRebalancer rebalancer = new FlashRebalancer();
+
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+        _lmpVault.deposit(1000, address(this));
+
+        _underlyerOne.mint(address(this), 500);
+        _underlyerOne.approve(address(_lmpVault), 500);
+
+        // Tell the test harness how much it should have at mid execution
+        rebalancer.snapshotAsset(address(_asset), 500);
+
+        _lmpVault.shutdown();
+
+        vm.expectRevert(abi.encodeWithSelector(LMPVault.VaultShutdown.selector));
+        _lmpVault.flashRebalance(
+            IStrategy.FlashRebalanceParams({
+                receiver: rebalancer,
+                destinationIn: address(_destVaultOne),
+                tokenIn: address(_underlyerOne), // tokenIn
+                amountIn: 250,
+                destinationOut: address(0), // destinationOut, none when sending out baseAsset
+                tokenOut: address(_asset), // baseAsset, tokenOut
+                amountOut: 500
+            }),
+            abi.encode("")
+        );
     }
 
     function test_flashRebalance_IdleAssetsCanLeaveAndReturn() public {

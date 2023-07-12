@@ -107,4 +107,11 @@ interface IDestinationVault is IBaseAssetVault, IERC20 {
     /// @param to destination of the base asset
     /// @return amount base asset amount 'to' received
     function withdrawBaseAsset(uint256 shares, address to) external returns (uint256 amount);
+
+    /// @notice Initiate the shutdown procedures for this vault
+    /// @dev Should pull back tokens from staking locations
+    function shutdown() external;
+
+    /// @notice True if the vault has been shutdown
+    function isShutdown() external view returns (bool);
 }

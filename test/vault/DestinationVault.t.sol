@@ -122,6 +122,35 @@ contract DestinationVaultBaseTests is Test {
         testVault.depositUnderlying(10);
     }
 
+    function testShutdownOnlyAccessibleByOwner() public {
+        mockIsLmpVault(address(this), false);
+        underlyer.approve(address(testVault), 10);
+
+        address caller = address(5);
+
+        vm.startPrank(caller);
+        vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
+        testVault.shutdown();
+        vm.stopPrank();
+    }
+
+    function testIsShutdownProperlyReports() public {
+        assertEq(testVault.isShutdown(), false);
+        testVault.shutdown();
+        assertEq(testVault.isShutdown(), true);
+    }
+
+    function testCannotDepositWhenShutdown() public {
+        mockIsLmpVault(address(this), false);
+        underlyer.approve(address(testVault), 10);
+        mockIsLmpVault(address(this), true);
+
+        testVault.shutdown();
+
+        vm.expectRevert(abi.encodeWithSelector(DestinationVault.VaultShutdown.selector));
+        testVault.depositUnderlying(10);
+    }
+
     function testUnderlyingDepositMintsEqualShares() public {
         uint256 depositAmount = 10;
         uint256 originalBalance = testVault.balanceOf(address(this));
@@ -171,6 +200,19 @@ contract DestinationVaultBaseTests is Test {
         mockIsLmpVault(address(this), false);
         vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
         testVault.withdrawUnderlying(10, address(this));
+
+        // LMP again
+        mockIsLmpVault(address(this), true);
+        testVault.withdrawUnderlying(10, address(this));
+    }
+
+    function testCanWithdrawUnderlyingWhenShutdown() public {
+        // Deposit
+        uint256 depositAmount = 10;
+        mockIsLmpVault(address(this), true);
+        underlyer.approve(address(testVault), depositAmount);
+        testVault.depositUnderlying(depositAmount);
+        testVault.shutdown();
 
         // LMP again
         mockIsLmpVault(address(this), true);
