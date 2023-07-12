@@ -555,6 +555,9 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         address[] calldata _destinations
     ) external virtual override hasRole(Roles.TOKEN_RECOVERY_ROLE) {
         uint256 len = tokens.length;
+        if (len == 0) {
+            revert Errors.InvalidParams();
+        }
         Errors.verifyArrayLengths(len, amounts.length, "tokens+amounts");
         Errors.verifyArrayLengths(len, _destinations.length, "tokens+_destinations");
 
