@@ -69,7 +69,7 @@ interface ILMPVaultRouterBase {
      * @param vault The LMPVault to withdraw assets from.
      * @param to The destination of assets.
      * @param amount The amount of assets to withdraw from vault.
-     * @param minSharesOut The min amount of shares received by `to`.
+     * @param maxSharesOut The max amount of shares burned for assets requested.
      * @param unwrapWETH If true, unwrap WETH9 to ETH before sending to `to`.
      * @return sharesOut the amount of shares received by `to`.
      * @dev throws MaxSharesError
@@ -78,7 +78,7 @@ interface ILMPVaultRouterBase {
         ILMPVault vault,
         address to,
         uint256 amount,
-        uint256 minSharesOut,
+        uint256 maxSharesOut,
         bool unwrapWETH
     ) external returns (uint256 sharesOut);
 

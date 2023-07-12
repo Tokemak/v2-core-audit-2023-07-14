@@ -6,21 +6,18 @@ import { IERC20, SafeERC20, Address } from "openzeppelin-contracts/token/ERC20/u
 import { ILMPVault, ILMPVaultRouterBase } from "src/interfaces/vault/ILMPVaultRouterBase.sol";
 
 import { SelfPermit } from "src/utils/SelfPermit.sol";
+import { PeripheryPayments } from "src/utils/PeripheryPayments.sol";
 import { Multicall } from "src/utils/Multicall.sol";
 
 import { IWETH9 } from "src/interfaces/utils/IWETH9.sol";
 
 /// @title LMPVault Router Base Contract
-abstract contract LMPVaultRouterBase is ILMPVaultRouterBase, SelfPermit, Multicall /*, PeripheryPayments */ {
+abstract contract LMPVaultRouterBase is ILMPVaultRouterBase, SelfPermit, Multicall, PeripheryPayments {
     using SafeERC20 for IERC20;
-
-    IWETH9 public immutable weth9;
 
     error InvalidAsset();
 
-    constructor(address _weth9) {
-        weth9 = IWETH9(_weth9);
-    }
+    constructor(address _weth9) SelfPermit() PeripheryPayments(IWETH9(_weth9)) { }
 
     /// @inheritdoc ILMPVaultRouterBase
     function mint(
@@ -32,7 +29,13 @@ abstract contract LMPVaultRouterBase is ILMPVaultRouterBase, SelfPermit, Multica
         // handle possible eth
         _processEthIn(vault);
 
-        if ((amountIn = vault.mint(shares, to)) > maxAmountIn) {
+        IERC20 vaultAsset = IERC20(vault.asset());
+        uint256 assets = vault.previewMint(shares);
+        pullToken(vaultAsset, assets, address(this));
+        vaultAsset.safeApprove(address(vault), assets);
+
+        amountIn = vault.mint(shares, to);
+        if (amountIn > maxAmountIn) {
             revert MaxAmountError();
         }
     }
@@ -46,7 +49,25 @@ abstract contract LMPVaultRouterBase is ILMPVaultRouterBase, SelfPermit, Multica
     ) public payable virtual override returns (uint256 sharesOut) {
         // handle possible eth
         _processEthIn(vault);
-        IERC20(vault.asset()).safeApprove(address(vault), amount);
+
+        IERC20 vaultAsset = IERC20(vault.asset());
+        pullToken(vaultAsset, amount, address(this));
+
+        return _deposit(vault, to, amount, minSharesOut);
+        // approve(vaultAsset, address(vault), amount);
+        // if ((sharesOut = vault.deposit(amount, to)) < minSharesOut) {
+        //     revert MinSharesError();
+        // }
+    }
+
+    /// @dev Assumes tokens are already in the router
+    function _deposit(
+        ILMPVault vault,
+        address to,
+        uint256 amount,
+        uint256 minSharesOut
+    ) internal returns (uint256 sharesOut) {
+        approve(IERC20(vault.asset()), address(vault), amount);
         if ((sharesOut = vault.deposit(amount, to)) < minSharesOut) {
             revert MinSharesError();
         }
@@ -62,7 +83,8 @@ abstract contract LMPVaultRouterBase is ILMPVaultRouterBase, SelfPermit, Multica
     ) public virtual override returns (uint256 sharesOut) {
         address destination = unwrapWETH ? address(this) : to;
 
-        if ((sharesOut = vault.withdraw(amount, destination, msg.sender)) > maxSharesOut) {
+        sharesOut = vault.withdraw(amount, destination, to);
+        if (sharesOut > maxSharesOut) {
             revert MaxSharesError();
         }
 

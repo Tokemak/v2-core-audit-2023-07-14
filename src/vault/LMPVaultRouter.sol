@@ -24,17 +24,6 @@ contract LMPVaultRouter is ILMPVaultRouter, LMPVaultRouterBase {
     // For the below, no approval needed, assumes vault is already max approved
 
     /// @inheritdoc ILMPVaultRouter
-    function depositToVault(
-        ILMPVault vault,
-        address to,
-        uint256 amount,
-        uint256 minSharesOut
-    ) external override returns (uint256 sharesOut) {
-        _pullToken(IERC20(vault.asset()), amount, address(this));
-        return deposit(vault, to, amount, minSharesOut);
-    }
-
-    /// @inheritdoc ILMPVaultRouter
     function withdrawToDeposit(
         ILMPVault fromVault,
         ILMPVault toVault,
@@ -44,7 +33,7 @@ contract LMPVaultRouter is ILMPVaultRouter, LMPVaultRouterBase {
         uint256 minSharesOut
     ) external override returns (uint256 sharesOut) {
         withdraw(fromVault, address(this), amount, maxSharesIn, false);
-        return deposit(toVault, to, amount, minSharesOut);
+        return _deposit(toVault, to, amount, minSharesOut);
     }
 
     /// @inheritdoc ILMPVaultRouter
@@ -56,7 +45,7 @@ contract LMPVaultRouter is ILMPVaultRouter, LMPVaultRouterBase {
         uint256 minSharesOut
     ) external returns (uint256 sharesOut) {
         systemRegistry.asyncSwapperRegistry().verifyIsRegistered(swapper);
-        _pullToken(IERC20(swapParams.sellTokenAddress), swapParams.sellAmount, address(this));
+        pullToken(IERC20(swapParams.sellTokenAddress), swapParams.sellAmount, address(this));
 
         // verify that the swap is for the vault asset
         if (swapParams.buyTokenAddress != vault.asset()) revert Errors.InvalidParams();
@@ -67,7 +56,7 @@ contract LMPVaultRouter is ILMPVaultRouter, LMPVaultRouterBase {
 
         uint256 amountReceived = abi.decode(data, (uint256));
 
-        return deposit(vault, to, amountReceived, minSharesOut);
+        return _deposit(vault, to, amountReceived, minSharesOut);
     }
 
     /// @inheritdoc ILMPVaultRouter
@@ -80,7 +69,7 @@ contract LMPVaultRouter is ILMPVaultRouter, LMPVaultRouterBase {
     ) external override returns (uint256 sharesOut) {
         // amount out passes through so only one slippage check is needed
         uint256 amount = redeem(fromVault, address(this), shares, 0, false);
-        return deposit(toVault, to, amount, minSharesOut);
+        return _deposit(toVault, to, amount, minSharesOut);
     }
 
     /// @inheritdoc ILMPVaultRouter
@@ -93,8 +82,8 @@ contract LMPVaultRouter is ILMPVaultRouter, LMPVaultRouterBase {
         uint256 assetBalance = asset.balanceOf(msg.sender);
         uint256 maxDeposit = vault.maxDeposit(to);
         uint256 amount = maxDeposit < assetBalance ? maxDeposit : assetBalance;
-        _pullToken(asset, amount, address(this));
-        return deposit(vault, to, amount, minSharesOut);
+        pullToken(asset, amount, address(this));
+        return _deposit(vault, to, amount, minSharesOut);
     }
 
     /// @inheritdoc ILMPVaultRouter
@@ -103,9 +92,5 @@ contract LMPVaultRouter is ILMPVaultRouter, LMPVaultRouterBase {
         uint256 maxRedeem = vault.maxRedeem(msg.sender);
         uint256 amountShares = maxRedeem < shareBalance ? maxRedeem : shareBalance;
         return redeem(vault, to, amountShares, minAmountOut, false);
-    }
-
-    function _pullToken(IERC20 token, uint256 amount, address recipient) public payable {
-        token.safeTransferFrom(msg.sender, recipient, amount);
     }
 }

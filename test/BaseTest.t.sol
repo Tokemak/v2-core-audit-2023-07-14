@@ -28,6 +28,9 @@ import { Roles } from "src/libs/Roles.sol";
 import { TOKE_MAINNET, USDC_MAINNET, WETH_MAINNET } from "test/utils/Addresses.sol";
 
 contract BaseTest is Test {
+    // if forking is required at specific block, set this in sub-contract's setup before calling parent
+    uint256 internal forkBlock;
+
     mapping(bytes => address) internal _tokens;
 
     IERC20 public baseAsset;
@@ -133,7 +136,13 @@ contract BaseTest is Test {
 
     function fork() internal {
         // BEFORE WE DO ANYTHING, FORK!!
-        uint256 mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"));
+        uint256 mainnetFork;
+        if (forkBlock == 0) {
+            mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"));
+        } else {
+            mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"), forkBlock);
+        }
+
         vm.selectFork(mainnetFork);
         assertEq(vm.activeFork(), mainnetFork, "forks don't match");
     }

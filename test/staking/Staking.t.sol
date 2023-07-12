@@ -25,7 +25,7 @@ contract StakingTest is BaseTest {
     event RewardsClaimed(address indexed user, uint256 amount);
 
     // solhint-disable-next-line var-name-mixedcase
-    uint256 public TOLERANCE = 1e14; // 0.01% (1e18 being 100%) 100_000_000_000_000 1e14
+    uint256 public TOLERANCE = 1e14; // 0.01% (1e18 being 100%)
 
     // Fuzzing constraints
     uint256 public constant MAX_STAKE_AMOUNT = 100e6 * 1e18; // default 100m toke
@@ -40,7 +40,7 @@ contract StakingTest is BaseTest {
         deployGpToke();
 
         assertEq(gpToke.name(), "Staked Toke");
-        assertEq(gpToke.symbol(), "gpToke");
+        assertEq(gpToke.symbol(), "accToke");
 
         // approve future spending
         toke.approve(address(gpToke), toke.balanceOf(address(this)));

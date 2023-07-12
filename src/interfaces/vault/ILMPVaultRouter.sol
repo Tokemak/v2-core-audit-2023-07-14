@@ -3,32 +3,17 @@
 pragma solidity 0.8.17;
 
 import { ILMPVault } from "src/interfaces/vault/ILMPVault.sol";
+import { ILMPVaultRouterBase } from "src/interfaces/vault/ILMPVaultRouterBase.sol";
 import { IAsyncSwapper, SwapParams } from "src/interfaces/liquidation/IAsyncSwapper.sol";
 
 /**
  * @title ILMPVaultRouter Interface
  * @notice Extends the ILMPVaultRouterBase with specific flows to save gas
  */
-interface ILMPVaultRouter {
+interface ILMPVaultRouter is ILMPVaultRouterBase {
     /**
      * ***************************   Deposit ********************************
      */
-
-    /**
-     * @notice deposit `amount` to a LMPVault.
-     * @param vault The LMPVault to deposit assets to.
-     * @param to The destination of ownership shares.
-     * @param amount The amount of assets to deposit to `vault`.
-     * @param minSharesOut The min amount of `vault` shares received by `to`.
-     * @return sharesOut the amount of shares received by `to`.
-     * @dev throws MinSharesError
-     */
-    function depositToVault(
-        ILMPVault vault,
-        address to,
-        uint256 amount,
-        uint256 minSharesOut
-    ) external returns (uint256 sharesOut);
 
     /**
      * @notice swap and deposit max assets to a LMPVault.

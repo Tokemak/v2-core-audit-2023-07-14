@@ -64,8 +64,8 @@ contract GPToke is IGPToke, ERC20Votes, Pausable, SystemComponent, SecurityBase 
         uint256 _minStakeDuration
     )
         SystemComponent(_systemRegistry)
-        ERC20("Staked Toke", "gpToke")
-        ERC20Permit("gpToke")
+        ERC20("Staked Toke", "accToke")
+        ERC20Permit("accToke")
         SecurityBase(address(_systemRegistry.accessController()))
     {
         startEpoch = _startEpoch;
