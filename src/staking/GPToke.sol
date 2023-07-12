@@ -102,7 +102,6 @@ contract GPToke is IGPToke, ERC20Votes, Pausable, SystemComponent, SecurityBase 
         if (to == address(0)) revert ZeroAddress();
         if (amount < MIN_STAKE_AMOUNT) revert StakingAmountInsufficient();
         if (amount > MAX_STAKE_AMOUNT) revert StakingAmountExceeded();
-        if (amount > toke.balanceOf(msg.sender)) revert InsufficientFunds();
 
         // duration checked inside previewPoints
         (uint256 points, uint256 end) = previewPoints(amount, duration);
@@ -177,7 +176,7 @@ contract GPToke is IGPToke, ERC20Votes, Pausable, SystemComponent, SecurityBase 
         // issue extra points for extension
         _mint(msg.sender, newPoints - oldPoints);
 
-        emit Extend(msg.sender, lockupId, oldEnd, newEnd, oldPoints, newPoints);
+        emit Extend(msg.sender, lockupId, oldAmount, oldEnd, newEnd, oldPoints, newPoints);
     }
 
     /// @inheritdoc IGPToke

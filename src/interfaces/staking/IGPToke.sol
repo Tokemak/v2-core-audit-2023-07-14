@@ -47,7 +47,13 @@ interface IGPToke {
     event Stake(address indexed user, uint256 lockupId, uint256 amount, uint256 end, uint256 points);
     event Unstake(address indexed user, uint256 lockupId, uint256 amount, uint256 end, uint256 points);
     event Extend(
-        address indexed user, uint256 lockupId, uint256 oldEnd, uint256 newEnd, uint256 oldPoints, uint256 newPoints
+        address indexed user,
+        uint256 lockupId,
+        uint256 amount,
+        uint256 oldEnd,
+        uint256 newEnd,
+        uint256 oldPoints,
+        uint256 newPoints
     );
     event RewardsAdded(uint256 amount);
     event RewardsCollected(address indexed user, uint256 amount);

@@ -13,7 +13,13 @@ contract StakingTest is BaseTest {
     event Stake(address indexed user, uint256 lockupId, uint256 amount, uint256 end, uint256 points);
     event Unstake(address indexed user, uint256 lockupId, uint256 amount, uint256 end, uint256 points);
     event Extend(
-        address indexed user, uint256 lockupId, uint256 oldEnd, uint256 newEnd, uint256 oldPoints, uint256 newPoints
+        address indexed user,
+        uint256 lockupId,
+        uint256 amount,
+        uint256 oldEnd,
+        uint256 newEnd,
+        uint256 oldPoints,
+        uint256 newPoints
     );
     event RewardsAdded(uint256 amount);
     event RewardsClaimed(address indexed user, uint256 amount);
@@ -164,7 +170,7 @@ contract StakingTest is BaseTest {
         (uint256 amountBefore,, uint256 pointsBefore) = gpToke.lockups(address(this), 0);
         // extend to 2 years
         vm.expectEmit(true, false, false, false);
-        emit Extend(address(this), 0, 0, 0, 0, 0);
+        emit Extend(address(this), 0, amountBefore, 0, 0, 0, 0);
         gpToke.extend(0, 2 * ONE_YEAR);
         // verify that duration (and points) increased
         IGPToke.Lockup memory lockup = gpToke.getLockups(address(this))[0];
