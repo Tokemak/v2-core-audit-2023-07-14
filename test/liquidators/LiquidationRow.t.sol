@@ -134,7 +134,8 @@ contract LiquidationRowTest is Test {
             address(stakeTracker),
             address(targetToken),
             newRewardRatio,
-            durationInBlock
+            durationInBlock,
+            true
         );
 
         // Set up test vault
