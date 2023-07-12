@@ -1,8 +1,9 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
-import { SwapParams } from "./IAsyncSwapper.sol";
-import { IVaultClaimableRewards } from "../rewards/IVaultClaimableRewards.sol";
+import { SwapParams } from "src/interfaces/liquidation/IAsyncSwapper.sol";
+import { IDestinationVault } from "src/interfaces/vault/IDestinationVault.sol";
 
 interface ILiquidationRow {
     event SwapperAdded(address indexed swapper);
@@ -10,52 +11,45 @@ interface ILiquidationRow {
     event BalanceUpdated(address indexed token, address indexed vault, uint256 balance);
     event VaultLiquidated(address indexed vault, address indexed fromToken, address indexed toToken, uint256 amount);
     event GasUsedForVault(address indexed vault, uint256 gasAmount, bytes32 action);
+    event FeesTransfered(address indexed receiver, uint256 amountReceived, uint256 fees);
 
-    error ZeroAddress();
-    error ZeroBalance();
-    error NoVaults();
-    error LengthsMismatch();
-    error SellAmountMismatch();
-    error InsufficientBalance();
     error NothingToLiquidate();
-    error AsyncSwapperNotAllowed();
-    error SwapperAlreadyAdded();
-    error SwapperNotFound();
-    error VaultAlreadyAdded();
-    error VaultNotFound();
-    error TokenAlreadyAdded();
-    error TokenNotFound();
+    error InvalidRewardToken();
+    error FeeTooHigh();
 
     /**
      * @notice Claim rewards from a list of vaults
      * @param vaults The list of vaults to claim rewards from
      */
-    function claimsVaultRewards(IVaultClaimableRewards[] memory vaults) external;
+    function claimsVaultRewards(IDestinationVault[] memory vaults) external;
 
     /**
-     * @notice Get the list of allowed swappers
-     * @return An array of allowed swapper addresses
-     */
-    function getAllowedSwappers() external view returns (address[] memory);
-
-    /**
-     * @notice Add a new swapper to the list of allowed swappers
+     * @notice Add a new swapper to the whitelist
      * @param swapper The address of the swapper to be added
      */
-    function addAllowedSwapper(address swapper) external;
+    function addToWhitelist(address swapper) external;
 
     /**
-     * @notice Remove a swapper from the list of allowed swappers
+     * @notice Remove a swapper from whitelist
      * @param swapper The address of the swapper to be removed
      */
-    function removeAllowedSwapper(address swapper) external;
+    function removeFromWhitelist(address swapper) external;
 
     /**
-     * @notice Check if a swapper is allowed
+     * @notice Check if a swapper is whitelisted
      * @param swapper The address of the swapper to be checked
-     * @return A boolean indicating if the swapper is allowed
+     * @return true if the swapper is allowed
      */
-    function isAllowedSwapper(address swapper) external view returns (bool);
+    function isWhitelisted(address swapper) external view returns (bool);
+
+    /**
+     * @notice Sets the fee and the receiver of the fee.
+     *  If either _feeReceiver is address(0) or _feeBps is 0, the fee feature is turned off.
+     * @dev FeeBps must be less than or equal to 10_000, i.e., 100%, to prevent overflows.
+     * @param _feeReceiver The address of the fee receiver. If set to address(0), the fee feature is turned off.
+     * @param _feeBps The fee rate in basis points (bps). 1 bps is 0.01%. If set to 0, the fee feature is turned off.
+     */
+    function setFeeAndReceiver(address _feeReceiver, uint256 _feeBps) external;
 
     /**
      * @notice Get the balance of a specific token and vault
@@ -95,7 +89,7 @@ interface ILiquidationRow {
     function liquidateVaultsForToken(
         address fromToken,
         address asyncSwapper,
-        address[] memory vaultsToLiquidate,
+        IDestinationVault[] memory vaultsToLiquidate,
         SwapParams memory params
     ) external;
 }

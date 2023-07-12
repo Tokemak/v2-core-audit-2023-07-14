@@ -1,23 +1,39 @@
-// SPDX-License-Identifier: MIT
+/* solhint-disable func-name-mixedcase,contract-name-camelcase */
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
 import { Test } from "forge-std/Test.sol";
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 
 import { IAccessController } from "src/interfaces/security/IAccessController.sol";
 import { ISystemRegistry, SystemRegistry } from "src/SystemRegistry.sol";
 import { IAccessController, AccessController } from "src/security/AccessController.sol";
 import { LiquidationRow } from "src/liquidation/LiquidationRow.sol";
-import { IAsyncSwapper, SwapParams } from "src/interfaces/liquidation/IAsyncSwapper.sol";
+import { SwapParams } from "src/interfaces/liquidation/IAsyncSwapper.sol";
 import { ILiquidationRow } from "src/interfaces/liquidation/ILiquidationRow.sol";
 import { BaseAsyncSwapper } from "src/liquidation/BaseAsyncSwapper.sol";
-import { IVaultClaimableRewards } from "src/interfaces/rewards/IVaultClaimableRewards.sol";
+import { IDestinationVault } from "src/interfaces/vault/IDestinationVault.sol";
+import { IBaseRewarder } from "src/interfaces/rewarders/IBaseRewarder.sol";
+import { DestinationVaultRegistry } from "src/vault/DestinationVaultRegistry.sol";
+import { DestinationVaultFactory } from "src/vault/DestinationVaultFactory.sol";
+import { StakeTrackingMock } from "test/mocks/StakeTrackingMock.sol";
+import { MainRewarder } from "src/rewarders/MainRewarder.sol";
 import { Roles } from "src/libs/Roles.sol";
-import { ZERO_EX_MAINNET, PRANK_ADDRESS, CVX_MAINNET, WETH_MAINNET, TOKE_MAINNET } from "test/utils/Addresses.sol";
+import { Errors } from "src/utils/Errors.sol";
+import {
+    ZERO_EX_MAINNET, PRANK_ADDRESS, CVX_MAINNET, WETH_MAINNET, TOKE_MAINNET, RANDOM
+} from "test/utils/Addresses.sol";
 import { MockERC20 } from "test/mocks/MockERC20.sol";
+import { TestERC20 } from "test/mocks/TestERC20.sol";
+import { TestDestinationVault } from "test/mocks/TestDestinationVault.sol";
 
+/**
+ * @dev This contract represents a mock of the actual AsyncSwapper to be used in tests. It simulates the swapping
+ * process by simply minting the target token to the LiquidationRow contract, under the assumption that the swap
+ * operation was successful. It doesn't perform any actual swapping of tokens.
+ */
 contract AsyncSwapperMock is BaseAsyncSwapper {
     MockERC20 private immutable targetToken;
     address private immutable liquidationRow;
@@ -28,596 +44,603 @@ contract AsyncSwapperMock is BaseAsyncSwapper {
     }
 
     function swap(SwapParams memory params) public override returns (uint256 buyTokenAmountReceived) {
-        /// @dev This is a mock function that will mint the target token to the liquidation row assuming that the swap
-        /// was successful
         targetToken.mint(liquidationRow, params.sellAmount);
         return params.sellAmount;
     }
 }
 
-contract MockVault is IVaultClaimableRewards {
-    function claimRewards() external override returns (uint256[] memory, IERC20[] memory) {
-        // delegatecall the Reward Adapater associated to it
-    }
-}
-
 /**
- * @notice This contract is used to test the LiquidationRow contract and specifically the _increaseBalance private
- * function
+ * @notice This contract is a wrapper for the LiquidationRow contract.
+ * Its purpose is to expose the private functions for testing.
  */
 contract LiquidationRowWrapper is LiquidationRow {
     constructor(ISystemRegistry _systemRegistry) LiquidationRow(ISystemRegistry(_systemRegistry)) { }
 
-    /**
-     * @notice Update the balances of the vaults
-     * @param vaultAddresses An array of vault addresses
-     * @param rewardsTokensList An array of arrays containing the reward tokens for each vault
-     * @param rewardsTokensAmounts An array of arrays containing the reward token amounts for each vault
-     */
-    function updateBalances(
-        address[] memory vaultAddresses,
-        address[][] memory rewardsTokensList,
-        uint256[][] memory rewardsTokensAmounts
-    ) public {
-        for (uint256 i = 0; i < vaultAddresses.length; i++) {
-            address vaultAddress = vaultAddresses[i];
-            address[] memory rewardsTokens = rewardsTokensList[i];
-            uint256[] memory rewardsTokensAmount = rewardsTokensAmounts[i];
-
-            if (rewardsTokens.length != rewardsTokensAmount.length) {
-                revert LengthsMismatch();
-            }
-
-            for (uint256 j = 0; j < rewardsTokens.length; j++) {
-                address tokenAddress = rewardsTokens[j];
-                uint256 tokenAmount = rewardsTokensAmount[j];
-
-                if (tokenAmount > 0) {
-                    _increaseBalance(tokenAddress, vaultAddress, tokenAmount);
-                }
-            }
-        }
-    }
-
-    function _increaseBalanceWrapper(address vaultAddress, address tokenAddress, uint256 tokenAmount) public {
+    function exposed_increaseBalance(address tokenAddress, address vaultAddress, uint256 tokenAmount) public {
         _increaseBalance(tokenAddress, vaultAddress, tokenAmount);
     }
 }
 
-// solhint-disable func-name-mixedcase
 contract LiquidationRowTest is Test {
-    SystemRegistry private systemRegistry;
-    IAccessController private accessController;
-    LiquidationRowWrapper private liquidationRow;
-    AsyncSwapperMock private asyncSwapper;
-    MockERC20 private targetToken;
-    MockERC20 private rewardToken;
-    MockERC20 private rewardToken2;
-    MockERC20 private rewardToken3;
+    event SwapperAdded(address indexed swapper);
+    event SwapperRemoved(address indexed swapper);
+    event BalanceUpdated(address indexed token, address indexed vault, uint256 balance);
+    event VaultLiquidated(address indexed vault, address indexed fromToken, address indexed toToken, uint256 amount);
+    event GasUsedForVault(address indexed vault, uint256 gasAmount, bytes32 action);
+    event FeesTransfered(address indexed receiver, uint256 amountReceived, uint256 fees);
 
-    address private vault1 = vm.addr(1);
-    address private vault2 = vm.addr(2);
+    SystemRegistry internal systemRegistry;
+    DestinationVaultRegistry internal destinationVaultRegistry;
+    DestinationVaultFactory internal destinationVaultFactory;
+    IAccessController internal accessController;
+    LiquidationRowWrapper internal liquidationRow;
+    AsyncSwapperMock internal asyncSwapper;
+    MockERC20 internal targetToken;
+
+    TestDestinationVault internal testVault;
+    MainRewarder internal mainRewarder;
+
+    TestERC20 internal rewardToken;
+    TestERC20 internal rewardToken2;
+    TestERC20 internal rewardToken3;
+    TestERC20 internal rewardToken4;
+    TestERC20 internal rewardToken5;
 
     function setUp() public {
+        // Initialize the ERC20 tokens that will be used as rewards to be claimed in the tests
+        rewardToken = new TestERC20("rewardToken", "rewardToken");
+        rewardToken2 = new TestERC20("rewardToken2", "rewardToken2");
+        rewardToken3 = new TestERC20("rewardToken3", "rewardToken3");
+        rewardToken4 = new TestERC20("rewardToken4", "rewardToken4");
+        rewardToken5 = new TestERC20("rewardToken5", "rewardToken5");
+
+        // Mock the target token using MockERC20 contract which allows us to mint tokens
+        targetToken = new MockERC20();
+
+        // Set up system registry with initial configuration
         systemRegistry = new SystemRegistry(TOKE_MAINNET, WETH_MAINNET);
+
+        // Set up access control
         accessController = new AccessController(address(systemRegistry));
         systemRegistry.setAccessController(address(accessController));
-        accessController.grantRole(Roles.LIQUIDATOR_ROLE, address(this));
 
+        // Set up destination vault registry and factory
+        destinationVaultRegistry = new DestinationVaultRegistry(systemRegistry);
+        systemRegistry.setDestinationVaultRegistry(address(destinationVaultRegistry));
+        // we mock this part as be do not use it in destinationVaultFactory
+        vm.mockCall(
+            address(systemRegistry),
+            abi.encodeWithSelector(ISystemRegistry.destinationTemplateRegistry.selector),
+            abi.encode(address(1))
+        );
+        destinationVaultFactory = new DestinationVaultFactory(systemRegistry, 1, 1000);
+        destinationVaultRegistry.setVaultFactory(address(destinationVaultFactory));
+
+        // Set up LiquidationRow
         liquidationRow = new LiquidationRowWrapper(systemRegistry);
-        targetToken = new MockERC20();
-        rewardToken = new MockERC20();
-        rewardToken2 = new MockERC20();
-        rewardToken3 = new MockERC20();
+
+        // grant this contract and liquidatorRow contract the LIQUIDATOR_ROLE so they can call the
+        // MainRewarder.queueNewRewards function
+        accessController.grantRole(Roles.LIQUIDATOR_ROLE, address(this));
+        accessController.grantRole(Roles.LIQUIDATOR_ROLE, address(liquidationRow));
+
+        // Set up the main rewarder
+        uint256 newRewardRatio = 800;
+        uint256 durationInBlock = 100;
+        StakeTrackingMock stakeTracker = new StakeTrackingMock();
+        systemRegistry.addRewardToken(address(targetToken));
+        mainRewarder = new MainRewarder(
+            systemRegistry,
+            address(stakeTracker),
+            address(targetToken),
+            newRewardRatio,
+            durationInBlock
+        );
+
+        // Set up test vault
+        address baseAsset = address(new TestERC20("baseAsset", "baseAsset"));
+        address underlyer = address(new TestERC20("underlyer", "underlyer"));
+        testVault = new TestDestinationVault(systemRegistry, address(mainRewarder), baseAsset, underlyer);
+
+        // Set up the async swapper mock
         asyncSwapper = new AsyncSwapperMock(vm.addr(100), targetToken, address(liquidationRow));
 
-        liquidationRow.addAllowedSwapper(address(asyncSwapper));
+        vm.label(address(liquidationRow), "liquidationRow");
+        vm.label(address(asyncSwapper), "asyncSwapper");
+        vm.label(address(RANDOM), "RANDOM");
+        vm.label(address(testVault), "testVault");
+        vm.label(address(targetToken), "targetToken");
+        vm.label(baseAsset, "baseAsset");
+        vm.label(underlyer, "underlyer");
+        vm.label(address(rewardToken), "rewardToken");
+        vm.label(address(rewardToken2), "rewardToken2");
+        vm.label(address(rewardToken3), "rewardToken3");
+        vm.label(address(rewardToken4), "rewardToken4");
+        vm.label(address(rewardToken5), "rewardToken5");
     }
 
-    /*  
-        ----------------------------------------------------------------------
-        Following tests only focus on access control and revert reasons
-        ----------------------------------------------------------------------
-    */
+    /**
+     * @dev Sets up a simple mock scenario.
+     * In this case, we only setup one type of reward token (`rewardToken`) with an amount of 100.
+     * This token will be collected by the vault during the liquidation process.
+     * This is used for testing basic scenarios where the vault has only one type of reward token.
+     */
+    function _mockSimpleScenario(address vault) internal {
+        _registerVault(vault);
 
-    function test_Revert_addAllowedSwapper_IfNotAuthorizedRole() public {
-        vm.prank(address(1));
-        vm.expectRevert(IAccessController.AccessDenied.selector);
-        liquidationRow.addAllowedSwapper(address(asyncSwapper));
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 100;
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(rewardToken);
+
+        _mockCalls(vault, amounts, tokens);
     }
 
-    function test_Revert_removeAllowedSwapper_IfNotAuthorizedRole() public {
-        vm.prank(address(1));
-        vm.expectRevert(IAccessController.AccessDenied.selector);
-        liquidationRow.removeAllowedSwapper(address(asyncSwapper));
+    /**
+     * @dev Sets up a more complex mock scenariO.
+     * In this case, we setup five different types of reward tokens
+     * (`rewardToken`, `rewardToken2`, `rewardToken3`, `rewardToken4`, `rewardToken5`) each with an amount of 100.
+     * These tokens will be collected by the vault during the liquidation process.
+     * This is used for testing more complex scenarios where the vault has multiple types of reward tokens.
+     */
+    function _mockComplexScenario(address vault) internal {
+        _registerVault(vault);
+
+        uint256[] memory amounts = new uint256[](5);
+        amounts[0] = 100;
+        amounts[1] = 100;
+        amounts[2] = 100;
+        amounts[3] = 100;
+        amounts[4] = 100;
+
+        address[] memory tokens = new address[](5);
+        tokens[0] = address(rewardToken);
+        tokens[1] = address(rewardToken2);
+        tokens[2] = address(rewardToken3);
+        tokens[3] = address(rewardToken4);
+        tokens[4] = address(rewardToken5);
+
+        _mockCalls(vault, amounts, tokens);
     }
 
-    function test_Revert_liquidateVaultsForToken_IfNotAuthorizedRole() public {
-        address[] memory vaults = new address[](1);
-        vaults[0] = address(0);
+    /// @dev Mocks the required calls for the claimsVaultRewards calls.
+    function _mockCalls(address vault, uint256[] memory amounts, address[] memory tokens) internal {
+        for (uint256 i = 0; i < tokens.length; i++) {
+            vm.mockCall(
+                address(tokens[i]),
+                abi.encodeWithSelector(IERC20.balanceOf.selector, address(liquidationRow)),
+                abi.encode(amounts[i])
+            );
+        }
 
-        vm.prank(address(1));
-        vm.expectRevert(IAccessController.AccessDenied.selector);
-        liquidationRow.liquidateVaultsForToken(
-            address(rewardToken),
-            address(asyncSwapper),
-            vaults,
-            SwapParams(address(rewardToken), 200, address(targetToken), 200, new bytes(0), new bytes(0))
+        vm.mockCall(
+            address(vault),
+            abi.encodeWithSelector(IDestinationVault.collectRewards.selector),
+            abi.encode(amounts, tokens)
         );
     }
 
-    function test_Revert_claimRewards_IfNotAuthorizedRole() public {
-        IVaultClaimableRewards[] memory vaults = new IVaultClaimableRewards[](1);
-        vaults[0] = IVaultClaimableRewards(address(0));
+    /**
+     * @dev Registers a given vault with the vault registry.
+     * This is a necessary step in some tests setup to ensure that the vault is recognized by the system.
+     */
+    function _registerVault(address vault) internal {
+        vm.prank(address(destinationVaultFactory));
+        destinationVaultRegistry.register(address(vault));
+    }
 
-        vm.prank(address(1));
-        vm.expectRevert(IAccessController.AccessDenied.selector);
+    /**
+     * @dev Initializes an array with a single test vault.
+     * This helper function is useful for tests that require an array of vaults but only one vault is being tested.
+     */
+    function _initArrayOfOneTestVault() internal view returns (IDestinationVault[] memory vaults) {
+        vaults = new IDestinationVault[](1);
+        vaults[0] = testVault;
+    }
+}
+
+contract AddToWhitelist is LiquidationRowTest {
+    function test_RevertIf_CallerIsNotLiquidator() public {
+        vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
+
+        vm.prank(RANDOM);
+        liquidationRow.addToWhitelist(RANDOM);
+    }
+
+    function test_RevertIf_ZeroAddressGiven() public {
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "swapper"));
+
+        liquidationRow.addToWhitelist(address(0));
+    }
+
+    function test_RevertIf_AlreadyAdded() public {
+        liquidationRow.addToWhitelist(RANDOM);
+
+        vm.expectRevert(abi.encodeWithSelector(Errors.ItemExists.selector));
+        liquidationRow.addToWhitelist(RANDOM);
+    }
+
+    function test_AddSwapper() public {
+        liquidationRow.addToWhitelist(RANDOM);
+        bool val = liquidationRow.isWhitelisted(RANDOM);
+        assertTrue(val);
+    }
+
+    function test_EmitAddedToWhitelistEvent() public {
+        vm.expectEmit(true, true, true, true);
+        emit SwapperAdded(RANDOM);
+
+        liquidationRow.addToWhitelist(RANDOM);
+    }
+}
+
+contract RemoveFromWhitelist is LiquidationRowTest {
+    function test_RevertIf_CallerIsNotLiquidator() public {
+        vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
+
+        vm.prank(RANDOM);
+        liquidationRow.removeFromWhitelist(RANDOM);
+    }
+
+    function test_RevertIf_SwapperNotFound() public {
+        vm.expectRevert(abi.encodeWithSelector(Errors.ItemNotFound.selector));
+        liquidationRow.removeFromWhitelist(RANDOM);
+    }
+
+    function test_RemoveSwapper() public {
+        liquidationRow.addToWhitelist(RANDOM);
+        bool val = liquidationRow.isWhitelisted(RANDOM);
+        assertTrue(val);
+
+        liquidationRow.removeFromWhitelist(RANDOM);
+        val = liquidationRow.isWhitelisted(RANDOM);
+        assertFalse(val);
+    }
+
+    function test_EmitAddedToWhitelistEvent() public {
+        liquidationRow.addToWhitelist(RANDOM);
+
+        vm.expectEmit(true, true, true, true);
+        emit SwapperRemoved(RANDOM);
+
+        liquidationRow.removeFromWhitelist(RANDOM);
+    }
+}
+
+contract IsWhitelisted is LiquidationRowTest {
+    function test_ReturnTrueIfWalletIsWhitelisted() public {
+        liquidationRow.addToWhitelist(RANDOM);
+        bool val = liquidationRow.isWhitelisted(RANDOM);
+        assertTrue(val);
+    }
+
+    function test_ReturnFalseIfWalletIsNotWhitelisted() public {
+        bool val = liquidationRow.isWhitelisted(RANDOM);
+        assertFalse(val);
+    }
+}
+
+contract SetFeeAndReceiver is LiquidationRowTest {
+    function test_RevertIf_CallerIsNotLiquidator() public {
+        address feeReceiver = address(1);
+        uint256 feeBps = 5000;
+
+        vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
+
+        vm.prank(RANDOM);
+        liquidationRow.setFeeAndReceiver(feeReceiver, feeBps);
+    }
+
+    function test_RevertIf_FeeIsToHigh() public {
+        address feeReceiver = address(1);
+        uint256 feeBps = 10_001;
+
+        vm.expectRevert(abi.encodeWithSelector(ILiquidationRow.FeeTooHigh.selector));
+
+        liquidationRow.setFeeAndReceiver(feeReceiver, feeBps);
+    }
+
+    function test_UpdateFeeValues() public {
+        address feeReceiver = address(1);
+        uint256 feeBps = 5000;
+
+        liquidationRow.setFeeAndReceiver(feeReceiver, feeBps);
+
+        assertTrue(liquidationRow.feeReceiver() == feeReceiver);
+        assertTrue(liquidationRow.feeBps() == feeBps);
+    }
+}
+
+contract ClaimsVaultRewards is LiquidationRowTest {
+    // ⬇️ private functions use for the tests ⬇️
+
+    function _mockRewardTokenHasZeroAmount(address vault) internal {
+        _registerVault(vault);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 0;
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(rewardToken);
+
+        _mockCalls(vault, amounts, tokens);
+    }
+
+    function _mockRewardTokenHasZeroAddress(address vault) internal {
+        _registerVault(vault);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 100;
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(0);
+
+        _mockCalls(vault, amounts, tokens);
+    }
+
+    // ⬇️ actual tests ⬇️
+
+    function test_RevertIf_CallerIsNotLiquidator() public {
+        IDestinationVault[] memory vaults = new IDestinationVault[](1);
+
+        vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
+
+        vm.prank(RANDOM);
         liquidationRow.claimsVaultRewards(vaults);
     }
 
-    /*  
-        ----------------------------------------------------------------------
-        test_Revert_claimRewards_IfAVaultHasZeroAddress and test_claimRewards
-        only tests the claimRewards function but only checks if the vault.claimRewards() function is being called.
-        The _increaseBalance function is tested in other parts of the contract.
-        ----------------------------------------------------------------------
-    */
+    function test_RevertIf_VaultListIsEmpty() public {
+        IDestinationVault[] memory vaults = new IDestinationVault[](0);
 
-    function test_Revert_claimRewards_IfAVaultHasZeroAddress() public {
-        IVaultClaimableRewards[] memory vaults = new IVaultClaimableRewards[](1);
-        vaults[0] = IVaultClaimableRewards(address(0));
-
-        vm.expectRevert(ILiquidationRow.ZeroAddress.selector);
-        liquidationRow.claimsVaultRewards(vaults);
-    }
-
-    /**
-     * @notice Test the claimRewards function.
-     * @dev This test checks if the vault.claimRewards() function is being called.
-     * The _increaseBalance function is tested in other parts of the contract.
-     */
-    function test_claimRewards() public {
-        IVaultClaimableRewards[] memory vaults = new IVaultClaimableRewards[](2);
-        vaults[0] = IVaultClaimableRewards(new MockVault());
-        vaults[1] = IVaultClaimableRewards(new MockVault());
-
-        vm.expectCall(address(vaults[0]), abi.encodeCall(vaults[0].claimRewards, ()));
-        vm.expectCall(address(vaults[1]), abi.encodeCall(vaults[0].claimRewards, ()));
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidParam.selector, "vaults"));
 
         liquidationRow.claimsVaultRewards(vaults);
     }
 
-    /*  
-        ----------------------------------------------------------------------
-        Following tests only focus on the _increaseBalance function.
-        ----------------------------------------------------------------------
-    */
+    function test_RevertIf_AtLeastOneVaultHasZeroAddress() public {
+        IDestinationVault[] memory vaults = new IDestinationVault[](1);
+        vaults[0] = IDestinationVault(address(0));
 
-    /**
-     * @notice Test if a revert occurs when there's a mismatch in the lengths of input arrays.
-     */
-    function test_Revert_IfLengthsMismatch() public {
-        uint256 nbVaults = 2;
-        address[] memory vaultAddresses = new address[](nbVaults);
-        address[][] memory rewardsTokensList = new address[][](nbVaults);
-        uint256[][] memory rewardsTokensAmounts = new uint256[][](nbVaults);
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "vault"));
 
-        // set vault1 rewards and amounts
-        vaultAddresses[0] = vault1;
-        rewardsTokensList[0] = new address[](2);
-        rewardsTokensAmounts[0] = new uint256[](1);
-        rewardsTokensList[0][0] = address(rewardToken);
-        rewardsTokensAmounts[0][0] = 100;
-        rewardsTokensList[0][1] = address(rewardToken2);
-
-        vm.expectRevert(ILiquidationRow.LengthsMismatch.selector);
-        liquidationRow.updateBalances(vaultAddresses, rewardsTokensList, rewardsTokensAmounts);
+        liquidationRow.claimsVaultRewards(vaults);
     }
 
-    /**
-     * @notice Test if a revert occurs when there's an insufficient balance for liquidation.
-     */
-    function test_Revert_IfInsufficientBalance() public {
-        uint256 nbVaults = 1;
-        address[] memory vaultAddresses = new address[](nbVaults);
-        address[][] memory rewardsTokensList = new address[][](nbVaults);
-        uint256[][] memory rewardsTokensAmounts = new uint256[][](nbVaults);
+    function test_RevertIf_AtLeastOneVaultIsNotInRegistry() public {
+        IDestinationVault[] memory vaults = _initArrayOfOneTestVault();
 
-        // set vault1 rewards and amounts
-        vaultAddresses[0] = vault1;
-        rewardsTokensList[0] = new address[](1);
-        rewardsTokensAmounts[0] = new uint256[](1);
-        rewardsTokensList[0][0] = address(rewardToken);
-        rewardsTokensAmounts[0][0] = 100;
+        vm.expectRevert(abi.encodeWithSelector(Errors.NotRegistered.selector));
 
-        vm.expectRevert(ILiquidationRow.InsufficientBalance.selector);
-        liquidationRow.updateBalances(vaultAddresses, rewardsTokensList, rewardsTokensAmounts);
+        liquidationRow.claimsVaultRewards(vaults);
     }
 
-    /**
-     * @notice Test if a revert occurs when there's no vaults.
-     */
-    function test_Revert_IfNoVaults() public {
-        address[] memory vaults = liquidationRow.getVaultsForToken(address(rewardToken));
+    function test_DontUpdateBalancesIf_RewardTokenHasAddressZero() public {
+        _mockRewardTokenHasZeroAddress(address(testVault));
+        IDestinationVault[] memory vaults = _initArrayOfOneTestVault();
 
-        vm.expectRevert(ILiquidationRow.NoVaults.selector);
-        liquidationRow.liquidateVaultsForToken(
-            address(rewardToken),
-            address(asyncSwapper),
-            vaults,
-            SwapParams(address(rewardToken), 200, address(targetToken), 200, new bytes(0), new bytes(0))
-        );
+        liquidationRow.claimsVaultRewards(vaults);
+
+        uint256 totalBalance = liquidationRow.totalBalanceOf(address(rewardToken));
+        uint256 balance = liquidationRow.balanceOf(address(rewardToken), address(testVault));
+
+        assertTrue(totalBalance == 0);
+        assertTrue(balance == 0);
     }
 
-    /**
-     * @notice Test if a revert occurs when an unallowed async swapper tries to perform liquidation.
-     */
-    function test_Revert_IfAsyncSwapperNotAllowed() public {
-        (address[] memory vaultAddresses, address[][] memory rewardsTokensList, uint256[][] memory rewardsTokensAmounts)
-        = get_update_balance_multiple_vaults();
+    function test_DontUpdateBalancesIf_RewardTokenHasZeroAmount() public {
+        _mockRewardTokenHasZeroAmount(address(testVault));
+        IDestinationVault[] memory vaults = _initArrayOfOneTestVault();
 
-        liquidationRow.updateBalances(vaultAddresses, rewardsTokensList, rewardsTokensAmounts);
+        liquidationRow.claimsVaultRewards(vaults);
 
-        address[] memory vaults = liquidationRow.getVaultsForToken(address(rewardToken));
+        uint256 totalBalance = liquidationRow.totalBalanceOf(address(rewardToken));
+        uint256 balance = liquidationRow.balanceOf(address(rewardToken), address(testVault));
 
-        vm.expectRevert(ILiquidationRow.AsyncSwapperNotAllowed.selector);
-
-        liquidationRow.liquidateVaultsForToken(
-            address(rewardToken),
-            address(10_000),
-            vaults,
-            SwapParams(address(rewardToken), 200, address(targetToken), 200, new bytes(0), new bytes(0))
-        );
+        assertTrue(totalBalance == 0);
+        assertTrue(balance == 0);
     }
 
-    /**
-     * @notice Test if a revert occurs when there's a mismatch in the sell amount during liquidation.
-     */
-    function test_Revert_IfSellAmountMismatch() public {
-        (address[] memory vaultAddresses, address[][] memory rewardsTokensList, uint256[][] memory rewardsTokensAmounts)
-        = get_update_balance_multiple_vaults();
+    function test_EmitBalanceUpdatedEvent() public {
+        _mockSimpleScenario(address(testVault));
+        IDestinationVault[] memory vaults = _initArrayOfOneTestVault();
 
-        liquidationRow.updateBalances(vaultAddresses, rewardsTokensList, rewardsTokensAmounts);
+        vm.expectEmit(true, true, true, true);
+        emit BalanceUpdated(address(rewardToken), address(testVault), 100);
 
-        address[] memory vaults = liquidationRow.getVaultsForToken(address(rewardToken));
-
-        vm.expectRevert(ILiquidationRow.SellAmountMismatch.selector);
-
-        liquidationRow.liquidateVaultsForToken(
-            address(rewardToken),
-            address(10_000),
-            vaults,
-            SwapParams(address(rewardToken), 10_000, address(targetToken), 200, new bytes(0), new bytes(0))
-        );
+        liquidationRow.claimsVaultRewards(vaults);
     }
 
-    /**
-     * @notice Test the functionality of adding an allowed swapper.
-     */
-    function test_addAllowedSwapper() public {
-        // Add a new swapper
-        AsyncSwapperMock newSwapper = new AsyncSwapperMock(vm.addr(200), targetToken, address(liquidationRow));
-        liquidationRow.addAllowedSwapper(address(newSwapper));
+    function test_EmitGasUsedForVaultEvent() public {
+        _mockSimpleScenario(address(testVault));
+        IDestinationVault[] memory vaults = _initArrayOfOneTestVault();
 
-        // Check if the swapper is allowed
-        bool isSwapperAllowed = liquidationRow.isAllowedSwapper(address(newSwapper));
-        assertTrue(isSwapperAllowed);
+        vm.expectEmit(true, false, false, false);
+        emit GasUsedForVault(address(testVault), 0, bytes32("liquidation"));
+
+        liquidationRow.claimsVaultRewards(vaults);
+    }
+}
+
+contract _increaseBalance is LiquidationRowTest {
+    function test_RevertIf_ProvidedBalanceIsZero() public {
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidParam.selector, "balance"));
+
+        liquidationRow.exposed_increaseBalance(address(rewardToken), address(testVault), 0);
     }
 
-    /**
-     * @notice Test the functionality of adding and then removing an allowed swapper.
-     */
-    function test_removeAllowedSwapper() public {
-        // Add a new swapper
-        AsyncSwapperMock newSwapper = new AsyncSwapperMock(vm.addr(200), targetToken, address(liquidationRow));
-        liquidationRow.addAllowedSwapper(address(newSwapper));
+    function test_RevertIf_RewardTokenBalanceIsLowerThanAmountGiven() public {
+        vm.expectRevert(abi.encodeWithSelector(Errors.InsufficientBalance.selector, address(rewardToken)));
 
-        // Check if the swapper is allowed
-        bool isSwapperAllowed = liquidationRow.isAllowedSwapper(address(newSwapper));
-        assertTrue(isSwapperAllowed);
+        vm.mockCall(address(rewardToken), abi.encodeWithSelector(IERC20.balanceOf.selector), abi.encode(0));
 
-        // Remove the swapper
-        liquidationRow.removeAllowedSwapper(address(newSwapper));
-
-        // Check if the swapper is no longer allowed
-        isSwapperAllowed = liquidationRow.isAllowedSwapper(address(newSwapper));
-        assertFalse(isSwapperAllowed);
+        liquidationRow.exposed_increaseBalance(address(rewardToken), address(testVault), 10);
     }
 
-    function test_Revert_IfIBalance_Zero() public {
-        rewardToken.mint(address(liquidationRow), 100);
+    function test_EmitBalanceUpdatedEvent() public {
+        uint256 amount = 10;
 
-        vm.expectRevert(ILiquidationRow.ZeroBalance.selector);
+        vm.mockCall(address(rewardToken), abi.encodeWithSelector(IERC20.balanceOf.selector), abi.encode(amount));
 
-        liquidationRow._increaseBalanceWrapper(vault1, address(rewardToken), 0);
+        vm.expectEmit(true, true, true, true);
+        emit BalanceUpdated(address(rewardToken), address(testVault), amount);
+
+        liquidationRow.exposed_increaseBalance(address(rewardToken), address(testVault), amount);
     }
 
-    /**
-     * @notice Test the updateBalances function with multiple vaults.
-     */
-    function test_increaseBalancesForMultipleVaults() public {
-        (address[] memory vaultAddresses, address[][] memory rewardsTokensList, uint256[][] memory rewardsTokensAmounts)
-        = get_update_balance_multiple_vaults();
+    function test_UpdateBalances() public {
+        uint256 amount = 10;
 
-        // Call the updateBalances function in the Liquidation contract with the test data
-        liquidationRow.updateBalances(vaultAddresses, rewardsTokensList, rewardsTokensAmounts);
+        vm.mockCall(address(rewardToken), abi.encodeWithSelector(IERC20.balanceOf.selector), abi.encode(amount));
 
-        // Check if the balances are correctly updated in the Liquidation contract
-        // Vault 1
-        uint256 vault1RewardToken1Balance = liquidationRow.balanceOf(rewardsTokensList[0][0], vaultAddresses[0]);
-        uint256 vault1RewardToken2Balance = liquidationRow.balanceOf(rewardsTokensList[0][1], vaultAddresses[0]);
+        liquidationRow.exposed_increaseBalance(address(rewardToken), address(testVault), amount);
 
-        // Vault 2
-        uint256 vault2RewardToken1Balance = liquidationRow.balanceOf(rewardsTokensList[1][0], vaultAddresses[1]);
-        uint256 vault2RewardToken2Balance = liquidationRow.balanceOf(rewardsTokensList[1][1], vaultAddresses[1]);
+        uint256 totalBalance = liquidationRow.totalBalanceOf(address(rewardToken));
+        uint256 balance = liquidationRow.balanceOf(address(rewardToken), address(testVault));
 
-        // Compare balances with expected values
-        assertTrue(vault1RewardToken1Balance == 100);
-        assertTrue(vault1RewardToken2Balance == 200);
-        assertTrue(vault2RewardToken1Balance == 100);
-        assertTrue(vault2RewardToken2Balance == 200);
+        assertTrue(totalBalance == amount);
+        assertTrue(balance == amount);
+    }
+}
 
-        // Check totalBalanceOf for each reward token
-        uint256 totalRewardToken1Balance = liquidationRow.totalBalanceOf(rewardsTokensList[0][0]);
-        uint256 totalRewardToken2Balance = liquidationRow.totalBalanceOf(rewardsTokensList[0][1]);
+contract LiquidateVaultsForToken is LiquidationRowTest {
+    uint256 private buyAmount = 200; // == amountReceived
+    address private feeReceiver = address(1);
+    uint256 private feeBps = 5000;
+    uint256 private expectedfeesTransfered = buyAmount * feeBps / 10_000;
 
-        // Compare total balances with expected values
-        assertTrue(totalRewardToken1Balance == 200); // 100 (vault1) + 100 (vault2)
-        assertTrue(totalRewardToken2Balance == 400); // 200 (vault1) + 200 (vault2)
+    function test_RevertIf_CallerIsNotLiquidator() public {
+        IDestinationVault[] memory vaults = new IDestinationVault[](1);
+        SwapParams memory swapParams =
+            SwapParams(address(rewardToken), 200, address(targetToken), 200, new bytes(0), new bytes(0));
+
+        vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
+
+        vm.prank(RANDOM);
+        liquidationRow.liquidateVaultsForToken(address(rewardToken), address(1), vaults, swapParams);
     }
 
-    /**
-     * @notice Test the liquidateVaultsForToken function by liquidating all vaults for a single reward token.
-     */
-    function test_liquidateVaultsForToken_Success() public {
-        (address[] memory vaultAddresses, address[][] memory rewardsTokensList, uint256[][] memory rewardsTokensAmounts)
-        = get_update_balance_multiple_vaults();
+    function test_RevertIf_AsyncSwapperIsNotWhitelisted() public {
+        IDestinationVault[] memory vaults = new IDestinationVault[](1);
+        SwapParams memory swapParams =
+            SwapParams(address(rewardToken), 200, address(targetToken), 200, new bytes(0), new bytes(0));
 
-        // update balances
-        liquidationRow.updateBalances(vaultAddresses, rewardsTokensList, rewardsTokensAmounts);
+        vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
 
-        address[] memory vaults = liquidationRow.getVaultsForToken(address(rewardToken));
+        liquidationRow.liquidateVaultsForToken(address(rewardToken), address(1), vaults, swapParams);
+    }
 
-        uint256 vault1RewardTokenBalanceBefore = liquidationRow.balanceOf(address(rewardToken), vault1);
-        uint256 vault1RewardToken2BalanceBefore = liquidationRow.balanceOf(address(rewardToken2), vault1);
-        uint256 vault2RewardTokenBalanceBefore = liquidationRow.balanceOf(address(rewardToken), vault2);
-        uint256 vault2RewardToken2BalanceBefore = liquidationRow.balanceOf(address(rewardToken2), vault2);
+    function test_RevertIf_AtLeastOneOfTheVaultsHasNoClaimedRewardsYet() public {
+        liquidationRow.addToWhitelist(address(asyncSwapper));
 
-        address[] memory tokensBefore = liquidationRow.getTokens();
+        IDestinationVault[] memory vaults = new IDestinationVault[](1);
+        SwapParams memory swapParams =
+            SwapParams(address(rewardToken), 200, address(targetToken), 200, new bytes(0), new bytes(0));
 
-        // liquidate all vaults for rewardToken
-        liquidationRow.liquidateVaultsForToken(
-            address(rewardToken),
-            address(asyncSwapper),
-            vaults,
-            SwapParams(address(rewardToken), 200, address(targetToken), 200, new bytes(0), new bytes(0))
+        vm.expectRevert(abi.encodeWithSelector(Errors.ItemNotFound.selector));
+
+        liquidationRow.liquidateVaultsForToken(address(rewardToken), address(asyncSwapper), vaults, swapParams);
+    }
+
+    function test_RevertIf_BuytokenaddressIsDifferentThanTheVaultRewarderRewardTokenAddress() public {
+        liquidationRow.addToWhitelist(address(asyncSwapper));
+
+        _mockSimpleScenario(address(testVault));
+        IDestinationVault[] memory vaults = _initArrayOfOneTestVault();
+        liquidationRow.claimsVaultRewards(vaults);
+
+        SwapParams memory swapParams =
+            SwapParams(address(rewardToken), 200, address(targetToken), 200, new bytes(0), new bytes(0));
+
+        // pretend that the rewarder is returning a different token than the one we are trying to liquidate
+        vm.mockCall(
+            address(mainRewarder), abi.encodeWithSelector(IBaseRewarder.rewardToken.selector), abi.encode(address(1))
         );
 
-        address[] memory tokensAfter = liquidationRow.getTokens();
+        vm.expectRevert(abi.encodeWithSelector(ILiquidationRow.InvalidRewardToken.selector));
 
-        uint256 vault1RewardTokenBalanceAfter = liquidationRow.balanceOf(address(rewardToken), vault1);
-        uint256 vault1RewardToken2BalanceAfter = liquidationRow.balanceOf(address(rewardToken2), vault1);
-        uint256 vault2RewardTokenBalanceAfter = liquidationRow.balanceOf(address(rewardToken), vault2);
-        uint256 vault2RewardToken2BalanceAfter = liquidationRow.balanceOf(address(rewardToken2), vault2);
-
-        // check that rewardToken has been liquidated
-        assertTrue(vault1RewardTokenBalanceBefore == 100);
-        assertTrue(vault1RewardTokenBalanceAfter == 0);
-        assertTrue(vault2RewardTokenBalanceBefore == 100);
-        assertTrue(vault2RewardTokenBalanceAfter == 0);
-
-        // check that rewardToken2 has not been liquidated
-        assertTrue(vault1RewardToken2BalanceBefore == vault1RewardToken2BalanceAfter);
-        assertTrue(vault2RewardToken2BalanceBefore == vault2RewardToken2BalanceAfter);
-
-        uint256 vault1TargetTokenBalanceAfter = targetToken.balanceOf(vault1);
-        uint256 vault2TargetTokenBalanceAfter = targetToken.balanceOf(vault2);
-
-        // check that targetToken has been received by vaults
-        assertTrue(vault1TargetTokenBalanceAfter == 100);
-        assertTrue(vault2TargetTokenBalanceAfter == 100);
-
-        assertTrue(tokensAfter.length == tokensBefore.length - 1);
+        liquidationRow.liquidateVaultsForToken(address(rewardToken), address(asyncSwapper), vaults, swapParams);
     }
 
-    /**
-     * @notice Test the liquidateVaultsForToken function by liquidating only one vault for a single reward token.
-     */
-    function test_liquidateVault1ForToken_Success() public {
-        (address[] memory vaultAddresses, address[][] memory rewardsTokensList, uint256[][] memory rewardsTokensAmounts)
-        = get_update_balance_multiple_vaults();
+    function test_OnlyLiquidateGivenTokenForGivenVaults() public {
+        liquidationRow.addToWhitelist(address(asyncSwapper));
 
-        // update balances
-        liquidationRow.updateBalances(vaultAddresses, rewardsTokensList, rewardsTokensAmounts);
+        _mockComplexScenario(address(testVault));
+        IDestinationVault[] memory vaults = _initArrayOfOneTestVault();
+        liquidationRow.claimsVaultRewards(vaults);
 
-        uint256 vault1RewardTokenBalanceBefore = liquidationRow.balanceOf(address(rewardToken), vault1);
-        uint256 vault1RewardToken2BalanceBefore = liquidationRow.balanceOf(address(rewardToken2), vault1);
-        uint256 vault2RewardTokenBalanceBefore = liquidationRow.balanceOf(address(rewardToken), vault2);
-        uint256 vault2RewardToken2BalanceBefore = liquidationRow.balanceOf(address(rewardToken2), vault2);
+        SwapParams memory swapParams =
+            SwapParams(address(rewardToken2), 200, address(targetToken), 200, new bytes(0), new bytes(0));
 
-        address[] memory tokensBefore = liquidationRow.getTokens();
+        liquidationRow.liquidateVaultsForToken(address(rewardToken2), address(asyncSwapper), vaults, swapParams);
 
-        // Create an array with only vault1 address
-        address[] memory vaultsToLiquidate = new address[](1);
-        vaultsToLiquidate[0] = vault1;
+        assertTrue(liquidationRow.balanceOf(address(rewardToken), address(testVault)) == 100);
+        assertTrue(liquidationRow.balanceOf(address(rewardToken2), address(testVault)) == 0);
+        assertTrue(liquidationRow.balanceOf(address(rewardToken3), address(testVault)) == 100);
+        assertTrue(liquidationRow.balanceOf(address(rewardToken4), address(testVault)) == 100);
+        assertTrue(liquidationRow.balanceOf(address(rewardToken5), address(testVault)) == 100);
 
-        // liquidate only vault1 for rewardToken
-        liquidationRow.liquidateVaultsForToken(
-            address(rewardToken),
-            address(asyncSwapper),
-            vaultsToLiquidate,
-            SwapParams(address(rewardToken), 100, address(targetToken), 100, new bytes(0), new bytes(0))
-        );
-
-        address[] memory tokensAfter = liquidationRow.getTokens();
-
-        uint256 vault1RewardTokenBalanceAfter = liquidationRow.balanceOf(address(rewardToken), vault1);
-        uint256 vault1RewardToken2BalanceAfter = liquidationRow.balanceOf(address(rewardToken2), vault1);
-        uint256 vault2RewardTokenBalanceAfter = liquidationRow.balanceOf(address(rewardToken), vault2);
-        uint256 vault2RewardToken2BalanceAfter = liquidationRow.balanceOf(address(rewardToken2), vault2);
-
-        // check that rewardToken has been liquidated in vault1
-        assertTrue(vault1RewardTokenBalanceBefore == 100);
-        assertTrue(vault1RewardTokenBalanceAfter == 0);
-
-        // check that rewardToken2 has not been liquidated in vault1
-        assertTrue(vault1RewardToken2BalanceBefore == vault1RewardToken2BalanceAfter);
-
-        // check that rewardToken and rewardToken2 have not been liquidated in vault2
-        assertTrue(vault2RewardTokenBalanceBefore == vault2RewardTokenBalanceAfter);
-        assertTrue(vault2RewardToken2BalanceBefore == vault2RewardToken2BalanceAfter);
-
-        uint256 vault1TargetTokenBalanceAfter = targetToken.balanceOf(vault1);
-        uint256 vault2TargetTokenBalanceBefore = targetToken.balanceOf(vault2);
-
-        // check that targetToken has been received by vault1
-        assertTrue(vault1TargetTokenBalanceAfter == 100);
-
-        // check that targetToken hasn't been received by vault2
-        assertTrue(vault2TargetTokenBalanceBefore == 0);
-
-        assertTrue(tokensAfter.length == tokensBefore.length);
+        assertTrue(liquidationRow.totalBalanceOf(address(rewardToken)) == 100);
+        assertTrue(liquidationRow.totalBalanceOf(address(rewardToken2)) == 0);
+        assertTrue(liquidationRow.totalBalanceOf(address(rewardToken3)) == 100);
+        assertTrue(liquidationRow.totalBalanceOf(address(rewardToken4)) == 100);
+        assertTrue(liquidationRow.totalBalanceOf(address(rewardToken5)) == 100);
     }
 
-    /**
-     * @notice Test the updateBalances function when merging balances for a single vault.
-     */
-    function test_increaseBalances_MergeSuccessful() public {
-        (address[] memory vaultAddresses, address[][] memory rewardsTokensList, uint256[][] memory rewardsTokensAmounts)
-        = get_update_balance_merge_data();
+    function test_EmitFeesTransferedEventWhenFeesFeatureIsTurnedOn() public {
+        SwapParams memory swapParams =
+            SwapParams(address(rewardToken2), 200, address(targetToken), buyAmount, new bytes(0), new bytes(0));
 
-        // update balances
-        liquidationRow.updateBalances(vaultAddresses, rewardsTokensList, rewardsTokensAmounts);
+        liquidationRow.addToWhitelist(address(asyncSwapper));
+        liquidationRow.setFeeAndReceiver(feeReceiver, feeBps);
 
-        address[] memory tokens = liquidationRow.getTokens();
-        assertTrue(tokens.length == 3);
-        assertTrue(tokens[0] == address(rewardToken));
-        assertTrue(tokens[1] == address(rewardToken2));
-        assertTrue(tokens[2] == address(rewardToken3));
+        _mockComplexScenario(address(testVault));
+        IDestinationVault[] memory vaults = _initArrayOfOneTestVault();
+        liquidationRow.claimsVaultRewards(vaults);
 
-        uint256 rewardTokenBalance = liquidationRow.balanceOf(address(rewardToken), vault1);
-        uint256 rewardToken2Balance = liquidationRow.balanceOf(address(rewardToken2), vault1);
-        uint256 rewardToken3Balance = liquidationRow.balanceOf(address(rewardToken3), vault1);
+        vm.expectEmit(true, true, true, true);
+        emit FeesTransfered(feeReceiver, buyAmount, expectedfeesTransfered);
 
-        assertTrue(rewardTokenBalance == rewardsTokensAmounts[0][0] + rewardsTokensAmounts[1][0]);
-        assertTrue(rewardToken2Balance == 100);
-        assertTrue(rewardToken3Balance == 40);
-
-        uint256 rewardTokenTotalBalance = liquidationRow.totalBalanceOf(address(rewardToken));
-        assertTrue(rewardTokenTotalBalance == rewardsTokensAmounts[0][0] + rewardsTokensAmounts[1][0]);
+        liquidationRow.liquidateVaultsForToken(address(rewardToken2), address(asyncSwapper), vaults, swapParams);
     }
 
-    /**
-     * @notice Returns test data for the updateBalances function.
-     * @dev This function creates test data with two vaults containing different sets of tokens and amounts.
-     * It is intended to simulate a scenario where a single vault has multiple types of reward tokens
-     * with different amounts. The resulting data can be used to test the updateBalances function
-     * when merging balances for a single vault.
-     *
-     * Data values:
-     * - vault1 has 400 rewardToken and 100 rewardToken2 initially
-     * - vault1 receives an additional 1300 rewardToken and 40 rewardToken3
-     *
-     * @return vaultAddresses An array containing the addresses of the vaults ([vault1, vault1]).
-     * @return rewardsTokensList A 2D array containing the addresses of the reward tokens for each vault
-     *                           ([[rewardToken, rewardToken2], [rewardToken, rewardToken3]]).
-     * @return rewardsTokensAmounts A 2D array containing the amounts of the reward tokens for each vault
-     *                              ([[400, 100], [1300, 40]]).
-     */
-    function get_update_balance_merge_data()
-        private
-        returns (
-            address[] memory vaultAddresses,
-            address[][] memory rewardsTokensList,
-            uint256[][] memory rewardsTokensAmounts
-        )
-    {
-        uint256 nbVaults = 2;
-        vaultAddresses = new address[](nbVaults);
-        rewardsTokensList = new address[][](nbVaults);
-        rewardsTokensAmounts = new uint256[][](nbVaults);
+    function test_TransferFeesToReceiver() public {
+        SwapParams memory swapParams =
+            SwapParams(address(rewardToken2), 200, address(targetToken), buyAmount, new bytes(0), new bytes(0));
 
-        // set vault1 rewards and amounts
-        vaultAddresses[0] = vault1;
-        rewardsTokensList[0] = new address[](2);
-        rewardsTokensAmounts[0] = new uint256[](2);
+        liquidationRow.addToWhitelist(address(asyncSwapper));
+        liquidationRow.setFeeAndReceiver(feeReceiver, feeBps);
 
-        rewardsTokensList[0][0] = address(rewardToken);
-        rewardToken.mint(address(liquidationRow), 400);
-        rewardsTokensAmounts[0][0] = 400;
+        _mockComplexScenario(address(testVault));
+        IDestinationVault[] memory vaults = _initArrayOfOneTestVault();
+        liquidationRow.claimsVaultRewards(vaults);
 
-        rewardsTokensList[0][1] = address(rewardToken2);
-        rewardToken2.mint(address(liquidationRow), 100);
-        rewardsTokensAmounts[0][1] = 100;
+        uint256 balanceBefore = IERC20(targetToken).balanceOf(feeReceiver);
 
-        // add more rewards for vault1
-        vaultAddresses[1] = vault1;
-        rewardsTokensList[1] = new address[](2);
-        rewardsTokensAmounts[1] = new uint256[](2);
+        liquidationRow.liquidateVaultsForToken(address(rewardToken2), address(asyncSwapper), vaults, swapParams);
 
-        rewardsTokensList[1][0] = address(rewardToken);
-        rewardToken.mint(address(liquidationRow), 1300);
-        rewardsTokensAmounts[1][0] = 1300;
+        uint256 balanceAfter = IERC20(targetToken).balanceOf(feeReceiver);
 
-        rewardsTokensList[1][1] = address(rewardToken3);
-        rewardToken3.mint(address(liquidationRow), 40);
-        rewardsTokensAmounts[1][1] = 40;
+        assertTrue(balanceAfter - balanceBefore == expectedfeesTransfered);
     }
 
-    /**
-     * @notice Returns test data for the updateBalances function.
-     * @dev This function creates test data with two vaults containing different sets of tokens and amounts.
-     * It is intended to simulate a scenario where multiple vaults have different types of reward tokens
-     * with varying amounts. The resulting data can be used to test the updateBalances function
-     * when updating balances for multiple vaults.
-     *
-     * Data values:
-     * - vault1 has 100 rewardToken and 200 rewardToken2
-     * - vault2 has 100 rewardToken and 200 rewardToken2
-     *
-     * @return vaultAddresses An array containing the addresses of the vaults ([vault1, vault2]).
-     * @return rewardsTokensList A 2D array containing the addresses of the reward tokens for each vault
-     *                           ([[rewardToken, rewardToken2], [rewardToken, rewardToken2]]).
-     * @return rewardsTokensAmounts A 2D array containing the amounts of the reward tokens for each vault
-     *                              ([[100, 200], [100, 200]]).
-     */
-    function get_update_balance_multiple_vaults()
-        private
-        returns (
-            address[] memory vaultAddresses,
-            address[][] memory rewardsTokensList,
-            uint256[][] memory rewardsTokensAmounts
-        )
-    {
-        uint256 nbVaults = 2;
-        vaultAddresses = new address[](nbVaults);
-        rewardsTokensList = new address[][](nbVaults);
-        rewardsTokensAmounts = new uint256[][](nbVaults);
+    function test_TransferRewardsToMainRewarder() public {
+        SwapParams memory swapParams =
+            SwapParams(address(rewardToken2), 200, address(targetToken), buyAmount, new bytes(0), new bytes(0));
 
-        // set vault1 rewards and amounts
-        vaultAddresses[0] = vault1;
-        rewardsTokensList[0] = new address[](2);
-        rewardsTokensAmounts[0] = new uint256[](2);
+        liquidationRow.addToWhitelist(address(asyncSwapper));
+        liquidationRow.setFeeAndReceiver(feeReceiver, feeBps);
 
-        rewardsTokensList[0][0] = address(rewardToken);
-        rewardToken.mint(address(liquidationRow), 100);
-        rewardsTokensAmounts[0][0] = 100;
+        _mockComplexScenario(address(testVault));
+        IDestinationVault[] memory vaults = _initArrayOfOneTestVault();
+        liquidationRow.claimsVaultRewards(vaults);
 
-        rewardsTokensList[0][1] = address(rewardToken2);
-        rewardToken2.mint(address(liquidationRow), 200);
-        rewardsTokensAmounts[0][1] = 200;
+        uint256 balanceBefore = IERC20(targetToken).balanceOf(address(mainRewarder));
 
-        // set vault2 rewards and amounts
-        vaultAddresses[1] = vault2;
-        rewardsTokensList[1] = new address[](2);
-        rewardsTokensAmounts[1] = new uint256[](2);
+        liquidationRow.liquidateVaultsForToken(address(rewardToken2), address(asyncSwapper), vaults, swapParams);
 
-        rewardsTokensList[1][0] = address(rewardToken);
-        rewardToken.mint(address(liquidationRow), 100);
-        rewardsTokensAmounts[1][0] = 100;
+        uint256 balanceAfter = IERC20(targetToken).balanceOf(address(mainRewarder));
 
-        rewardsTokensList[1][1] = address(rewardToken2);
-        rewardToken2.mint(address(liquidationRow), 200);
-        rewardsTokensAmounts[1][1] = 200;
+        assertTrue(balanceAfter - balanceBefore == buyAmount - expectedfeesTransfered);
     }
 }

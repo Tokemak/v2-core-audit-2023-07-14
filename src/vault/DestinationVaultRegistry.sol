@@ -43,6 +43,11 @@ contract DestinationVaultRegistry is SystemComponent, IDestinationVaultRegistry,
     }
 
     /// @inheritdoc IDestinationVaultRegistry
+    function verifyIsRegistered(address destinationVault) external view override {
+        if (!vaults.contains(destinationVault)) revert Errors.NotRegistered();
+    }
+
+    /// @inheritdoc IDestinationVaultRegistry
     function register(address newDestinationVault) external onlyFactory {
         Errors.verifyNotZero(newDestinationVault, "newDestinationVault");
 

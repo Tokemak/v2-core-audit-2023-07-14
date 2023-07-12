@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
@@ -10,9 +11,13 @@ import { Address } from "openzeppelin-contracts/utils/Address.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IAsyncSwapper, SwapParams } from "src/interfaces/liquidation/IAsyncSwapper.sol";
 import { ILiquidationRow } from "src/interfaces/liquidation/ILiquidationRow.sol";
-import { IVaultClaimableRewards } from "src/interfaces/rewards/IVaultClaimableRewards.sol";
+import { IDestinationVault } from "src/interfaces/vault/IDestinationVault.sol";
+import { IMainRewarder } from "src/interfaces/rewarders/IMainRewarder.sol";
+import { IDestinationVaultRegistry } from "src/interfaces/vault/IDestinationVaultRegistry.sol";
+import { LibAdapter } from "src/libs/LibAdapter.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
 import { Roles } from "src/libs/Roles.sol";
+import { Errors } from "src/utils/Errors.sol";
 
 // TODO: Swap roles addAllowedSwapper/remove to onlyOwner
 
@@ -21,78 +26,99 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    EnumerableSet.AddressSet private allowedSwappers;
+    /// @notice An instance of the DestinationVaultRegistry contract.
+    IDestinationVaultRegistry internal immutable destinationVaultRegistry;
 
     EnumerableSet.AddressSet private rewardTokens;
 
-    /**
-     * @notice Mapping to store the balance amount for each vault for each token
-     */
+    /// @notice Whitelisted swapper for liquidating vaults for token
+    EnumerableSet.AddressSet private whitelistedSwappers;
+
+    /// @notice Mapping to store the balance amount for each vault for each token
     mapping(address => mapping(address => uint256)) private balances;
 
-    /**
-     * @notice Mapping to store the total balance for each token
-     */
+    /// @notice Mapping to store the total balance for each token
     mapping(address => uint256) private totalTokenBalances;
 
-    /**
-     * @notice Mapping to store the list of vaults for each token
-     */
+    /// @notice Mapping to store the list of vaults for each token
     mapping(address => EnumerableSet.AddressSet) private tokenVaults;
 
-    constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) { }
+    /// @notice Fee in basis points (bps). 1 bps is 0.01%
+    uint256 public feeBps = 0;
 
-    /// @inheritdoc ILiquidationRow
-    function getAllowedSwappers() external view returns (address[] memory) {
-        return allowedSwappers.values();
+    /// @notice Address to receive the fees
+    address public feeReceiver = address(0);
+
+    constructor(ISystemRegistry _systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
+        destinationVaultRegistry = _systemRegistry.destinationVaultRegistry();
+
+        // System registry must be properly initialized first
+        Errors.verifyNotZero(address(destinationVaultRegistry), "destinationVaultRegistry");
+    }
+
+    /// @notice Restricts access to whitelisted swappers
+    modifier onlyWhitelistedSwapper(address swapper) {
+        if (!whitelistedSwappers.contains(swapper)) {
+            revert Errors.AccessDenied();
+        }
+        _;
     }
 
     /// @inheritdoc ILiquidationRow
-    function addAllowedSwapper(address swapper) external hasRole(Roles.LIQUIDATOR_ROLE) {
-        bool success = allowedSwappers.add(swapper);
-        if (!success) {
-            revert SwapperAlreadyAdded();
-        }
+    function addToWhitelist(address swapper) external hasRole(Roles.LIQUIDATOR_ROLE) {
+        Errors.verifyNotZero(swapper, "swapper");
+        if (!whitelistedSwappers.add(swapper)) revert Errors.ItemExists();
         emit SwapperAdded(swapper);
     }
 
     /// @inheritdoc ILiquidationRow
-    function removeAllowedSwapper(address swapper) external hasRole(Roles.LIQUIDATOR_ROLE) {
-        bool success = allowedSwappers.remove(swapper);
-        if (!success) {
-            revert SwapperNotFound();
-        }
+    function removeFromWhitelist(address swapper) external hasRole(Roles.LIQUIDATOR_ROLE) {
+        if (!whitelistedSwappers.remove(swapper)) revert Errors.ItemNotFound();
         emit SwapperRemoved(swapper);
     }
 
     /// @inheritdoc ILiquidationRow
-    function isAllowedSwapper(address swapper) external view returns (bool) {
-        return allowedSwappers.contains(swapper);
+    function isWhitelisted(address swapper) external view returns (bool) {
+        return whitelistedSwappers.contains(swapper);
     }
 
     /// @inheritdoc ILiquidationRow
-    function claimsVaultRewards(IVaultClaimableRewards[] memory vaults)
+    function setFeeAndReceiver(address _feeReceiver, uint256 _feeBps) external hasRole(Roles.LIQUIDATOR_ROLE) {
+        // feeBps should be less than or equal to 10_000 (100%) to prevent overflows
+        if (_feeBps > 10_000) revert FeeTooHigh();
+
+        feeBps = _feeBps;
+        // slither-disable-next-line missing-zero-check
+        feeReceiver = _feeReceiver;
+    }
+
+    function calculateFee(uint256 amount) public view returns (uint256) {
+        return (amount * feeBps) / 10_000;
+    }
+
+    /// @inheritdoc ILiquidationRow
+    function claimsVaultRewards(IDestinationVault[] memory vaults)
         external
         nonReentrant
         hasRole(Roles.LIQUIDATOR_ROLE)
     {
-        if (vaults.length == 0) {
-            revert NoVaults();
-        }
+        if (vaults.length == 0) revert Errors.InvalidParam("vaults");
 
         for (uint256 i = 0; i < vaults.length; ++i) {
             uint256 gasBefore = gasleft();
+            IDestinationVault vault = vaults[i];
 
-            if (address(vaults[i]) == address(0)) revert ZeroAddress();
-            // @todo: Check if the vault is in our registry
-            IVaultClaimableRewards vault = vaults[i];
-            (uint256[] memory amounts, IERC20[] memory tokens) = vault.claimRewards();
+            Errors.verifyNotZero(address(vault), "vault");
+
+            destinationVaultRegistry.verifyIsRegistered(address(vault));
+
+            (uint256[] memory amounts, address[] memory tokens) = vault.collectRewards();
 
             uint256 tokensLength = tokens.length;
             for (uint256 j = 0; j < tokensLength; ++j) {
-                IERC20 token = tokens[j];
+                address token = tokens[j];
                 uint256 amount = amounts[j];
-                if (amount > 0) {
+                if (amount > 0 && token != address(0)) {
                     // slither-disable-next-line reentrancy-no-eth
                     _increaseBalance(address(token), address(vault), amount);
                 }
@@ -122,25 +148,56 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
         return tokenVaults[tokenAddress].values();
     }
 
-    /// @inheritdoc ILiquidationRow
+    /**
+     * @notice Conducts the liquidation process for a specific token across a list of vaults,
+     * performing the necessary balance adjustments, initiating the swap process via the asyncSwapper,
+     * taking a fee from the received amount, and queues the remaining swapped tokens in the MainRewarder associated
+     * with
+     * each vault.
+     * @dev This function calls the _prepareForLiquidation and _performLiquidation functions. These helper functions
+     * were created to avoid a "stack too deep" error. These functions should only be used within the context of this
+     * function.
+     * @param fromToken The token that needs to be liquidated
+     * @param asyncSwapper The address of the async swapper contract
+     * @param vaultsToLiquidate The list of vaults that need to be liquidated
+     * @param params Parameters for the async swap
+     */
     function liquidateVaultsForToken(
         address fromToken,
         address asyncSwapper,
-        address[] memory vaultsToLiquidate,
+        IDestinationVault[] memory vaultsToLiquidate,
         SwapParams memory params
-    ) external nonReentrant hasRole(Roles.LIQUIDATOR_ROLE) {
+    ) external nonReentrant hasRole(Roles.LIQUIDATOR_ROLE) onlyWhitelistedSwapper(asyncSwapper) {
         uint256 gasBefore = gasleft();
 
-        if (vaultsToLiquidate.length == 0) {
-            revert NoVaults();
-        }
-        uint256 vaultsToLiquidateLength = vaultsToLiquidate.length;
-        uint256[] memory vaultsBalances = new uint256[](vaultsToLiquidateLength);
+        (uint256 totalBalanceToLiquidate, uint256[] memory vaultsBalances) =
+            _prepareForLiquidation(fromToken, vaultsToLiquidate);
+        _performLiquidation(
+            gasBefore, fromToken, asyncSwapper, vaultsToLiquidate, params, totalBalanceToLiquidate, vaultsBalances
+        );
+    }
+
+    /**
+     * @notice Calculates the total balance to liquidate, adjusts the contract state accordingly and calculates fees
+     * @dev This function is part of a workaround for the "stack too deep" error and is meant to be used with
+     * _performLiquidation. It is not designed to be used standalone, but as part of the liquidateVaultsForToken
+     * function
+     * @param fromToken The token that needs to be liquidated
+     * @param vaultsToLiquidate The list of vaults that need to be liquidated
+     * @return totalBalanceToLiquidate The total balance that needs to be liquidated
+     * @return vaultsBalances The balances of the vaults
+     */
+    function _prepareForLiquidation(
+        address fromToken,
+        IDestinationVault[] memory vaultsToLiquidate
+    ) private returns (uint256, uint256[] memory) {
+        uint256 length = vaultsToLiquidate.length;
 
         uint256 totalBalanceToLiquidate = 0;
+        uint256[] memory vaultsBalances = new uint256[](length);
 
-        for (uint256 i = 0; i < vaultsToLiquidateLength; ++i) {
-            address vaultAddress = vaultsToLiquidate[i];
+        for (uint256 i = 0; i < length; ++i) {
+            address vaultAddress = address(vaultsToLiquidate[i]);
             uint256 vaultBalance = balances[fromToken][vaultAddress];
             totalBalanceToLiquidate += vaultBalance;
             vaultsBalances[i] = vaultBalance;
@@ -149,49 +206,77 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
             // Update the balance for the vault and token
             balances[fromToken][vaultAddress] = 0;
             // Remove the vault from the token vaults list
-            _removeVaultFromToken(fromToken, vaultAddress);
+            if (!tokenVaults[fromToken].remove(vaultAddress)) revert Errors.ItemNotFound();
         }
 
         if (totalBalanceToLiquidate == 0) {
             revert NothingToLiquidate();
         }
 
-        if (totalBalanceToLiquidate != params.sellAmount) {
-            revert SellAmountMismatch();
-        }
-
         // Check if the token still has any other vaults
         if (tokenVaults[fromToken].length() == 0) {
-            _removeRewardToken(fromToken);
+            if (!rewardTokens.remove(fromToken)) revert Errors.ItemNotFound();
         }
 
-        /// @todo integrate pricing to confirm that our specified minimum token is within a reasonable price
-        uint256 amountReceived = _swapTokens(asyncSwapper, params);
-
-        uint256 gasUsedPerVault = (gasBefore - gasleft()) / vaultsToLiquidateLength;
-        for (uint256 i = 0; i < vaultsToLiquidateLength; ++i) {
-            address vaultAddress = vaultsToLiquidate[i];
-
-            uint256 amount = amountReceived * vaultsBalances[i] / totalBalanceToLiquidate;
-
-            IERC20(params.buyTokenAddress).safeTransfer(vaultAddress, amount);
-
-            emit VaultLiquidated(vaultAddress, fromToken, params.buyTokenAddress, amount);
-            emit GasUsedForVault(vaultAddress, gasUsedPerVault, bytes32("liquidation"));
-        }
+        return (totalBalanceToLiquidate, vaultsBalances);
     }
 
     /**
-     * @notice Perform the token swap
-     * @param asyncSwapper The address of the async swapper
-     * @param params Swap parameters for the async swapper
+     * @notice Performs the actual liquidation process, handles the async swap, calculates and transfers the fees,
+     * and queues the remaining swapped tokens in the MainRewarder associated with each vault.
+     * @dev This function is part of a workaround for the "stack too deep" error and is meant to be used with
+     * _prepareForLiquidation. It's not designed to be used standalone, but as part of the liquidateVaultsForToken
+     * function
+     * @param gasBefore Amount of gas when the liquidliquidateVaultsForToken function was called
+     * @param fromToken The token that needs to be liquidated
+     * @param asyncSwapper The address of the async swapper contract
+     * @param vaultsToLiquidate The list of vaults that need to be liquidated
+     * @param params Parameters for the async swap
+     * @param totalBalanceToLiquidate The total balance that needs to be liquidated
+     * @param vaultsBalances The balances of the vaults
      */
-    function _swapTokens(address asyncSwapper, SwapParams memory params) private returns (uint256) {
-        if (!allowedSwappers.contains(asyncSwapper)) {
-            revert AsyncSwapperNotAllowed();
+    function _performLiquidation(
+        uint256 gasBefore,
+        address fromToken,
+        address asyncSwapper,
+        IDestinationVault[] memory vaultsToLiquidate,
+        SwapParams memory params,
+        uint256 totalBalanceToLiquidate,
+        uint256[] memory vaultsBalances
+    ) private {
+        uint256 length = vaultsToLiquidate.length;
+        // the swapper checks that the amount received is greater or equal than the params.buyAmount
+        uint256 amountReceived = IAsyncSwapper(asyncSwapper).swap(params);
+
+        // if the fee feature is turned on, send the fee to the fee receiver
+        if (feeReceiver != address(0) && feeBps > 0) {
+            uint256 fee = calculateFee(amountReceived);
+            emit FeesTransfered(feeReceiver, amountReceived, fee);
+
+            // adjust the amount received after deducting the fee
+            amountReceived -= fee;
+            // transfer fee to the fee receiver
+            IERC20(params.buyTokenAddress).safeTransfer(feeReceiver, fee);
         }
 
-        return IAsyncSwapper(asyncSwapper).swap(params);
+        uint256 gasUsedPerVault = (gasBefore - gasleft()) / vaultsToLiquidate.length;
+        for (uint256 i = 0; i < length; ++i) {
+            IDestinationVault vaultAddress = vaultsToLiquidate[i];
+            IMainRewarder mainRewarder = IMainRewarder(vaultAddress.rewarder());
+
+            if (mainRewarder.rewardToken() != params.buyTokenAddress) {
+                revert InvalidRewardToken();
+            }
+
+            uint256 amount = amountReceived * vaultsBalances[i] / totalBalanceToLiquidate;
+
+            // approve main rewarder to pull the tokens
+            LibAdapter._approve(IERC20(params.buyTokenAddress), address(mainRewarder), amount);
+            mainRewarder.queueNewRewards(amount);
+
+            emit VaultLiquidated(address(vaultAddress), fromToken, params.buyTokenAddress, amount);
+            emit GasUsedForVault(address(vaultAddress), gasUsedPerVault, bytes32("liquidation"));
+        }
     }
 
     /**
@@ -201,14 +286,13 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
      * @param balance The amount of the token to be updated
      */
     function _increaseBalance(address tokenAddress, address vaultAddress, uint256 balance) internal {
-        if (balance == 0) {
-            revert ZeroBalance();
-        }
+        Errors.verifyNotZero(balance, "balance");
 
         uint256 currentBalance = balances[tokenAddress][vaultAddress];
         uint256 totalBalance = totalTokenBalances[tokenAddress];
         uint256 newTotalBalance = totalBalance + balance;
 
+        // ensure that this contract has enough balance to cover the new total balance
         uint256 balanceOfToken = IERC20(tokenAddress).balanceOf(address(this));
         if (newTotalBalance > balanceOfToken) {
             /**
@@ -217,20 +301,16 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
              * contract.
              * The calling contract should transfer the funds first before updating the balance.
              */
-            revert InsufficientBalance();
+
+            revert Errors.InsufficientBalance(tokenAddress);
         }
 
+        // if currentBalance is 0, then the vault is not yet added to the token vaults list
         if (currentBalance == 0) {
-            bool success = tokenVaults[tokenAddress].add(vaultAddress);
-            if (!success) {
-                revert VaultAlreadyAdded();
-            }
+            if (!tokenVaults[tokenAddress].add(vaultAddress)) revert Errors.ItemExists();
 
             if (totalBalance == 0) {
-                success = rewardTokens.add(tokenAddress);
-                if (!success) {
-                    revert TokenAlreadyAdded();
-                }
+                if (!rewardTokens.add(tokenAddress)) revert Errors.ItemExists();
             }
         }
 
@@ -240,30 +320,5 @@ contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SecurityBase {
         balances[tokenAddress][vaultAddress] = currentBalance + balance;
 
         emit BalanceUpdated(tokenAddress, vaultAddress, currentBalance + balance);
-    }
-
-    /**
-     * @dev Internal function to remove a reward token from the list of tracked reward tokens.
-     * @notice This function is designed to avoid the "stack too deep" error.
-     * @param tokenAddress The address of the reward token to be removed.
-     */
-    function _removeRewardToken(address tokenAddress) internal {
-        bool success = rewardTokens.remove(tokenAddress);
-        if (!success) {
-            revert TokenNotFound();
-        }
-    }
-
-    /**
-     * @notice Internal function to remove a vault from the list of token vaults for a specific token.
-     * @dev This function is designed to avoid the "stack too deep" error.
-     * @param vaultAddress The address of the vault to be removed.
-     * @param tokenAddress The address of the token associated with the vaults list.
-     */
-    function _removeVaultFromToken(address tokenAddress, address vaultAddress) internal {
-        bool success = tokenVaults[tokenAddress].remove(vaultAddress);
-        if (!success) {
-            revert VaultNotFound();
-        }
     }
 }

@@ -12,4 +12,8 @@ interface IDestinationVaultRegistry {
     /// @dev Should be locked down to only a factory
     /// @param newDestinationVault Address of the new vault
     function register(address newDestinationVault) external;
+
+    /// @notice Checks if an address is a valid Destination Vault and reverts if not
+    /// @param destinationVault Destination Vault address to checked
+    function verifyIsRegistered(address destinationVault) external view;
 }

@@ -9,11 +9,11 @@ Sequence diagram: https://app.diagrams.net/#G1nVeX6V3yy8ODWu_YAusSSB_PQs-kDlXA
 The Autotask cloud function is triggered and performs the following steps:
 
 -   Calls the Liquidator Row contract with the list of Vault addresses.
--   The Liquidator Row contract iterates through each Vault address and calls the claimRewards function and then call the \_increaseBalance function.
+-   The Liquidator Row contract iterates through each Vault address and calls the collectRewards function and then call the \_increaseBalance function.
 
-For each Vault, the claimRewards function performs the following steps:
+For each Vault, the collectRewards function performs the following steps:
 
--   Calls the RewardAdapter's claimRewards function, which claims the rewards from the external pool contract (e.g., Convex, Curve, or Balancer).
+-   Calls the RewardAdapter's collectRewards function, which claims the rewards from the external pool contract (e.g., Convex, Curve, or Balancer).
 -   For each claimed asset:
     -   Transfers the claimed rewards to the Liquidator Row contract using IERC20(claimedAsset).transfer(liquidatorRow, amount).
 
@@ -23,9 +23,9 @@ After the claiming process, the liquidation process takes place, which converts 
 
 #### Vaults
 
-Each Vault must implement the IVaultClaimableRewards interface and have a claimRewards function that performs the following steps:
+Each Vault must implement the IDestinationVault interface and have a collectRewards function that performs the following steps:
 
--   Call rewardAdapter.claimRewards(...) to claim the rewards from the connected AMM protocol, such as Convex, Curve, or Balancer.
+-   Call rewardAdapter.collectRewards(...) to claim the rewards from the connected AMM protocol, such as Convex, Curve, or Balancer.
 -   For each claimed asset:
     a. Use IERC20(claimedAsset).transfer(liquidatorRow, amount) to transfer the claimed asset to the Liquidator Row contract.
 
@@ -37,7 +37,7 @@ This component implements the IClaimableRewardsAdapter interface and serves as a
 
 The Liquidator Row contract:
 
--   acts as an orchestrator for the claiming process. Its primary function is to trigger the claimRewards function for each Vault contract provided in the parameter.
+-   acts as an orchestrator for the claiming process. Its primary function is to trigger the collectRewards function for each Vault contract provided in the parameter.
 -   is the smart contract responsible for liquidating reward tokens into another asset, such as WETH. After the Vault claims rewards using the RewardAdapter, it transfers the rewards to the Liquidator Row. The Liquidator Row maintains a record of each vault's balances, enabling it to accurately distribute the liquidated assets (e.g., WETH) back to the appropriate vaults in proportion to their respective balances.
 
 ---
@@ -60,8 +60,8 @@ The Autotask cloud function is triggered and performs the following steps:
 The Liquidator Row contract:
 
 -   Calls the Swapper contract to swap the token against the target token (which in turn calls an external aggregator).
--   Calls the Pricing contract to determine if the swap was successful.
--   Transfers the swapped assets back to the respective Vaults and updates their balances accordingly.
+-   If fees feature is turned on, send fees to the fee receiver
+-   Queues the rewards in the destination vaults rewarder.
 
 ### Components
 

@@ -1,5 +1,6 @@
 /* solhint-disable func-name-mixedcase,contract-name-camelcase */
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved
 pragma solidity 0.8.17;
 
 import { Test } from "forge-std/Test.sol";
@@ -39,11 +40,11 @@ contract Rewarder is AbstractRewarder {
         revert NotImplemented();
     }
 
-    function getRewardWrapper(address account) external {
+    function exposed_getRewardWrapper(address account) external {
         _getReward(account);
     }
 
-    function updateRewardWrapper(address account) external {
+    function exposed_updateReward(address account) external {
         _updateReward(account);
     }
 
@@ -61,7 +62,7 @@ contract Rewarder is AbstractRewarder {
         return true;
     }
 
-    function notifyRewardAmountWrapper(uint256 reward) external {
+    function exposed_notifyRewardAmount(uint256 reward) external {
         notifyRewardAmount(reward);
     }
 
@@ -545,7 +546,7 @@ contract NotifyRewardAmount is AbstractRewarderTest {
         );
 
         vm.prank(operator);
-        rewarder.notifyRewardAmountWrapper(newReward);
+        rewarder.exposed_notifyRewardAmount(newReward);
     }
 }
 
@@ -558,7 +559,7 @@ contract _updateReward is AbstractRewarderTest {
         vm.expectEmit(true, true, true, true);
         emit UserRewardUpdated(RANDOM, expectedReward, rewardPerTokenStored);
 
-        rewarder.updateRewardWrapper(RANDOM);
+        rewarder.exposed_updateReward(RANDOM);
     }
 }
 
@@ -645,14 +646,14 @@ contract _withdraw is AbstractRewarderTest {
 contract _getReward is AbstractRewarderTest {
     function test_RevertIf_AccountIsZeroAddress() public {
         vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector, "account"));
-        rewarder.getRewardWrapper(address(0));
+        rewarder.exposed_getRewardWrapper(address(0));
     }
 
     function test_TransferRewardsToUser() public {
         uint256 expectedRewards = _runDefaultScenario();
 
         uint256 balanceBefore = rewardToken.balanceOf(RANDOM);
-        rewarder.getRewardWrapper(RANDOM);
+        rewarder.exposed_getRewardWrapper(RANDOM);
         uint256 balanceAfter = rewardToken.balanceOf(RANDOM);
 
         assertEq(balanceAfter - balanceBefore, expectedRewards);
@@ -664,7 +665,7 @@ contract _getReward is AbstractRewarderTest {
         vm.expectEmit(true, true, true, true);
         emit RewardPaid(RANDOM, expectedRewards);
 
-        rewarder.getRewardWrapper(RANDOM);
+        rewarder.exposed_getRewardWrapper(RANDOM);
     }
 
     // @dev see above for doc: for gpToke amounts had to be bumped up due to new mins
@@ -696,7 +697,7 @@ contract _getReward is AbstractRewarderTest {
         rewarder.setTokeLockDuration(30 days);
 
         uint256 balanceBefore = gPToke.balanceOf(RANDOM);
-        rewarder.getRewardWrapper(RANDOM);
+        rewarder.exposed_getRewardWrapper(RANDOM);
         uint256 balanceAfter = gPToke.balanceOf(RANDOM);
 
         assertTrue(balanceAfter > balanceBefore);
