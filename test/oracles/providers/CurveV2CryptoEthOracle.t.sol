@@ -92,6 +92,13 @@ contract CurveV2CryptoEthOracleTest is Test {
         curveOracle.registerPool(CRV_ETH_CURVE_V2_POOL, address(0), false);
     }
 
+    function test_LpTokenAlreadyRegistered() external {
+        curveOracle.registerPool(CRV_ETH_CURVE_V2_POOL, CRV_ETH_CURVE_V2_LP, false);
+
+        vm.expectRevert(abi.encodeWithSelector(CurveV2CryptoEthOracle.AlreadyRegistered.selector, CRV_ETH_CURVE_V2_LP));
+        curveOracle.registerPool(CRV_ETH_CURVE_V2_POOL, CRV_ETH_CURVE_V2_LP, false);
+    }
+
     function test_InvalidTokenNumber() external {
         vm.expectRevert(abi.encodeWithSelector(CurveV2CryptoEthOracle.InvalidNumTokens.selector, 3));
         curveOracle.registerPool(THREE_CURVE_MAINNET, CRV_ETH_CURVE_V2_LP, false);

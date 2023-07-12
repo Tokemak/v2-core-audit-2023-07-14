@@ -53,6 +53,12 @@ contract CurveV2CryptoEthOracle is SystemComponent, SecurityBase, IPriceOracle {
     error ResolverMismatch(address providedLP, address queriedLP);
 
     /**
+     * @notice Thrown when a Curve V2 Lp token is already registered.
+     * @param curveLpToken The address of the token attempted to be deployed.
+     */
+    error AlreadyRegistered(address curveLpToken);
+
+    /**
      * @notice Thrown when lp token is not registered.
      * @param curveLpToken Address of token expected to be registered.
      */
@@ -101,6 +107,7 @@ contract CurveV2CryptoEthOracle is SystemComponent, SecurityBase, IPriceOracle {
     function registerPool(address curvePool, address curveLpToken, bool checkReentrancy) external onlyOwner {
         Errors.verifyNotZero(curvePool, "curvePool");
         Errors.verifyNotZero(curveLpToken, "curveLpToken");
+        if (lpTokenToPool[curveLpToken].pool != address(0)) revert AlreadyRegistered(curveLpToken);
 
         (address[8] memory tokens, uint256 numTokens, address lpToken, bool isStableSwap) =
             curveResolver.resolveWithLpToken(curvePool);
