@@ -87,7 +87,7 @@ contract AbstractRewarderTest is Test {
 
     event AddedToWhitelist(address indexed wallet);
     event RemovedFromWhitelist(address indexed wallet);
-    event QueuedRewardsUpdated(uint256 queuedRewards);
+    event QueuedRewardsUpdated(uint256 startingQueuedRewards, uint256 startingNewRewards, uint256 queuedRewards);
     event NewRewardRateUpdated(uint256 newRewardRate);
     event RewardAdded(
         uint256 reward,
@@ -101,7 +101,9 @@ contract AbstractRewarderTest is Test {
     event Staked(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
     event RewardPaid(address indexed user, uint256 reward);
-    event UserRewardUpdated(address indexed user, uint256 amount, uint256 rewardPerTokenStored);
+    event UserRewardUpdated(
+        address indexed user, uint256 amount, uint256 rewardPerTokenStored, uint256 lastUpdateBlock
+    );
 
     function setUp() public {
         // fork mainnet so we have TOKE deployed
@@ -380,7 +382,7 @@ contract QueueNewRewards is AbstractRewarderTest {
         vm.startPrank(liquidator);
 
         vm.expectEmit(true, true, true, true);
-        emit QueuedRewardsUpdated(0);
+        emit QueuedRewardsUpdated(0, 100_000_000, 0);
 
         rewarder.queueNewRewards(100_000_000);
     }
@@ -394,7 +396,7 @@ contract QueueNewRewards is AbstractRewarderTest {
         vm.roll(block.number + durationInBlock / 2);
 
         vm.expectEmit(true, true, true, true);
-        emit QueuedRewardsUpdated(0);
+        emit QueuedRewardsUpdated(0, newReward, 0);
         rewarder.queueNewRewards(newReward);
     }
 
@@ -408,7 +410,7 @@ contract QueueNewRewards is AbstractRewarderTest {
 
         uint256 newRewardBatch2 = newReward / 10;
         vm.expectEmit(true, true, true, true);
-        emit QueuedRewardsUpdated(newRewardBatch2);
+        emit QueuedRewardsUpdated(0, newRewardBatch2, newRewardBatch2);
         rewarder.queueNewRewards(newRewardBatch2);
     }
 }
@@ -557,7 +559,7 @@ contract _updateReward is AbstractRewarderTest {
         uint256 rewardPerTokenStored = rewarder.rewardPerToken();
 
         vm.expectEmit(true, true, true, true);
-        emit UserRewardUpdated(RANDOM, expectedReward, rewardPerTokenStored);
+        emit UserRewardUpdated(RANDOM, expectedReward, rewardPerTokenStored, block.number);
 
         rewarder.exposed_updateReward(RANDOM);
     }

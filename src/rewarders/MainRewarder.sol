@@ -30,6 +30,9 @@ contract MainRewarder is AbstractRewarder, IMainRewarder, ReentrancyGuard {
 
     error ExtraRewardsNotAllowed();
 
+    event ExtraRewardAdded(address reward);
+    event ExtraRewardsCleared();
+
     constructor(
         ISystemRegistry _systemRegistry,
         address _stakeTracker,
@@ -52,14 +55,18 @@ contract MainRewarder is AbstractRewarder, IMainRewarder, ReentrancyGuard {
         Errors.verifyNotZero(reward, "reward");
 
         extraRewards.push(reward);
+
+        emit ExtraRewardAdded(reward);
     }
 
     function getExtraRewarder(uint256 index) external view returns (IExtraRewarder rewarder) {
         return IExtraRewarder(extraRewards[index]);
     }
 
-    function clearExtraRewards() external onlyStakeTracker {
+    function clearExtraRewards() external hasRole(Roles.DV_REWARD_MANAGER_ROLE) {
         delete extraRewards;
+
+        emit ExtraRewardsCleared();
     }
 
     function withdraw(address account, uint256 amount, bool claim) public onlyStakeTracker {

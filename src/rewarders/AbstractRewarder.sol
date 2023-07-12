@@ -135,7 +135,7 @@ abstract contract AbstractRewarder is IBaseRewarder, SecurityBase {
             userRewardPerTokenPaid[account] = rewardPerTokenStored;
         }
 
-        emit UserRewardUpdated(account, earnedRewards, rewardPerTokenStored);
+        emit UserRewardUpdated(account, earnedRewards, rewardPerTokenStored, lastUpdateBlock);
     }
 
     /**
@@ -232,7 +232,10 @@ abstract contract AbstractRewarder is IBaseRewarder, SecurityBase {
      *      rewards will be added to the queue rather than being immediately distributed.
      */
     function queueNewRewards(uint256 newRewards) external onlyWhitelisted {
-        newRewards += queuedRewards;
+        uint256 startingQueuedRewards = queuedRewards;
+        uint256 startingNewRewards = newRewards;
+
+        newRewards += startingQueuedRewards;
 
         if (block.number >= periodInBlockFinish) {
             notifyRewardAmount(newRewards);
@@ -250,7 +253,7 @@ abstract contract AbstractRewarder is IBaseRewarder, SecurityBase {
             }
         }
 
-        emit QueuedRewardsUpdated(queuedRewards);
+        emit QueuedRewardsUpdated(startingQueuedRewards, startingNewRewards, queuedRewards);
 
         // Transfer the new rewards from the caller to this contract.
         IERC20(rewardToken).safeTransferFrom(msg.sender, address(this), newRewards);

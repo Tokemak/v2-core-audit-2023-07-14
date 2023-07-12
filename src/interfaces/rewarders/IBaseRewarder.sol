@@ -12,11 +12,13 @@ interface IBaseRewarder {
         uint256 periodInBlockFinish,
         uint256 historicalRewards
     );
-    event UserRewardUpdated(address indexed user, uint256 amount, uint256 rewardPerTokenStored);
+    event UserRewardUpdated(
+        address indexed user, uint256 amount, uint256 rewardPerTokenStored, uint256 lastUpdateBlock
+    );
     event Staked(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
     event RewardPaid(address indexed user, uint256 reward);
-    event QueuedRewardsUpdated(uint256 queuedRewards);
+    event QueuedRewardsUpdated(uint256 startingQueuedRewards, uint256 startingNewRewards, uint256 queuedRewards);
     event RewardDurationUpdated(uint256 rewardDuration);
     event NewRewardRateUpdated(uint256 newRewardRate);
     event AddedToWhitelist(address indexed wallet);

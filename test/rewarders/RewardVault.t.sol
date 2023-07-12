@@ -29,6 +29,9 @@ contract MainRewarderTest is BaseTest {
 
     event TokeLockDurationUpdated(uint256 newDuration);
 
+    event ExtraRewardAdded(address reward);
+    event ExtraRewardsCleared();
+
     MainRewarder private mainRewardVault;
     ExtraRewarder private extraReward1Vault;
     ExtraRewarder private extraReward2Vault;
@@ -122,6 +125,22 @@ contract MainRewarderTest is BaseTest {
         vm.label(address(mainRewardVault), "mainRewardVault");
         vm.label(address(extraReward1Vault), "extraReward1Vault");
         vm.label(address(extraReward2Vault), "extraReward2Vault");
+    }
+
+    function test_addExtraReward_EmitsExtraRewardAddedEvent() public {
+        vm.startPrank(operator);
+        vm.expectEmit(true, true, true, true);
+        emit ExtraRewardAdded(address(7));
+        mainRewardVault.addExtraReward(address(7));
+        vm.stopPrank();
+    }
+
+    function test_clearExtraRewards_EmitsExtraRewardsClearedEvent() public {
+        vm.startPrank(operator);
+        vm.expectEmit(true, true, true, true);
+        emit ExtraRewardsCleared();
+        mainRewardVault.clearExtraRewards();
+        vm.stopPrank();
     }
 
     function test_getAllRewards() public {
