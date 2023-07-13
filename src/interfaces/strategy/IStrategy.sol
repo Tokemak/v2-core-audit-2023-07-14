@@ -47,20 +47,7 @@ interface IStrategy {
     }
 
     /// @notice rebalance the LMP from the tokenOut (decrease) to the tokenIn (increase)
-    /// @param destIn The address of the destination vault that will increase
-    /// @param tokenIn The address of the token that will be provided by the swapper
-    /// @param amountIn The amount of the tokenIn that will be provided by the swapper
-    /// @param destOut The address of the destination vault that will decrease
-    /// @param tokenOut The address of the token that will be received by the swapper
-    /// @param amountOut The amount of the tokenOut that will be received by the swapper
-    function rebalance(
-        address destIn,
-        address tokenIn,
-        uint256 amountIn,
-        address destOut,
-        address tokenOut,
-        uint256 amountOut
-    ) external;
+    function rebalance(RebalanceParams memory params) external;
 
     /// @notice rebalance the LMP from the tokenOut (decrease) to the tokenIn (increase)
     /// This uses a flash loan to receive the tokenOut to reduce the working capital requirements of the swapper

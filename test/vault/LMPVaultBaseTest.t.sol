@@ -190,7 +190,16 @@ contract LMPVaultBaseTest is BaseTest {
     function test_Rebalancer_permissions() public {
         vm.prank(unauthorizedUser);
         vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
-        lmpVault.rebalance(address(1), address(baseAsset), 1, address(1), address(baseAsset), 1);
+        lmpVault.rebalance(
+            IStrategy.RebalanceParams({
+                destinationIn: address(1),
+                tokenIn: address(baseAsset),
+                amountIn: 1,
+                destinationOut: address(1),
+                tokenOut: address(baseAsset),
+                amountOut: 1
+            })
+        );
     }
 
     // function test_FlashRebalancer() public {

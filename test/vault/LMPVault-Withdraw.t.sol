@@ -2450,12 +2450,14 @@ contract LMPVaultMintingTests is Test {
         vm.startPrank(solver);
         _underlyerOne.approve(address(_lmpVault), 105);
         _lmpVault.rebalance(
-            address(_destVaultOne),
-            address(_underlyerOne), // tokenIn
-            105,
-            address(_destVaultTwo), // destinationOut, none when sending out baseAsset
-            address(_underlyerTwo), // baseAsset, tokenOut
-            350
+            IStrategy.RebalanceParams({
+                destinationIn: address(_destVaultOne),
+                tokenIn: address(_underlyerOne), // tokenIn
+                amountIn: 105,
+                destinationOut: address(_destVaultTwo), // destinationOut, none when sending out baseAsset
+                tokenOut: address(_underlyerTwo), // baseAsset, tokenOut
+                amountOut: 350
+            })
         );
         vm.stopPrank();
 
@@ -2732,6 +2734,26 @@ contract LMPVaultMinting is LMPVault {
     function setVerifyRebalance(bool vr, string memory err) public {
         setVerifyRebalance(vr);
         _rebalanceVerifyError = err;
+    }
+
+    function rebalance(
+        address destinationIn,
+        address tokenIn,
+        uint256 amountIn,
+        address destinationOut,
+        address tokenOut,
+        uint256 amountOut
+    ) external {
+        rebalance(
+            IStrategy.RebalanceParams({
+                destinationIn: destinationIn,
+                tokenIn: tokenIn,
+                amountIn: amountIn,
+                destinationOut: destinationOut,
+                tokenOut: tokenOut,
+                amountOut: amountOut
+            })
+        );
     }
 
     function verifyRebalance(
