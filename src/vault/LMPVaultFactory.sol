@@ -12,12 +12,12 @@ import { Clones } from "openzeppelin-contracts/proxy/Clones.sol";
 import { MainRewarder } from "src/rewarders/MainRewarder.sol";
 import { Roles } from "src/libs/Roles.sol";
 import { Errors } from "src/utils/Errors.sol";
+import { SystemComponent } from "src/SystemComponent.sol";
 
-contract LMPVaultFactory is ILMPVaultFactory, SecurityBase {
+contract LMPVaultFactory is SystemComponent, ILMPVaultFactory, SecurityBase {
     using Clones for address;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
-    ISystemRegistry public immutable systemRegistry;
     ILMPVaultRegistry public immutable vaultRegistry;
     address public immutable template;
 
@@ -40,13 +40,11 @@ contract LMPVaultFactory is ILMPVaultFactory, SecurityBase {
         address _template,
         uint256 _defaultRewardRatio,
         uint256 _defaultRewardBlockDuration
-    ) SecurityBase(address(_systemRegistry.accessController())) {
-        Errors.verifyNotZero(address(_systemRegistry), "systemRegistry");
-        Errors.verifyNotZero(address(_template), "template");
+    ) SystemComponent(_systemRegistry) SecurityBase(address(_systemRegistry.accessController())) {
+        Errors.verifyNotZero(_template, "template");
 
         // slither-disable-next-line missing-zero-check
         template = _template;
-        systemRegistry = _systemRegistry;
         vaultRegistry = systemRegistry.lmpVaultRegistry();
 
         // Zero is valid here
@@ -54,11 +52,11 @@ contract LMPVaultFactory is ILMPVaultFactory, SecurityBase {
         _setDefaultRewardBlockDuration(_defaultRewardBlockDuration);
     }
 
-    function setDefaultRewardRatio(uint256 rewardRatio) public onlyOwner {
+    function setDefaultRewardRatio(uint256 rewardRatio) external onlyOwner {
         _setDefaultRewardRatio(rewardRatio);
     }
 
-    function setDefaultRewardBlockDuration(uint256 blockDuration) public onlyOwner {
+    function setDefaultRewardBlockDuration(uint256 blockDuration) external onlyOwner {
         _setDefaultRewardBlockDuration(blockDuration);
     }
 

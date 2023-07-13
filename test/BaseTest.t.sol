@@ -2,8 +2,9 @@
 // Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
-import { Test } from "forge-std/Test.sol";
+// solhint-disable max-states-count
 
+import { Test } from "forge-std/Test.sol";
 import { ERC20Mock } from "openzeppelin-contracts/mocks/ERC20Mock.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IWETH9 } from "src/interfaces/utils/IWETH9.sol";
@@ -46,7 +47,7 @@ contract BaseTest is Test {
 
     SystemSecurity public systemSecurity;
 
-    address lmpVaultTemplate;
+    address public lmpVaultTemplate;
 
     // -- Staking -- //
     GPToke public gpToke;
