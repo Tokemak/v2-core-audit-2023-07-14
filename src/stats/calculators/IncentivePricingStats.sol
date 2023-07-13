@@ -139,23 +139,24 @@ contract IncentivePricingStats is IIncentivesPricingStats, SecurityBase {
         // update the timestamp no matter what phase we're in
         existing.lastSnapshot = uint40(block.timestamp);
 
-        // post-init phase, just update the filter values
-        if (existing._initCount >= INIT_SAMPLE_COUNT) {
+        if (existing._initComplete) {
+            // post-init phase, just update the filter values
             existing.slowFilterPrice = Stats.getFilteredValue(SLOW_ALPHA, existing.slowFilterPrice, price);
             existing.fastFilterPrice = Stats.getFilteredValue(FAST_ALPHA, existing.fastFilterPrice, price);
-            emitSnapshotTaken(token, existing);
-            return;
-        }
+        } else {
+            // still the initialization phase
+            existing._initCount += 1;
+            existing._initAcc += price;
 
-        // still the initialization phase
-        existing._initCount += 1;
-        existing._initAcc += price;
-
-        // complete init phase
-        if (existing._initCount >= INIT_SAMPLE_COUNT) {
-            uint256 averagePrice = existing._initAcc * 1e18 / existing._initCount;
-            existing.fastFilterPrice = averagePrice;
-            existing.slowFilterPrice = averagePrice;
+            // snapshot count is tracked internally and cannot be manipulated
+            // slither-disable-next-line incorrect-equality
+            if (existing._initCount == INIT_SAMPLE_COUNT) {
+                // if this sample hits the target number, then complete initialize and set the filters
+                existing._initComplete = true;
+                uint256 averagePrice = existing._initAcc * 1e18 / INIT_SAMPLE_COUNT;
+                existing.fastFilterPrice = averagePrice;
+                existing.slowFilterPrice = averagePrice;
+            }
         }
 
         emitSnapshotTaken(token, existing);
@@ -164,6 +165,8 @@ contract IncentivePricingStats is IIncentivesPricingStats, SecurityBase {
     function emitSnapshotTaken(address token, TokenSnapshotInfo memory info) internal {
         // pricer handles reentrancy issues
         // slither-disable-next-line reentrancy-events
-        emit TokenSnapshot(token, info.lastSnapshot, info.fastFilterPrice, info.slowFilterPrice, info._initCount);
+        emit TokenSnapshot(
+            token, info.lastSnapshot, info.fastFilterPrice, info.slowFilterPrice, info._initCount, info._initComplete
+        );
     }
 }

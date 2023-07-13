@@ -7,7 +7,12 @@ interface IIncentivesPricingStats {
     event TokenAdded(address indexed token);
     event TokenRemoved(address indexed token);
     event TokenSnapshot(
-        address indexed token, uint40 lastSnapshot, uint256 fastFilterPrice, uint256 slowFilterPrice, uint256 initCount
+        address indexed token,
+        uint40 lastSnapshot,
+        uint256 fastFilterPrice,
+        uint256 slowFilterPrice,
+        uint256 initCount,
+        bool initComplete
     );
 
     error TokenAlreadyRegistered(address token);
@@ -17,6 +22,7 @@ interface IIncentivesPricingStats {
 
     struct TokenSnapshotInfo {
         uint40 lastSnapshot;
+        bool _initComplete;
         uint8 _initCount;
         uint256 _initAcc;
         uint256 fastFilterPrice;

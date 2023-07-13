@@ -30,7 +30,12 @@ contract IncentivePricingTest is Test {
     event TokenAdded(address indexed token);
     event TokenRemoved(address indexed token);
     event TokenSnapshot(
-        address indexed token, uint40 lastSnapshot, uint256 fastFilterPrice, uint256 slowFilterPrice, uint256 initCount
+        address indexed token,
+        uint40 lastSnapshot,
+        uint256 fastFilterPrice,
+        uint256 slowFilterPrice,
+        uint256 initCount,
+        bool initComplete
     );
 
     function setUp() public {
@@ -92,6 +97,7 @@ contract IncentivePricingTest is Test {
         assertEq(info._initAcc, price);
         assertEq(info.slowFilterPrice, 0);
         assertEq(info.fastFilterPrice, 0);
+        assertFalse(info._initComplete);
     }
 
     function testRemoveRegisteredTokenRevertIfUnauthorized() public {
@@ -243,6 +249,7 @@ contract IncentivePricingTest is Test {
         assertEq(allInfo[0].fastFilterPrice, 0);
         assertEq(allInfo[0].slowFilterPrice, 0);
         assertEq(allInfo[0].lastSnapshot, lastTimestamp);
+        assertFalse(allInfo[0]._initComplete);
 
         prices = new uint256[](9);
         prices[0] = 87e17;
@@ -265,24 +272,34 @@ contract IncentivePricingTest is Test {
         assertEq(allInfo[0].fastFilterPrice, expectedPrice);
         assertEq(allInfo[0].slowFilterPrice, expectedPrice);
         assertEq(allInfo[0].lastSnapshot, lastTimestamp);
+        assertTrue(allInfo[0]._initComplete);
 
         prices = new uint256[](1);
         prices[0] = 1e10;
-        lastTimestamp = updateTokenPrice(lastTimestamp, token, prices);
+        lastTimestamp += pricingStats.MIN_INTERVAL();
+        vm.warp(lastTimestamp);
+        mockTokenPrice(token, prices[0]);
+
+        address[] memory tokensToSnapshot = new address[](1);
+        tokensToSnapshot[0] = token;
+
+        uint256 fastAlpha = pricingStats.FAST_ALPHA();
+        uint256 slowAlpha = pricingStats.SLOW_ALPHA();
+        uint256 expectedFast = Stats.getFilteredValue(fastAlpha, expectedPrice, prices[0]);
+        uint256 expectedSlow = Stats.getFilteredValue(slowAlpha, expectedPrice, prices[0]);
+
+        vm.expectEmit(true, true, true, true);
+        emit TokenSnapshot(token, uint40(lastTimestamp), expectedFast, expectedSlow, 18, true);
+
+        pricingStats.snapshot(tokensToSnapshot);
 
         // now we're updating the filter values
         (tokens, allInfo) = pricingStats.getTokenPricingInfo();
         assertEq(allInfo[0]._initCount, 18);
         assertEq(allInfo[0]._initAcc, expectedPriceSum);
         assertEq(allInfo[0].lastSnapshot, lastTimestamp);
-
-        uint256 fastAlpha = pricingStats.FAST_ALPHA();
-        uint256 slowAlpha = pricingStats.SLOW_ALPHA();
-
-        uint256 expectedFast = Stats.getFilteredValue(fastAlpha, expectedPrice, prices[0]);
+        assertTrue(allInfo[0]._initComplete);
         assertEq(allInfo[0].fastFilterPrice, expectedFast);
-
-        uint256 expectedSlow = Stats.getFilteredValue(slowAlpha, expectedPrice, prices[0]);
         assertEq(allInfo[0].slowFilterPrice, expectedSlow);
     }
 
@@ -366,6 +383,10 @@ contract IncentivePricingTest is Test {
             _timestamp += pricingStats.MIN_INTERVAL();
             vm.warp(_timestamp);
             mockTokenPrice(token, prices[i]);
+
+            vm.expectEmit(true, true, true, false); // not checking data
+            emit TokenSnapshot(token, 0, 0, 0, 0, false);
+
             pricingStats.snapshot(tokensToSnapshot);
         }
 
