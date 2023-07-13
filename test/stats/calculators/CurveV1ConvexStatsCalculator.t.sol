@@ -2,11 +2,10 @@
 // Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity >=0.8.7;
 
-import { Test, console2 as console } from "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 import { Stats } from "src/stats/Stats.sol";
 import { Roles } from "src/libs/Roles.sol";
 import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
-
 import { IAccessControl } from "openzeppelin-contracts/access/IAccessControl.sol";
 import { IAccessController } from "src/interfaces/security/IAccessController.sol";
 import { IStatsCalculatorRegistry } from "src/interfaces/stats/IStatsCalculatorRegistry.sol";
@@ -99,5 +98,7 @@ contract CurveV1ConvexStatsCalculatorTests is Test {
         frxEthCurveConvexWrapCalc = IStatsCalculator(convexCalc);
     }
 
-    function testStuff() public { }
+    function testInitialize() public {
+        // test here to ensure the setup continues to run
+    }
 }
