@@ -213,7 +213,7 @@ contract LMPVaultBaseTest is BaseTest {
         vm.prank(unauthorizedUser);
         address x = address(1);
         vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
-        IStrategy.FlashRebalanceParams memory params = IStrategy.FlashRebalanceParams({
+        IStrategy.RebalanceParams memory params = IStrategy.RebalanceParams({
             destinationIn: x,
             tokenIn: x,
             amountIn: 1,

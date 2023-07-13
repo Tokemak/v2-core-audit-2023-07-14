@@ -646,7 +646,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     /// @inheritdoc IStrategy
     function flashRebalance(
         IERC3156FlashBorrower receiver,
-        FlashRebalanceParams memory rebalanceParams,
+        RebalanceParams memory rebalanceParams,
         bytes calldata data
     ) public nonReentrant hasRole(Roles.SOLVER_ROLE) trackNavOps {
         (uint256 idle, uint256 debt) = _flashRebalance(receiver, rebalanceParams, data);
@@ -655,7 +655,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
 
     function _flashRebalance(
         IERC3156FlashBorrower receiver,
-        FlashRebalanceParams memory params,
+        RebalanceParams memory params,
         bytes calldata data
     ) private returns (uint256 idle, uint256 debt) {
         LMPDebt.IdleDebtChange memory idleDebtChange;
