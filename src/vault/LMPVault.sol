@@ -671,14 +671,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
 
         // make sure we have a valid path
         {
-            (bool success, string memory message) = LMPStrategy.verifyRebalance(
-                params.destinationIn,
-                params.tokenIn,
-                params.amountIn,
-                params.destinationOut,
-                params.tokenOut,
-                params.amountOut
-            );
+            (bool success, string memory message) = LMPStrategy.verifyRebalance(params);
             if (!success) {
                 revert RebalanceFailed(message);
             }
@@ -770,8 +763,16 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
 
         // make sure we have a valid path
         {
-            (bool success, string memory message) =
-                LMPStrategy.verifyRebalance(destinationIn, tokenIn, amountIn, destinationOut, tokenOut, amountOut);
+            (bool success, string memory message) = LMPStrategy.verifyRebalance(
+                IStrategy.RebalanceParams({
+                    destinationIn: destinationIn,
+                    tokenIn: tokenIn,
+                    amountIn: amountIn,
+                    destinationOut: destinationOut,
+                    tokenOut: tokenOut,
+                    amountOut: amountOut
+                })
+            );
             if (!success) {
                 revert RebalanceFailed(message);
             }
@@ -841,8 +842,16 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         address tokenOut,
         uint256 amountOut
     ) public view virtual returns (bool success, string memory message) {
-        (success, message) =
-            LMPStrategy.verifyRebalance(destinationIn, tokenIn, amountIn, destinationOut, tokenOut, amountOut);
+        (success, message) = LMPStrategy.verifyRebalance(
+            IStrategy.RebalanceParams({
+                destinationIn: destinationIn,
+                tokenIn: tokenIn,
+                amountIn: amountIn,
+                destinationOut: destinationOut,
+                tokenOut: tokenOut,
+                amountOut: amountOut
+            })
+        );
     }
 
     function _updateDebtReporting(address[] memory _destinations) private {
