@@ -14,6 +14,8 @@ import { ISystemRegistry, IDestinationVaultRegistry } from "src/interfaces/ISyst
 library LMPDebt {
     using SafeERC20 for IERC20;
 
+    error VaultShutdown();
+
     struct DestinationInfo {
         /// @notice Current underlying and reward value at the destination vault
         /// @dev Used for calculating totalDebt of the LMPVault
@@ -25,6 +27,19 @@ library LMPDebt {
         /// @notice Amount of baseAsset transferred out in service of deployments
         /// @dev Used for calculating 'in profit' or not during user withdrawals
         uint256 debtBasis;
+    }
+
+    struct RebalanceOutParams {
+        /// Address that will received the withdrawn underlyer
+        address receiver;
+        /// The "out" destination vault
+        address destinationOut;
+        /// The amount of tokenOut that will be withdrawn
+        uint256 amountOut;
+        /// The underlyer for destinationOut
+        address tokenOut;
+        IERC20 _baseAsset;
+        bool _shutdown;
     }
 
     /// @notice Perform deposit and debt info update for the "in" destination during a rebalance
@@ -51,6 +66,57 @@ library LMPDebt {
         // Update the debt info snapshot
         (debtDecrease, debtIncrease) =
             _recalculateDestInfo(destInfo, dvIn, originalShareBal, originalShareBal + newShares, true);
+    }
+
+    /// @notice Perform withdraw and debt info update for the "out" destination during a rebalance
+    /// @dev This "out" function performs more validations and handles idle as opposed to "in" which does not
+    /// @param params Rebalance out params
+    /// @param destOutInfo The "out" destination vault info
+    /// @return debtDecrease The previous amount of debt destinationOut accounted for in totalDebt
+    /// @return debtIncrease The current amount of debt destinationOut should account for in totalDebt
+    /// @return idleDecrease Amount of baseAsset that was sent from the vault. > 0 only when tokenOut == baseAsset
+    /// @return idleIncrease Amount of baseAsset that was claimed from Destination Vault
+    function _handleRebalanceOut(
+        RebalanceOutParams memory params,
+        DestinationInfo storage destOutInfo
+    ) external returns (uint256 debtDecrease, uint256 debtIncrease, uint256 idleDecrease, uint256 idleIncrease) {
+        // Handle decrease (shares going "Out", cashing in shares and sending underlying back to swapper)
+        // If the tokenOut is _asset we assume they are taking idle
+        // which is already in the contract
+        if (params.amountOut > 0) {
+            if (params.tokenOut != address(params._baseAsset)) {
+                IDestinationVault dvOut = IDestinationVault(params.destinationOut);
+
+                // Snapshot our current shares so we know how much to back out
+                uint256 originalShareBal = dvOut.balanceOf(address(this));
+
+                // Burning our shares will claim any pending baseAsset
+                // rewards and send them to us. Make sure we capture them
+                // so they can end up in idle
+                uint256 beforeBaseAssetBal = params._baseAsset.balanceOf(address(this));
+
+                // withdraw underlying from dv
+                // slither-disable-next-line unused-return
+                dvOut.withdrawUnderlying(params.amountOut, params.receiver);
+
+                idleIncrease = params._baseAsset.balanceOf(address(this)) - beforeBaseAssetBal;
+
+                // Update the debt info snapshot
+                (debtDecrease, debtIncrease) = _recalculateDestInfo(
+                    destOutInfo, dvOut, originalShareBal, originalShareBal - params.amountOut, true
+                );
+            } else {
+                // If we are shutdown then the only operations we should be performing are those that get
+                // the base asset back to the vault. We shouldn't be sending out more
+                if (params._shutdown) {
+                    revert VaultShutdown();
+                }
+                // Working with idle baseAsset which should be in the vault already
+                // Just send it out
+                IERC20(params.tokenOut).safeTransfer(params.receiver, params.amountOut);
+                idleDecrease = params.amountOut;
+            }
+        }
     }
 
     function recalculateDestInfo(

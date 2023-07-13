@@ -754,11 +754,16 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
             idleDebtChange.debtIncrease,
             idleDebtChange.idleDecrease,
             idleDebtChange.idleIncrease
-        ) = _handleRebalanceOut(
-            address(rebalanceParams.receiver),
-            rebalanceParams.destinationOut,
-            rebalanceParams.amountOut,
-            rebalanceParams.tokenOut
+        ) = LMPDebt._handleRebalanceOut(
+            LMPDebt.RebalanceOutParams({
+                receiver: address(rebalanceParams.receiver),
+                destinationOut: rebalanceParams.destinationOut,
+                amountOut: rebalanceParams.amountOut,
+                tokenOut: rebalanceParams.tokenOut,
+                _baseAsset: _baseAsset,
+                _shutdown: _shutdown
+            }),
+            destinationInfo[address(rebalanceParams.destinationOut)]
         );
 
         // Handle increase (shares coming "In", getting underlying from the swapper and trading for new shares)
@@ -849,7 +854,17 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
             idleDebtChange.debtIncrease,
             idleDebtChange.idleDecrease,
             idleDebtChange.idleIncrease
-        ) = _handleRebalanceOut(msg.sender, destinationOut, amountOut, tokenOut);
+        ) = LMPDebt._handleRebalanceOut(
+            LMPDebt.RebalanceOutParams({
+                receiver: msg.sender,
+                destinationOut: destinationOut,
+                amountOut: amountOut,
+                tokenOut: tokenOut,
+                _baseAsset: _baseAsset,
+                _shutdown: _shutdown
+            }),
+            destinationInfo[address(destinationOut)]
+        );
 
         // Handle increase (shares coming "In", getting underlying from the swapper and trading for new shares)
         if (amountIn > 0) {
@@ -887,89 +902,6 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
                 // Value always emitted in collectFees regardless of change
                 // slither-disable-next-line events-maths
                 totalDebt = debt;
-            }
-        }
-    }
-
-    // /// @notice Perform deposit and debt info update for the "in" destination during a rebalance
-    // /// @dev This "in" function performs less validations than its "out" version
-    // /// @param dvIn The "in" destination vault
-    // /// @param tokenIn The underlyer for dvIn
-    // /// @param depositAmount The amount of tokenIn that will be deposited
-    // /// @return debtDecrease The previous amount of debt dvIn accounted for in totalDebt
-    // /// @return debtIncrease The current amount of debt dvIn should account for in totalDebt
-    // function _handleRebalanceIn(
-    //     IDestinationVault dvIn,
-    //     address tokenIn,
-    //     uint256 depositAmount
-    // ) private returns (uint256 debtDecrease, uint256 debtIncrease) {
-    //     IERC20(tokenIn).safeApprove(address(dvIn), depositAmount);
-
-    //     // Snapshot our current shares so we know how much to back out
-    //     uint256 originalShareBal = dvIn.balanceOf(address(this));
-
-    //     // deposit to dv
-    //     uint256 newShares = dvIn.depositUnderlying(depositAmount);
-
-    //     // Update the debt info snapshot
-    //     (uint256 totalDebtDecrease, uint256 totalDebtIncrease) = LMPDebt.recalculateDestInfo(
-    //         destinationInfo[address(dvIn)], dvIn, originalShareBal, originalShareBal + newShares, true
-    //     );
-    //     debtDecrease = totalDebtDecrease;
-    //     debtIncrease = totalDebtIncrease;
-    // }
-
-    /// @notice Perform withdraw and debt info update for the "out" destination during a rebalance
-    /// @dev This "out" function performs more validations and handles idle as opposed to "in" which does not
-    /// @param receiver Address that will received the withdrawn underlyer
-    /// @param destinationOut The "out" destination vault
-    /// @param amountOut The amount of tokenOut that will be withdrawn
-    /// @param tokenOut The underlyer for destinationOut
-    /// @return debtDecrease The previous amount of debt destinationOut accounted for in totalDebt
-    /// @return debtIncrease The current amount of debt destinationOut should account for in totalDebt
-    /// @return idleDecrease Amount of baseAsset that was sent from the vault. > 0 only when tokenOut == baseAsset
-    /// @return idleIncrease Amount of baseAsset that was claimed from Destination Vault
-    function _handleRebalanceOut(
-        address receiver,
-        address destinationOut,
-        uint256 amountOut,
-        address tokenOut
-    ) private returns (uint256 debtDecrease, uint256 debtIncrease, uint256 idleDecrease, uint256 idleIncrease) {
-        // Handle decrease (shares going "Out", cashing in shares and sending underlying back to swapper)
-        // If the tokenOut is _asset we assume they are taking idle
-        // which is already in the contract
-        if (amountOut > 0) {
-            if (tokenOut != address(_baseAsset)) {
-                IDestinationVault dvOut = IDestinationVault(destinationOut);
-
-                // Snapshot our current shares so we know how much to back out
-                uint256 originalShareBal = dvOut.balanceOf(address(this));
-
-                // Burning our shares will claim any pending baseAsset
-                // rewards and send them to us. Make sure we capture them
-                // so they can end up in idle
-                uint256 beforeBaseAssetBal = _baseAsset.balanceOf(address(this));
-
-                // withdraw underlying from dv
-                // slither-disable-next-line unused-return
-                dvOut.withdrawUnderlying(amountOut, receiver);
-
-                idleIncrease = _baseAsset.balanceOf(address(this)) - beforeBaseAssetBal;
-
-                // Update the debt info snapshot
-                (debtDecrease, debtIncrease) = LMPDebt.recalculateDestInfo(
-                    destinationInfo[destinationOut], dvOut, originalShareBal, originalShareBal - amountOut, true
-                );
-            } else {
-                // If we are shutdown then the only operations we should be performing are those that get
-                // the base asset back to the vault. We shouldn't be sending out more
-                if (_shutdown) {
-                    revert VaultShutdown();
-                }
-                // Working with idle baseAsset which should be in the vault already
-                // Just send it out
-                IERC20(tokenOut).safeTransfer(receiver, amountOut);
-                idleDecrease = amountOut;
             }
         }
     }
