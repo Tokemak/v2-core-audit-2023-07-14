@@ -64,6 +64,81 @@ library LMPDebt {
         bool shutdown;
     }
 
+    function rebalance(
+        DestinationInfo storage destInfoOut,
+        DestinationInfo storage destInfoIn,
+        IStrategy.RebalanceParams memory params,
+        IERC20 baseAsset,
+        bool shutdown,
+        uint256 totalIdle,
+        uint256 totalDebt
+    ) external returns (uint256 idle, uint256 debt) {
+        LMPDebt.IdleDebtChange memory idleDebtChange;
+
+        // make sure there's something to do
+        if (params.amountIn == 0 && params.amountOut == 0) {
+            revert Errors.InvalidParams();
+        }
+
+        if (params.destinationIn == params.destinationOut) {
+            revert RebalanceDestinationsMatch(params.destinationOut);
+        }
+
+        // make sure we have a valid path
+        {
+            (bool success, string memory message) = LMPStrategy.verifyRebalance(params);
+            if (!success) {
+                revert RebalanceFailed(message);
+            }
+        }
+
+        // Handle decrease (shares going "Out", cashing in shares and sending underlying back to swapper)
+        // If the tokenOut is _asset we assume they are taking idle
+        // which is already in the contract
+        idleDebtChange = _handleRebalanceOut(
+            LMPDebt.RebalanceOutParams({
+                receiver: msg.sender,
+                destinationOut: params.destinationOut,
+                amountOut: params.amountOut,
+                tokenOut: params.tokenOut,
+                _baseAsset: baseAsset,
+                _shutdown: shutdown
+            }),
+            destInfoOut
+        );
+
+        // Handle increase (shares coming "In", getting underlying from the swapper and trading for new shares)
+        if (params.amountIn > 0) {
+            // transfer dv underlying lp from swapper to here
+            IERC20(params.tokenIn).safeTransferFrom(msg.sender, address(this), params.amountIn);
+
+            // deposit to dv (already checked in `verifyRebalance` so no need to check return of deposit)
+
+            if (params.tokenIn != address(baseAsset)) {
+                IDestinationVault dvIn = IDestinationVault(params.destinationIn);
+                (uint256 debtDecreaseIn, uint256 debtIncreaseIn) =
+                    _handleRebalanceIn(destInfoIn, dvIn, params.tokenIn, params.amountIn);
+                idleDebtChange.debtDecrease += debtDecreaseIn;
+                idleDebtChange.debtIncrease += debtIncreaseIn;
+            } else {
+                idleDebtChange.idleIncrease += params.amountIn;
+            }
+        }
+
+        {
+            idle = totalIdle;
+            debt = totalDebt;
+
+            if (idleDebtChange.idleDecrease > 0 || idleDebtChange.idleIncrease > 0) {
+                idle = idle + idleDebtChange.idleIncrease - idleDebtChange.idleDecrease;
+            }
+
+            if (idleDebtChange.debtDecrease > 0 || idleDebtChange.debtIncrease > 0) {
+                debt = debt + idleDebtChange.debtIncrease - idleDebtChange.debtDecrease;
+            }
+        }
+    }
+
     function flashRebalance(
         DestinationInfo storage destInfoOut,
         DestinationInfo storage destInfoIn,
