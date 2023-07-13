@@ -194,13 +194,13 @@ contract BalancerStablePoolCalculatorBaseTest is Test {
         initializeSuccessfully();
         assertFalse(calculator.shouldSnapshot());
 
-        uint256 newTimestamp = TARGET_BLOCK_TIMESTAMP + Stats.DEX_FEE_APR_SNAPSHOT_INTERVAL;
+        uint256 newTimestamp = TARGET_BLOCK_TIMESTAMP + Stats.DEX_FEE_APR_FILTER_INIT_INTERVAL;
         vm.warp(newTimestamp);
         assertTrue(calculator.shouldSnapshot());
         assertEq(calculator.feeApr(), 0);
 
-        uint256 newVirtualPrice = TARGET_BLOCK_VIRTUAL_PRICE * 105 / 100; // increase by 5%
-        uint256 newEthPerShare = TARGET_BLOCK_RETH_BACKING * 102 / 100; // increase by 2%
+        uint256 newVirtualPrice = TARGET_BLOCK_VIRTUAL_PRICE * 109 / 100; // increase by 9% over 9 days
+        uint256 newEthPerShare = TARGET_BLOCK_RETH_BACKING * 109 / 100; // increase by 9% over 9 days
 
         mockVirtualPrice(newVirtualPrice);
         mockStatsEthPerToken(address(rETHStats), newEthPerShare);
@@ -209,14 +209,14 @@ contract BalancerStablePoolCalculatorBaseTest is Test {
         calculator.snapshot();
 
         uint256 totalReserves = TARGET_BLOCK_RESERVE_0 + TARGET_BLOCK_RESERVE_1;
-        uint256 baseApr = ((2e16 * 365) * TARGET_BLOCK_RESERVE_0) / totalReserves;
+        uint256 baseApr = ((1e16 * 365) * TARGET_BLOCK_RESERVE_0) / totalReserves;
         uint256 baseAprLessAdmin = baseApr * 5e17 / 1e18; // 50% admin fee
 
         // 5% annualized for virtual price change
-        uint256 rawFeeApr = 5e16 * 365;
+        uint256 rawFeeApr = 1e16 * 365;
 
         // calculate filtered feeApr with a starting 0
-        uint256 expectedFeeApr = (rawFeeApr - baseAprLessAdmin) * Stats.DEX_FEE_ALPHA / 1e18;
+        uint256 expectedFeeApr = (rawFeeApr - baseAprLessAdmin);
 
         assertEq(calculator.lastSnapshotTimestamp(), newTimestamp);
         assertEq(calculator.lastVirtualPrice(), newVirtualPrice);
@@ -229,13 +229,13 @@ contract BalancerStablePoolCalculatorBaseTest is Test {
         initializeSuccessfully();
         assertFalse(calculator.shouldSnapshot());
 
-        uint256 newTimestamp = TARGET_BLOCK_TIMESTAMP + Stats.DEX_FEE_APR_SNAPSHOT_INTERVAL;
+        uint256 newTimestamp = TARGET_BLOCK_TIMESTAMP + Stats.DEX_FEE_APR_FILTER_INIT_INTERVAL;
         vm.warp(newTimestamp);
         assertTrue(calculator.shouldSnapshot());
         assertEq(calculator.feeApr(), 0);
 
-        uint256 newVirtualPrice = TARGET_BLOCK_VIRTUAL_PRICE * 105 / 100; // increase by 5%
-        uint256 newEthPerShare = TARGET_BLOCK_RETH_BACKING * 102 / 100; // increase by 2%
+        uint256 newVirtualPrice = TARGET_BLOCK_VIRTUAL_PRICE * 109 / 100; // increase by 9% over 9 days
+        uint256 newEthPerShare = TARGET_BLOCK_RETH_BACKING * 102 / 100; // increase by 2% over 9 days
 
         mockVirtualPrice(newVirtualPrice);
         mockStatsEthPerToken(address(rETHStats), newEthPerShare);
@@ -249,7 +249,7 @@ contract BalancerStablePoolCalculatorBaseTest is Test {
 
         // NOTE: it isn't possible for virtual price to increase without any reserves
         // but testing the edge case
-        uint256 expectedFeeApr = 5e16 * 365 * 1e17 / 1e18; // 5% annualized * 0.1
+        uint256 expectedFeeApr = 9e16 / 9 * 365; // 9% annualized
 
         assertApproxEqAbs(calculator.feeApr(), expectedFeeApr, 50);
     }
@@ -258,13 +258,14 @@ contract BalancerStablePoolCalculatorBaseTest is Test {
         initializeSuccessfully();
         assertFalse(calculator.shouldSnapshot());
 
-        uint256 newTimestamp = TARGET_BLOCK_TIMESTAMP + Stats.DEX_FEE_APR_SNAPSHOT_INTERVAL;
+        // move past allowed snapshot time
+        uint256 newTimestamp = TARGET_BLOCK_TIMESTAMP + Stats.DEX_FEE_APR_FILTER_INIT_INTERVAL;
         vm.warp(newTimestamp);
         assertTrue(calculator.shouldSnapshot());
         assertEq(calculator.feeApr(), 0);
 
         // increase virtual price and snapshot so that feeApr isn't 0
-        uint256 newVirtualPrice = TARGET_BLOCK_VIRTUAL_PRICE * 105 / 100; // increase by 5%
+        uint256 newVirtualPrice = TARGET_BLOCK_VIRTUAL_PRICE * 109 / 100; // increase by 9%
         mockVirtualPrice(newVirtualPrice);
         mockTokenPrice(RETH_MAINNET, 1e18);
         mockTokenPrice(WETH_MAINNET, 1e18);
