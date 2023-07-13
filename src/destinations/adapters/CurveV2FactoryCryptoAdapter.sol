@@ -121,6 +121,7 @@ library CurveV2FactoryCryptoAdapter {
 
         if (ethIndex != 999) {
             // Wrapping up received ETH as system operates with WETH
+            // slither-disable-next-line arbitrary-send-eth
             weth.deposit{ value: actualAmounts[ethIndex] }();
         }
 
@@ -184,6 +185,7 @@ library CurveV2FactoryCryptoAdapter {
 
         if (coin == LibAdapter.CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
             // Wrapping up received ETH as system operates with WETH
+            // slither-disable-next-line arbitrary-send-eth
             weth.deposit{ value: coinAmount }();
             coin = address(weth);
         }
