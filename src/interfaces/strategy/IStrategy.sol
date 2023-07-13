@@ -32,17 +32,17 @@ interface IStrategy {
     function removeDestinations(address[] calldata _destinations) external;
 
     /// @notice rebalance the LMP from the tokenOut (decrease) to the tokenIn (increase)
-    /// @param destinationIn The address of the destination vault that will increase
+    /// @param destIn The address of the destination vault that will increase
     /// @param tokenIn The address of the token that will be provided by the swapper
     /// @param amountIn The amount of the tokenIn that will be provided by the swapper
-    /// @param destinationOut The address of the destination vault that will decrease
+    /// @param destOut The address of the destination vault that will decrease
     /// @param tokenOut The address of the token that will be received by the swapper
     /// @param amountOut The amount of the tokenOut that will be received by the swapper
     function rebalance(
-        address destinationIn,
+        address destIn,
         address tokenIn,
         uint256 amountIn,
-        address destinationOut,
+        address destOut,
         address tokenOut,
         uint256 amountOut
     ) external;
@@ -56,7 +56,6 @@ interface IStrategy {
     /// @param tokenOut The address of the underlyer token that will be received by the swapper
     /// @param amountOut The amount of the tokenOut that will be received by the swapper
     struct FlashRebalanceParams {
-        IERC3156FlashBorrower receiver;
         address destinationIn;
         address tokenIn;
         uint256 amountIn;
@@ -69,7 +68,11 @@ interface IStrategy {
     /// This uses a flash loan to receive the tokenOut to reduce the working capital requirements of the swapper
     /// @param rebalanceParams Parameters by which to perform the rebalance
     /// @param data A data parameter to be passed on to the `receiver` for any custom use
-    function flashRebalance(FlashRebalanceParams calldata rebalanceParams, bytes calldata data) external;
+    function flashRebalance(
+        IERC3156FlashBorrower receiver,
+        FlashRebalanceParams calldata rebalanceParams,
+        bytes calldata data
+    ) external;
 
     /// @notice verify that a rebalance (swap between destinations) meets all the strategy constraints
     /// @param destinationIn The address of the destination vault that will increase

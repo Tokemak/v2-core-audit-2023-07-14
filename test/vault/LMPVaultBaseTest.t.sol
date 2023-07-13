@@ -214,7 +214,6 @@ contract LMPVaultBaseTest is BaseTest {
         address x = address(1);
         vm.expectRevert(abi.encodeWithSelector(Errors.AccessDenied.selector));
         IStrategy.FlashRebalanceParams memory params = IStrategy.FlashRebalanceParams({
-            receiver: IERC3156FlashBorrower(address(this)),
             destinationIn: x,
             tokenIn: x,
             amountIn: 1,
@@ -222,7 +221,7 @@ contract LMPVaultBaseTest is BaseTest {
             tokenOut: x,
             amountOut: 1
         });
-        lmpVault.flashRebalance(params, "");
+        lmpVault.flashRebalance(IERC3156FlashBorrower(address(this)), params, "");
     }
 
     // @dev Callback support from lmpVault to provide underlying for the "IN"

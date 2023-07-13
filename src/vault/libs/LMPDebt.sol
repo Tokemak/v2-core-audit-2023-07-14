@@ -66,7 +66,6 @@ library LMPDebt {
         // proportional to their ownership of this vault. This is so a user doesn't lock in
         // a loss for the entire vault during their withdrawal
 
-        address vault = address(destVault);
         uint256 currentDvShares = destVault.balanceOf(address(this));
 
         // slither-disable-next-line incorrect-equality

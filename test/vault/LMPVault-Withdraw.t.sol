@@ -576,8 +576,8 @@ contract LMPVaultMintingTests is Test {
 
         vm.expectRevert(abi.encodeWithSelector(LMPVault.NavOpsInProgress.selector));
         _lmpVault.flashRebalance(
+            rebalancer,
             IStrategy.FlashRebalanceParams({
-                receiver: rebalancer,
                 destinationIn: address(_destVaultOne),
                 tokenIn: address(_underlyerOne), // tokenIn
                 amountIn: 250,
@@ -744,8 +744,8 @@ contract LMPVaultMintingTests is Test {
 
         vm.expectRevert(abi.encodeWithSelector(LMPVault.NavOpsInProgress.selector));
         _lmpVault.flashRebalance(
+            rebalancer,
             IStrategy.FlashRebalanceParams({
-                receiver: rebalancer,
                 destinationIn: address(_destVaultOne),
                 tokenIn: address(_underlyerOne), // tokenIn
                 amountIn: 250,
@@ -909,8 +909,8 @@ contract LMPVaultMintingTests is Test {
 
         vm.expectRevert(abi.encodeWithSelector(LMPVault.NavOpsInProgress.selector));
         _lmpVault.flashRebalance(
+            rebalancer,
             IStrategy.FlashRebalanceParams({
-                receiver: rebalancer,
                 destinationIn: address(_destVaultOne),
                 tokenIn: address(_underlyerOne), // tokenIn
                 amountIn: 250,
@@ -1012,8 +1012,8 @@ contract LMPVaultMintingTests is Test {
 
         vm.expectRevert(abi.encodeWithSelector(LMPVault.NavOpsInProgress.selector));
         _lmpVault.flashRebalance(
+            rebalancer,
             IStrategy.FlashRebalanceParams({
-                receiver: rebalancer,
                 destinationIn: address(_destVaultOne),
                 tokenIn: address(_underlyerOne), // tokenIn
                 amountIn: 250,
@@ -1515,8 +1515,8 @@ contract LMPVaultMintingTests is Test {
 
         vm.expectRevert(abi.encodeWithSelector(LMPVault.VaultShutdown.selector));
         _lmpVault.flashRebalance(
+            rebalancer,
             IStrategy.FlashRebalanceParams({
-                receiver: rebalancer,
                 destinationIn: address(_destVaultOne),
                 tokenIn: address(_underlyerOne), // tokenIn
                 amountIn: 250,
@@ -1547,8 +1547,8 @@ contract LMPVaultMintingTests is Test {
         rebalancer.snapshotAsset(address(_asset), 500);
 
         _lmpVault.flashRebalance(
+            rebalancer,
             IStrategy.FlashRebalanceParams({
-                receiver: rebalancer,
                 destinationIn: address(_destVaultOne),
                 tokenIn: address(_underlyerOne), // tokenIn
                 amountIn: 250,
@@ -1584,8 +1584,8 @@ contract LMPVaultMintingTests is Test {
         _asset.mint(address(this), 137);
         _asset.approve(address(_lmpVault), 137);
         _lmpVault.flashRebalance(
+            rebalancer,
             IStrategy.FlashRebalanceParams({
-                receiver: rebalancer,
                 destinationIn: address(0), // none when sending in base asset
                 tokenIn: address(_asset), // tokenIn
                 amountIn: 137,
@@ -1629,8 +1629,8 @@ contract LMPVaultMintingTests is Test {
         rebalancer.snapshotAsset(address(_asset), 500);
 
         _lmpVault.flashRebalance(
+            rebalancer,
             IStrategy.FlashRebalanceParams({
-                receiver: rebalancer,
                 destinationIn: address(_destVaultOne),
                 tokenIn: address(_underlyerOne), // tokenIn
                 amountIn: 250,
@@ -1669,8 +1669,8 @@ contract LMPVaultMintingTests is Test {
         _asset.mint(address(this), 137);
         _asset.approve(address(_lmpVault), 137);
         _lmpVault.flashRebalance(
+            rebalancer,
             IStrategy.FlashRebalanceParams({
-                receiver: rebalancer,
                 destinationIn: address(0), // none when sending in base asset
                 tokenIn: address(_asset), // tokenIn
                 amountIn: 137,
@@ -1715,8 +1715,8 @@ contract LMPVaultMintingTests is Test {
         vm.startPrank(solver);
         _underlyerOne.approve(address(_lmpVault), 250);
         _lmpVault.flashRebalance(
+            rebalancer,
             IStrategy.FlashRebalanceParams({
-                receiver: rebalancer,
                 destinationIn: address(_destVaultOne),
                 tokenIn: address(_underlyerOne), // tokenIn
                 amountIn: 250,
@@ -1798,8 +1798,8 @@ contract LMPVaultMintingTests is Test {
 
         vm.expectRevert(abi.encodeWithSelector(LMPVault.RebalanceDestinationsMatch.selector, address(_destVaultOne)));
         _lmpVault.flashRebalance(
+            rebalancer,
             IStrategy.FlashRebalanceParams({
-                receiver: rebalancer,
                 destinationIn: address(_destVaultOne),
                 tokenIn: address(_underlyerOne),
                 amountIn: 250,
@@ -1957,8 +1957,8 @@ contract LMPVaultMintingTests is Test {
         _underlyerOne.mint(address(this), 250);
         _underlyerOne.approve(address(_lmpVault), 250);
         _lmpVault.flashRebalance(
+            rebalancer,
             IStrategy.FlashRebalanceParams({
-                receiver: rebalancer,
                 destinationIn: address(_destVaultOne),
                 tokenIn: address(_underlyerOne), // tokenIn
                 amountIn: 250,
@@ -2390,8 +2390,8 @@ contract LMPVaultMintingTests is Test {
         rebalancer.snapshotAsset(address(_asset), 400);
 
         _lmpVault.flashRebalance(
+            rebalancer,
             IStrategy.FlashRebalanceParams({
-                receiver: rebalancer,
                 destinationIn: address(_destVaultOne),
                 tokenIn: address(_underlyerOne), // tokenIn
                 amountIn: 200, // Price is 2:1 for DV1 underlyer
@@ -2406,8 +2406,8 @@ contract LMPVaultMintingTests is Test {
         rebalancer.snapshotAsset(address(_asset), 350);
 
         _lmpVault.flashRebalance(
+            rebalancer,
             IStrategy.FlashRebalanceParams({
-                receiver: rebalancer,
                 destinationIn: address(_destVaultTwo),
                 tokenIn: address(_underlyerTwo), // tokenIn
                 amountIn: 350, // Price is 1:1 for DV2 underlyer
@@ -2674,8 +2674,8 @@ contract LMPVaultMintingTests is Test {
         rebalancer.snapshotAsset(address(_asset), 500);
 
         _lmpVault.flashRebalance(
+            rebalancer,
             IStrategy.FlashRebalanceParams({
-                receiver: rebalancer,
                 destinationIn: address(_destVaultOne),
                 tokenIn: address(_underlyerOne), // tokenIn
                 amountIn: 250,

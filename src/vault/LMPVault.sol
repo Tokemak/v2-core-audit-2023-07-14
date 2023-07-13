@@ -632,50 +632,52 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
 
     /// @inheritdoc IStrategy
     function rebalance(
-        address destinationIn,
+        address destIn,
         address tokenIn,
         uint256 amountIn,
-        address destinationOut,
+        address destOut,
         address tokenOut,
         uint256 amountOut
     ) public nonReentrant hasRole(Roles.SOLVER_ROLE) trackNavOps {
-        (uint256 idle, uint256 debt) = _rebalance(destinationIn, tokenIn, amountIn, destinationOut, tokenOut, amountOut);
+        (uint256 idle, uint256 debt) = _rebalance(destIn, tokenIn, amountIn, destOut, tokenOut, amountOut);
         _collectFees(idle, debt, totalSupply());
     }
 
     /// @inheritdoc IStrategy
     function flashRebalance(
+        IERC3156FlashBorrower receiver,
         FlashRebalanceParams memory rebalanceParams,
         bytes calldata data
     ) public nonReentrant hasRole(Roles.SOLVER_ROLE) trackNavOps {
-        (uint256 idle, uint256 debt) = _flashRebalance(rebalanceParams, data);
+        (uint256 idle, uint256 debt) = _flashRebalance(receiver, rebalanceParams, data);
         _collectFees(idle, debt, totalSupply());
     }
 
     function _flashRebalance(
-        FlashRebalanceParams memory rebalanceParams,
+        IERC3156FlashBorrower receiver,
+        FlashRebalanceParams memory params,
         bytes calldata data
     ) private returns (uint256 idle, uint256 debt) {
         LMPDebt.IdleDebtChange memory idleDebtChange;
 
         // make sure there's something to do
-        if (rebalanceParams.amountIn == 0 && rebalanceParams.amountOut == 0) {
+        if (params.amountIn == 0 && params.amountOut == 0) {
             revert Errors.InvalidParams();
         }
 
-        if (rebalanceParams.destinationIn == rebalanceParams.destinationOut) {
-            revert RebalanceDestinationsMatch(rebalanceParams.destinationOut);
+        if (params.destinationIn == params.destinationOut) {
+            revert RebalanceDestinationsMatch(params.destinationOut);
         }
 
         // make sure we have a valid path
         {
             (bool success, string memory message) = LMPStrategy.verifyRebalance(
-                rebalanceParams.destinationIn,
-                rebalanceParams.tokenIn,
-                rebalanceParams.amountIn,
-                rebalanceParams.destinationOut,
-                rebalanceParams.tokenOut,
-                rebalanceParams.amountOut
+                params.destinationIn,
+                params.tokenIn,
+                params.amountIn,
+                params.destinationOut,
+                params.tokenOut,
+                params.amountOut
             );
             if (!success) {
                 revert RebalanceFailed(message);
@@ -687,44 +689,42 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         // which is already in the contract
         idleDebtChange = LMPDebt._handleRebalanceOut(
             LMPDebt.RebalanceOutParams({
-                receiver: address(rebalanceParams.receiver),
-                destinationOut: rebalanceParams.destinationOut,
-                amountOut: rebalanceParams.amountOut,
-                tokenOut: rebalanceParams.tokenOut,
+                receiver: address(receiver),
+                destinationOut: params.destinationOut,
+                amountOut: params.amountOut,
+                tokenOut: params.tokenOut,
                 _baseAsset: _baseAsset,
                 _shutdown: _shutdown
             }),
-            destinationInfo[address(rebalanceParams.destinationOut)]
+            destinationInfo[address(params.destinationOut)]
         );
 
         // Handle increase (shares coming "In", getting underlying from the swapper and trading for new shares)
-        if (rebalanceParams.amountIn > 0) {
-            IDestinationVault dvIn = IDestinationVault(rebalanceParams.destinationIn);
+        if (params.amountIn > 0) {
+            IDestinationVault dvIn = IDestinationVault(params.destinationIn);
 
             // get "before" counts
-            uint256 tokenInBalanceBefore = IERC20(rebalanceParams.tokenIn).balanceOf(address(this));
+            uint256 tokenInBalanceBefore = IERC20(params.tokenIn).balanceOf(address(this));
 
             // Give control back to the solver so they can make use of the "out" assets
             // and get our "in" asset
-            bytes32 flashResult = rebalanceParams.receiver.onFlashLoan(
-                msg.sender, rebalanceParams.tokenIn, rebalanceParams.amountIn, 0, data
-            );
+            bytes32 flashResult = receiver.onFlashLoan(msg.sender, params.tokenIn, params.amountIn, 0, data);
 
             // We assume the solver will send us the assets
-            uint256 tokenInBalanceAfter = IERC20(rebalanceParams.tokenIn).balanceOf(address(this));
+            uint256 tokenInBalanceAfter = IERC20(params.tokenIn).balanceOf(address(this));
 
             // Make sure the call was successful and verify we have at least the assets we think
             // we were getting
             if (
                 flashResult != keccak256("ERC3156FlashBorrower.onFlashLoan")
-                    || tokenInBalanceAfter < tokenInBalanceBefore + rebalanceParams.amountIn
+                    || tokenInBalanceAfter < tokenInBalanceBefore + params.amountIn
             ) {
-                revert Errors.FlashLoanFailed(rebalanceParams.tokenIn, rebalanceParams.amountIn);
+                revert Errors.FlashLoanFailed(params.tokenIn, params.amountIn);
             }
 
-            if (rebalanceParams.tokenIn != address(_baseAsset)) {
+            if (params.tokenIn != address(_baseAsset)) {
                 (uint256 debtDecreaseIn, uint256 debtIncreaseIn) = LMPDebt._handleRebalanceIn(
-                    destinationInfo[address(dvIn)], dvIn, rebalanceParams.tokenIn, tokenInBalanceAfter
+                    destinationInfo[address(dvIn)], dvIn, params.tokenIn, tokenInBalanceAfter
                 );
                 idleDebtChange.debtDecrease += debtDecreaseIn;
                 idleDebtChange.debtIncrease += debtIncreaseIn;
