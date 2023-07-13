@@ -140,7 +140,7 @@ contract LSTCalculatorBaseTest is Test {
     }
 
     function testAprInitDecreaseSnapshot() public {
-        // Test intializes the baseApr filter and processes the next snapshot
+        // Test initializes the baseApr filter and processes the next snapshot
         // where eth backing decreases. Slashing event list should be updated
         uint256 startingEthPerShare = 1_126_467_900_855_209_627;
         mockCalculateEthPerToken(startingEthPerShare);
@@ -217,6 +217,7 @@ contract LSTCalculatorBaseTest is Test {
         assertEq(stats.slashingTimestamps.length, 1);
         assertEq(stats.slashingTimestamps[0], END_TIMESTAMP);
         assertEq(stats.slashingCosts[0], slashingCost);
+        assertEq(stats.lastSnapshotTimestamp, END_TIMESTAMP);
     }
 
     function testRevertNoSnapshot() public {
@@ -298,6 +299,9 @@ contract LSTCalculatorBaseTest is Test {
         assertEq(stats.slashingTimestamps.length, 1);
         assertEq(stats.slashingTimestamps[0], endingTimestamp);
         assertEq(stats.slashingCosts[0], expectedSlashingCost);
+
+        // should use the minimum between slashing and baseApr
+        assertEq(stats.lastSnapshotTimestamp, START_TIMESTAMP);
     }
 
     function initCalculator() private {

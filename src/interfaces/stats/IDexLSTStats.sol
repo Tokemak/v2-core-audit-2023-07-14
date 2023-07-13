@@ -8,7 +8,10 @@ import { ILSTStats } from "src/interfaces/stats/ILSTStats.sol";
 
 /// @title Return stats DEXs with LSTs
 interface IDexLSTStats {
+    event DexSnapshotTaken(uint256 snapshotTimestamp, uint256 priorFeeApr, uint256 newFeeApr, uint256 unfilteredFeeApr);
+
     struct DexLSTStatsData {
+        uint256 lastSnapshotTimestamp;
         uint256 feeApr;
         uint256[] reservesInEth;
         ILSTStats.LSTStatsData[] lstStatsData;

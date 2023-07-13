@@ -177,7 +177,12 @@ abstract contract BalancerStablePoolCalculatorBase is IDexLSTStats, BaseStatsCal
             }
         }
 
-        return DexLSTStatsData({ feeApr: feeApr, reservesInEth: reservesInEth, lstStatsData: lstStatsData });
+        return DexLSTStatsData({
+            lastSnapshotTimestamp: lastSnapshotTimestamp,
+            feeApr: feeApr,
+            reservesInEth: reservesInEth,
+            lstStatsData: lstStatsData
+        });
     }
 
     /// @notice Capture stat data about this setup
@@ -233,12 +238,16 @@ abstract contract BalancerStablePoolCalculatorBase is IDexLSTStats, BaseStatsCal
         uint256 newFeeApr;
         if (feeAprFilterInitialized) {
             // filter normally once the filter has been initialized
-            newFeeApr = ((feeApr * (1e18 - Stats.DEX_FEE_ALPHA)) + (currentFeeApr * Stats.DEX_FEE_ALPHA)) / 1e18;
+            newFeeApr = Stats.getFilteredValue(Stats.DEX_FEE_ALPHA, feeApr, currentFeeApr);
         } else {
             // first raw sample is used to initialize the filter
             newFeeApr = currentFeeApr;
             feeAprFilterInitialized = true;
         }
+
+        // pricer handles reentrancy issues
+        // slither-disable-next-line reentrancy-events
+        emit DexSnapshotTaken(block.timestamp, feeApr, newFeeApr, currentFeeApr);
 
         lastSnapshotTimestamp = block.timestamp;
         lastVirtualPrice = currentVirtualPrice;

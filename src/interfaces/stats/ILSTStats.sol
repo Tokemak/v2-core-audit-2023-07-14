@@ -8,6 +8,7 @@ import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 /// @title Return stats on base LSTs
 interface ILSTStats {
     struct LSTStatsData {
+        uint256 lastSnapshotTimestamp;
         uint256 baseApr;
         uint256[] slashingCosts;
         uint256[] slashingTimestamps;

@@ -48,6 +48,7 @@ contract ProxyLSTCalculatorTest is Test {
 
     function test_current_Success() public {
         ILSTStats.LSTStatsData memory stats = ILSTStats.LSTStatsData({
+            lastSnapshotTimestamp: 12,
             baseApr: 10,
             slashingCosts: new uint256[](0),
             slashingTimestamps: new uint256[](0)
@@ -62,6 +63,7 @@ contract ProxyLSTCalculatorTest is Test {
 
         ILSTStats.LSTStatsData memory res = _proxyCalculator.current();
         assertEq(res.baseApr, 10);
+        assertEq(res.lastSnapshotTimestamp, 12);
     }
 }
 

@@ -58,6 +58,8 @@ contract BalancerStablePoolCalculatorBaseTest is Test {
 
     TestBalancerCalculator private calculator;
 
+    event DexSnapshotTaken(uint256 snapshotTimestamp, uint256 priorFeeApr, uint256 newFeeApr, uint256 unfilteredFeeApr);
+
     function setUp() public {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), TARGET_BLOCK);
 
@@ -206,6 +208,10 @@ contract BalancerStablePoolCalculatorBaseTest is Test {
         mockStatsEthPerToken(address(rETHStats), newEthPerShare);
         mockTokenPrice(RETH_MAINNET, 1e18);
         mockTokenPrice(WETH_MAINNET, 1e18);
+
+        vm.expectEmit(true, true, true, false);
+        emit DexSnapshotTaken(0, 0, 0, 0);
+
         calculator.snapshot();
 
         uint256 totalReserves = TARGET_BLOCK_RESERVE_0 + TARGET_BLOCK_RESERVE_1;
@@ -325,6 +331,8 @@ contract BalancerStablePoolCalculatorBaseTest is Test {
         assertEq(current.lstStatsData[1].baseApr, 0);
         assertEq(current.lstStatsData[1].slashingCosts.length, 0);
         assertEq(current.lstStatsData[1].slashingTimestamps.length, 0);
+
+        assertEq(current.lastSnapshotTimestamp, TARGET_BLOCK_TIMESTAMP);
     }
 
     function testItShouldHandleReserveTokensDecimals() public {
@@ -389,6 +397,7 @@ contract BalancerStablePoolCalculatorBaseTest is Test {
         uint256[] memory slashingTimestamps
     ) internal {
         ILSTStats.LSTStatsData memory res = ILSTStats.LSTStatsData({
+            lastSnapshotTimestamp: 0,
             baseApr: baseApr,
             slashingCosts: slashingCosts,
             slashingTimestamps: slashingTimestamps

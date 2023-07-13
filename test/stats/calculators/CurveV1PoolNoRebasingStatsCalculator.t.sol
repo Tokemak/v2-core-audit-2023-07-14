@@ -51,6 +51,8 @@ contract CurveV1PoolNoRebasingStatsCalculatorTest is Test {
 
     CurveV1PoolNoRebasingStatsCalculator private calculator;
 
+    event DexSnapshotTaken(uint256 snapshotTimestamp, uint256 priorFeeApr, uint256 newFeeApr, uint256 unfilteredFeeApr);
+
     function setUp() public {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), TARGET_BLOCK);
 
@@ -180,6 +182,10 @@ contract CurveV1PoolNoRebasingStatsCalculatorTest is Test {
             ((calculator.feeApr() * (1e18 - Stats.DEX_FEE_ALPHA)) + (annualizedChg * Stats.DEX_FEE_ALPHA)) / 1e18;
 
         mockVirtualPrice(newVirtualPrice);
+
+        vm.expectEmit(true, true, true, false);
+        emit DexSnapshotTaken(0, 0, 0, 0);
+
         calculator.snapshot();
 
         assertApproxEqAbs(calculator.feeApr(), expectedFeeApr, 50); // allow for rounding loss
@@ -304,6 +310,7 @@ contract CurveV1PoolNoRebasingStatsCalculatorTest is Test {
         assertEq(current.lstStatsData[1].baseApr, 12);
         assertEq(current.lstStatsData[1].slashingCosts.length, 0);
         assertEq(current.lstStatsData[1].slashingTimestamps.length, 0);
+        assertEq(current.lastSnapshotTimestamp, TARGET_BLOCK_TIMESTAMP);
     }
 
     function initializeSuccessfully() internal {
@@ -400,6 +407,7 @@ contract CurveV1PoolNoRebasingStatsCalculatorTest is Test {
         uint256[] memory slashingTimestamps
     ) internal {
         ILSTStats.LSTStatsData memory res = ILSTStats.LSTStatsData({
+            lastSnapshotTimestamp: 0,
             baseApr: baseApr,
             slashingCosts: slashingCosts,
             slashingTimestamps: slashingTimestamps

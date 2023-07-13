@@ -2,7 +2,7 @@
 // Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
-import { Test, console2 as console } from "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 import { StethLSTCalculator } from "src/stats/calculators/StethLSTCalculator.sol";
 import { SystemRegistry } from "src/SystemRegistry.sol";
 import { AccessController } from "src/security/AccessController.sol";

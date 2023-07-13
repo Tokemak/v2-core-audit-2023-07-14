@@ -157,7 +157,12 @@ abstract contract CurvePoolNoRebasingCalculatorBase is IDexLSTStats, BaseStatsCa
                 lstStatsData[i] = lstStats[i].current();
             }
         }
-        return DexLSTStatsData({ feeApr: feeApr, lstStatsData: lstStatsData, reservesInEth: reservesInEth });
+        return DexLSTStatsData({
+            lastSnapshotTimestamp: lastSnapshotTimestamp,
+            feeApr: feeApr,
+            lstStatsData: lstStatsData,
+            reservesInEth: reservesInEth
+        });
     }
 
     /// @notice Capture stat data about this setup
@@ -172,12 +177,14 @@ abstract contract CurvePoolNoRebasingCalculatorBase is IDexLSTStats, BaseStatsCa
         uint256 newFeeApr;
         if (feeAprFilterInitialized) {
             // filter normally once the filter has been initialized
-            newFeeApr = ((feeApr * (1e18 - Stats.DEX_FEE_ALPHA)) + (currentFeeApr * Stats.DEX_FEE_ALPHA)) / 1e18;
+            newFeeApr = Stats.getFilteredValue(Stats.DEX_FEE_ALPHA, feeApr, currentFeeApr);
         } else {
             // first raw sample is used to initialize the filter
             newFeeApr = currentFeeApr;
             feeAprFilterInitialized = true;
         }
+
+        emit DexSnapshotTaken(block.timestamp, feeApr, newFeeApr, currentFeeApr);
 
         lastSnapshotTimestamp = block.timestamp;
         lastVirtualPrice = currentVirtualPrice;

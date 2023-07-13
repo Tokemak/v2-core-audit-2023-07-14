@@ -11,20 +11,43 @@ import { Stats } from "src/stats/Stats.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
 
 abstract contract LSTCalculatorBase is ILSTStats, BaseStatsCalculator, Initializable {
+    /// @notice time in seconds between apr snapshots
     uint256 public constant APR_SNAPSHOT_INTERVAL_IN_SEC = 3 * 24 * 60 * 60; // 3 days
-    uint256 public constant APR_FILTER_INIT_INTERVAL_IN_SEC = 9 * 24 * 60 * 60; // 9 days
-    uint256 public constant SLASHING_SNAPSHOT_INTERVAL_IN_SEC = 24 * 60 * 60; // 1 day
-    uint256 public constant ALPHA = 1e17; // 0.1; must be less than 1e18
 
+    /// @notice time in seconds for the initialization period
+    uint256 public constant APR_FILTER_INIT_INTERVAL_IN_SEC = 9 * 24 * 60 * 60; // 9 days
+
+    /// @notice time in seconds between slashing snapshots
+    uint256 public constant SLASHING_SNAPSHOT_INTERVAL_IN_SEC = 24 * 60 * 60; // 1 day
+
+    /// @notice alpha for filter
+    uint256 public constant ALPHA = 1e17; // 0.1; must be 0 < x <= 1e18
+
+    /// @notice lstTokenAddress is the address for the LST that the stats are for
     address public lstTokenAddress;
+
+    /// @notice ethPerToken at the last snapshot for base apr
     uint256 public lastBaseAprEthPerToken;
+
+    /// @notice timestamp of the last snapshot for base apr
     uint256 public lastBaseAprSnapshotTimestamp;
+
+    /// @notice ethPerToken at the last snapshot for slashing events
     uint256 public lastSlashingEthPerToken;
+
+    /// @notice timestamp of the last snapshot for base apr
     uint256 public lastSlashingSnapshotTimestamp;
 
+    /// @notice filtered base apr
     uint256 public baseApr;
-    bool public baseAprFilterInitialized; // indicates if baseApr filter is initialized
+
+    /// @notice indicates if baseApr filter is initialized
+    bool public baseAprFilterInitialized;
+
+    /// @notice list of slashing costs (slashing / value at the time)
     uint256[] public slashingCosts;
+
+    /// @notice list of timestamps associated with slashing events
     uint256[] public slashingTimestamps;
 
     bytes32 private _aprId;
@@ -82,7 +105,7 @@ abstract contract LSTCalculatorBase is ILSTStats, BaseStatsCalculator, Initializ
             );
             uint256 newBaseApr;
             if (baseAprFilterInitialized) {
-                newBaseApr = ((baseApr * (1e18 - ALPHA)) + (currentApr * ALPHA)) / 1e18;
+                newBaseApr = Stats.getFilteredValue(ALPHA, baseApr, currentApr);
             } else {
                 // Speed up the baseApr filter ramp
                 newBaseApr = currentApr;
@@ -163,7 +186,20 @@ abstract contract LSTCalculatorBase is ILSTStats, BaseStatsCalculator, Initializ
 
     /// @inheritdoc ILSTStats
     function current() external view returns (LSTStatsData memory) {
-        return LSTStatsData({ baseApr: baseApr, slashingCosts: slashingCosts, slashingTimestamps: slashingTimestamps });
+        uint256 lastSnapshotTimestamp;
+        // slither-disable-next-line timestamp
+        if (lastBaseAprSnapshotTimestamp < lastSlashingSnapshotTimestamp) {
+            lastSnapshotTimestamp = lastBaseAprSnapshotTimestamp;
+        } else {
+            lastSnapshotTimestamp = lastSlashingSnapshotTimestamp;
+        }
+
+        return LSTStatsData({
+            lastSnapshotTimestamp: lastSnapshotTimestamp,
+            baseApr: baseApr,
+            slashingCosts: slashingCosts,
+            slashingTimestamps: slashingTimestamps
+        });
     }
 
     /// @inheritdoc ILSTStats

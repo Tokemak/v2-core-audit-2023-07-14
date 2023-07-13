@@ -2,7 +2,7 @@
 // Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
-import { Test, console2 as console } from "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 import { Stats } from "src/stats/Stats.sol";
 import { CurvePoolRebasingCalculatorBase } from "src/stats/calculators/base/CurvePoolRebasingCalculatorBase.sol";
 import { ICurveRegistry } from "src/interfaces/external/curve/ICurveRegistry.sol";
@@ -51,6 +51,8 @@ contract CurveV1PoolRebasingStatsCalculatorTest is Test {
     AccessController private accessController;
 
     CurveV1PoolRebasingStatsCalculator private calculator;
+
+    event DexSnapshotTaken(uint256 snapshotTimestamp, uint256 priorFeeApr, uint256 newFeeApr, uint256 unfilteredFeeApr);
 
     function setUp() public {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), TARGET_BLOCK);
@@ -220,6 +222,9 @@ contract CurveV1PoolRebasingStatsCalculatorTest is Test {
             (calculator.feeApr() * (1e18 - Stats.DEX_FEE_ALPHA))
                 + ((annualizedFeeChg - scaledBaseApr) * Stats.DEX_FEE_ALPHA)
         ) / 1e18;
+
+        vm.expectEmit(true, true, true, false);
+        emit DexSnapshotTaken(0, 0, 0, 0);
 
         calculator.snapshot();
 
@@ -398,6 +403,8 @@ contract CurveV1PoolRebasingStatsCalculatorTest is Test {
         assertEq(current.lstStatsData[1].baseApr, 10);
         assertEq(current.lstStatsData[1].slashingCosts.length, 0);
         assertEq(current.lstStatsData[1].slashingTimestamps.length, 0);
+
+        assertEq(current.lastSnapshotTimestamp, TARGET_BLOCK_TIMESTAMP);
     }
 
     function initializeSuccessfully(uint256 startingEthPerToken) internal {
@@ -497,6 +504,7 @@ contract CurveV1PoolRebasingStatsCalculatorTest is Test {
         uint256[] memory slashingTimestamps
     ) internal {
         ILSTStats.LSTStatsData memory res = ILSTStats.LSTStatsData({
+            lastSnapshotTimestamp: 0,
             baseApr: baseApr,
             slashingCosts: slashingCosts,
             slashingTimestamps: slashingTimestamps
