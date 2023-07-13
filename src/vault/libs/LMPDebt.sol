@@ -12,9 +12,11 @@ import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/ext
 import { ISystemRegistry, IDestinationVaultRegistry } from "src/interfaces/ISystemRegistry.sol";
 
 library LMPDebt {
+    using Math for uint256;
     using SafeERC20 for IERC20;
 
     error VaultShutdown();
+    error WithdrawShareCalcInvalid(uint256 currentShares, uint256 cachedShares);
 
     struct DestinationInfo {
         /// @notice Current underlying and reward value at the destination vault
@@ -40,6 +42,82 @@ library LMPDebt {
         address tokenOut;
         IERC20 _baseAsset;
         bool _shutdown;
+    }
+
+    /// @dev In memory struct only for managing vars in rebalances
+    struct IdleDebtChange {
+        uint256 debtDecrease;
+        uint256 debtIncrease;
+        uint256 idleDecrease;
+        uint256 idleIncrease;
+    }
+
+    function _calcUserWithdrawSharesToBurn(
+        DestinationInfo storage destInfo,
+        IDestinationVault destVault,
+        uint256 userShares,
+        uint256 maxAssetsToPull,
+        uint256 totalVaultShares
+    ) internal returns (uint256 sharesToBurn, uint256 totalDebtBurn) {
+        // Figure out how many shares we can burn from the destination as well
+        // as what our totalDebt deduction should be (totalDebt being a cached value).
+        // If the destination vault is currently sitting at a profit, then the user can burn
+        // all the shares this vault owns. If its at a loss, they can only burn an amount
+        // proportional to their ownership of this vault. This is so a user doesn't lock in
+        // a loss for the entire vault during their withdrawal
+
+        address vault = address(destVault);
+        uint256 currentDvShares = destVault.balanceOf(address(this));
+
+        // slither-disable-next-line incorrect-equality
+        if (currentDvShares == 0) {
+            return (0, 0);
+        }
+
+        // Calculate the current value of our shares
+        uint256 currentDvDebtValue = destVault.debtValue(currentDvShares);
+
+        // Get the basis for the current deployment
+        uint256 cachedDebtBasis = destInfo.debtBasis;
+
+        // The amount of shares we had at the last debt reporting
+        uint256 cachedDvShares = destInfo.ownedShares;
+
+        // The value of our debt + earned rewards at last debt reporting
+        uint256 cachedCurrentDebt = destInfo.currentDebt;
+
+        // Our current share balance should only ever be lte the last snapshot
+        // Any update to the deployment should update the snapshot and withdrawals
+        // can only lower it
+        if (currentDvShares > cachedDvShares) {
+            revert WithdrawShareCalcInvalid(currentDvShares, cachedDvShares);
+        }
+
+        // Recalculated what the debtBasis is with the current number of shares
+        uint256 updatedDebtBasis = cachedDebtBasis.mulDiv(currentDvShares, cachedDvShares, Math.Rounding.Up);
+
+        // Neither of these numbers include rewards from the DV
+        if (currentDvDebtValue < updatedDebtBasis) {
+            // We are currently sitting at a loss. Limit the value we can pull from
+            // the destination vault
+            currentDvDebtValue = currentDvDebtValue.mulDiv(userShares, totalVaultShares, Math.Rounding.Down);
+            currentDvShares = currentDvShares.mulDiv(userShares, totalVaultShares, Math.Rounding.Down);
+        }
+
+        // Shouldn't pull more than we want
+        // Or, we're not in profit so we limit the pull
+        if (currentDvDebtValue < maxAssetsToPull) {
+            maxAssetsToPull = currentDvDebtValue;
+        }
+
+        // Calculate the portion of shares to burn based on the assets we need to pull
+        // and the current total debt value. These are destination vault shares.
+        sharesToBurn = currentDvShares.mulDiv(maxAssetsToPull, currentDvDebtValue, Math.Rounding.Up);
+
+        // This is what will be deducted from totalDebt with the withdrawal. The totalDebt number
+        // is calculated based on the cached values so we need to be sure to reduce it
+        // proportional to the original cached debt value
+        totalDebtBurn = cachedCurrentDebt.mulDiv(sharesToBurn, cachedDvShares, Math.Rounding.Up);
     }
 
     /// @notice Perform deposit and debt info update for the "in" destination during a rebalance
@@ -68,18 +146,21 @@ library LMPDebt {
             _recalculateDestInfo(destInfo, dvIn, originalShareBal, originalShareBal + newShares, true);
     }
 
-    /// @notice Perform withdraw and debt info update for the "out" destination during a rebalance
-    /// @dev This "out" function performs more validations and handles idle as opposed to "in" which does not
-    /// @param params Rebalance out params
-    /// @param destOutInfo The "out" destination vault info
-    /// @return debtDecrease The previous amount of debt destinationOut accounted for in totalDebt
-    /// @return debtIncrease The current amount of debt destinationOut should account for in totalDebt
-    /// @return idleDecrease Amount of baseAsset that was sent from the vault. > 0 only when tokenOut == baseAsset
-    /// @return idleIncrease Amount of baseAsset that was claimed from Destination Vault
+    /**
+     * @notice Perform withdraw and debt info update for the "out" destination during a rebalance
+     * @dev This "out" function performs more validations and handles idle as opposed to "in" which does not
+     *  debtDecrease The previous amount of debt destinationOut accounted for in totalDebt
+     *  debtIncrease The current amount of debt destinationOut should account for in totalDebt
+     *  idleDecrease Amount of baseAsset that was sent from the vault. > 0 only when tokenOut == baseAsset
+     *  idleIncrease Amount of baseAsset that was claimed from Destination Vault
+     * @param params Rebalance out params
+     * @param destOutInfo The "out" destination vault info
+     * @return assetChange debt and idle change data
+     */
     function _handleRebalanceOut(
         RebalanceOutParams memory params,
         DestinationInfo storage destOutInfo
-    ) external returns (uint256 debtDecrease, uint256 debtIncrease, uint256 idleDecrease, uint256 idleIncrease) {
+    ) external returns (IdleDebtChange memory assetChange) {
         // Handle decrease (shares going "Out", cashing in shares and sending underlying back to swapper)
         // If the tokenOut is _asset we assume they are taking idle
         // which is already in the contract
@@ -99,10 +180,10 @@ library LMPDebt {
                 // slither-disable-next-line unused-return
                 dvOut.withdrawUnderlying(params.amountOut, params.receiver);
 
-                idleIncrease = params._baseAsset.balanceOf(address(this)) - beforeBaseAssetBal;
+                assetChange.idleIncrease = params._baseAsset.balanceOf(address(this)) - beforeBaseAssetBal;
 
                 // Update the debt info snapshot
-                (debtDecrease, debtIncrease) = _recalculateDestInfo(
+                (assetChange.debtDecrease, assetChange.debtIncrease) = _recalculateDestInfo(
                     destOutInfo, dvOut, originalShareBal, originalShareBal - params.amountOut, true
                 );
             } else {
@@ -114,7 +195,7 @@ library LMPDebt {
                 // Working with idle baseAsset which should be in the vault already
                 // Just send it out
                 IERC20(params.tokenOut).safeTransfer(params.receiver, params.amountOut);
-                idleDecrease = params.amountOut;
+                assetChange.idleDecrease = params.amountOut;
             }
         }
     }
