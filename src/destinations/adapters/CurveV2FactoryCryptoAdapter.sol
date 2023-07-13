@@ -33,6 +33,18 @@ library CurveV2FactoryCryptoAdapter {
         address poolAddress
     );
 
+    /**
+     * @notice Deploy liquidity to Curve pool
+     *  @dev Calls to external contract
+     *  @dev We trust sender to send a true Curve poolAddress.
+     *       If it's not the case it will fail in the remove_liquidity_one_coin part
+     *  @param amounts Amounts of coin to deploy
+     *  @param minLpMintAmount Amount of LP tokens to mint on deposit
+     *  @param poolAddress Curve pool address
+     *  @param lpTokenAddress LP token of the pool to track
+     *  @param weth WETH address on the operating chain
+     *  @param useEth A flag to whether use ETH or WETH for deployment
+     */
     function addLiquidity(
         uint256[] calldata amounts,
         uint256 minLpMintAmount,
@@ -41,6 +53,7 @@ library CurveV2FactoryCryptoAdapter {
         IWETH9 weth,
         bool useEth
     ) public {
+        //slither-disable-start reentrancy-events
         _validateAmounts(amounts);
         Errors.verifyNotZero(minLpMintAmount, "minLpMintAmount");
         Errors.verifyNotZero(poolAddress, "poolAddress");
@@ -74,8 +87,22 @@ library CurveV2FactoryCryptoAdapter {
             [deployed, lpToken.balanceOf(address(this)), lpToken.totalSupply()],
             poolAddress
         );
+        //slither-disable-end reentrancy-events
     }
 
+    /**
+     * @notice Withdraw liquidity from Curve pool
+     *  @dev Calls to external contract
+     *  @dev We trust sender to send a true Curve poolAddress.
+     *       If it's not the case it will fail in the remove_liquidity_one_coin part
+     *  @param amounts Minimum amounts of coin to receive
+     *  @param maxLpBurnAmount Amount of LP tokens to burn in the withdrawal
+     *  @param poolAddress Curve pool address
+     *  @param lpTokenAddress LP token of the pool to burn
+     *  @param weth WETH address on the operating chain
+     *  @return tokens Addresses of the withdrawn tokens
+     *  @return actualAmounts Amounts of the withdrawn tokens
+     */
     function removeLiquidity(
         uint256[] memory amounts,
         uint256 maxLpBurnAmount,
@@ -83,6 +110,7 @@ library CurveV2FactoryCryptoAdapter {
         address lpTokenAddress,
         IWETH9 weth
     ) public returns (address[] memory tokens, uint256[] memory actualAmounts) {
+        //slither-disable-start reentrancy-events
         if (amounts.length > 4) {
             revert Errors.InvalidParam("amounts");
         }
@@ -133,18 +161,22 @@ library CurveV2FactoryCryptoAdapter {
             [lpTokenAmount, lpTokenBalanceAfter, IERC20(lpTokenAddress).totalSupply()],
             poolAddress
         );
+        //slither-disable-end reentrancy-events
     }
 
-    /// @notice Withdraw liquidity from Curve pool
-    /// @dev Calls to external contract
-    /// @dev We trust sender to send a true Curve poolAddress.
-    ///      If it's not the case it will fail in the remove_liquidity_one_coin part
-    /// @param poolAddress Curve pool address
-    /// @param lpBurnAmount Amount of LP tokens to burn in the withdrawal
-    /// @param coinIndex Index value of the coin to withdraw
-    /// @param minAmount Minimum amount of coin to receive
-    /// @return coinAmount Actual amount of the withdrawn token
-    /// @return coin Address of the withdrawn token
+    /**
+     * @notice Withdraw liquidity from Curve pool
+     *  @dev Calls to external contract
+     *  @dev We trust sender to send a true Curve poolAddress.
+     *       If it's not the case it will fail in the remove_liquidity_one_coin part
+     *  @param poolAddress Curve pool address
+     *  @param lpBurnAmount Amount of LP tokens to burn in the withdrawal
+     *  @param coinIndex Index value of the coin to withdraw
+     *  @param minAmount Minimum amount of coin to receive
+     *  @param weth WETH address on the operating chain
+     *  @return coinAmount Actual amount of the withdrawn token
+     *  @return coin Address of the withdrawn token
+     */
     function removeLiquidityOneCoin(
         address poolAddress,
         uint256 lpBurnAmount,
@@ -152,6 +184,8 @@ library CurveV2FactoryCryptoAdapter {
         uint256 minAmount,
         IWETH9 weth
     ) public returns (uint256 coinAmount, address coin) {
+        //slither-disable-start reentrancy-events
+
         // We don't check for a minAmount == 0 as that is a valid scenario on
         // withdrawals where the user accounts for slippage at the router
         Errors.verifyNotZero(poolAddress, "poolAddress");
@@ -191,6 +225,7 @@ library CurveV2FactoryCryptoAdapter {
         }
 
         _emitWithdraw(coinAmount, coin, [lpTokenAmount, lpTokenBalanceAfter], poolAddress);
+        //slither-disable-end reentrancy-events
     }
 
     /**
