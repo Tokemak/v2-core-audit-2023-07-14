@@ -642,98 +642,112 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         RebalanceParams memory rebalanceParams,
         bytes calldata data
     ) public nonReentrant hasRole(Roles.SOLVER_ROLE) trackNavOps {
-        (uint256 idle, uint256 debt) = _flashRebalance(receiver, rebalanceParams, data);
+        (uint256 idle, uint256 debt) = LMPDebt.flashRebalance(
+            destinationInfo[rebalanceParams.destinationOut],
+            destinationInfo[rebalanceParams.destinationIn],
+            receiver,
+            rebalanceParams,
+            LMPDebt.FlashRebalanceParams({
+                totalIdle: totalIdle,
+                totalDebt: totalDebt,
+                baseAsset: _baseAsset,
+                shutdown: _shutdown
+            }),
+            data
+        );
+        totalIdle = idle;
+        totalDebt = debt;
         _collectFees(idle, debt, totalSupply());
     }
 
-    function _flashRebalance(
-        IERC3156FlashBorrower receiver,
-        RebalanceParams memory params,
-        bytes calldata data
-    ) private returns (uint256 idle, uint256 debt) {
-        LMPDebt.IdleDebtChange memory idleDebtChange;
+    // function _flashRebalance(
+    //     IERC3156FlashBorrower receiver,
+    //     RebalanceParams memory params,
+    //     bytes calldata data
+    // ) private returns (uint256 idle, uint256 debt) {
+    //     LMPDebt.IdleDebtChange memory idleDebtChange;
 
-        // make sure there's something to do
-        if (params.amountIn == 0 && params.amountOut == 0) {
-            revert Errors.InvalidParams();
-        }
+    //     // make sure there's something to do
+    //     if (params.amountIn == 0 && params.amountOut == 0) {
+    //         revert Errors.InvalidParams();
+    //     }
 
-        if (params.destinationIn == params.destinationOut) {
-            revert RebalanceDestinationsMatch(params.destinationOut);
-        }
+    //     if (params.destinationIn == params.destinationOut) {
+    //         revert RebalanceDestinationsMatch(params.destinationOut);
+    //     }
 
-        // make sure we have a valid path
-        {
-            (bool success, string memory message) = LMPStrategy.verifyRebalance(params);
-            if (!success) {
-                revert RebalanceFailed(message);
-            }
-        }
+    //     // make sure we have a valid path
+    //     {
+    //         (bool success, string memory message) = LMPStrategy.verifyRebalance(params);
+    //         if (!success) {
+    //             revert RebalanceFailed(message);
+    //         }
+    //     }
 
-        // Handle decrease (shares going "Out", cashing in shares and sending underlying back to swapper)
-        // If the tokenOut is _asset we assume they are taking idle
-        // which is already in the contract
-        idleDebtChange = LMPDebt._handleRebalanceOut(
-            LMPDebt.RebalanceOutParams({
-                receiver: address(receiver),
-                destinationOut: params.destinationOut,
-                amountOut: params.amountOut,
-                tokenOut: params.tokenOut,
-                _baseAsset: _baseAsset,
-                _shutdown: _shutdown
-            }),
-            destinationInfo[address(params.destinationOut)]
-        );
+    //     // Handle decrease (shares going "Out", cashing in shares and sending underlying back to swapper)
+    //     // If the tokenOut is _asset we assume they are taking idle
+    //     // which is already in the contract
+    //     idleDebtChange = LMPDebt._handleRebalanceOut(
+    //         LMPDebt.RebalanceOutParams({
+    //             receiver: address(receiver),
+    //             destinationOut: params.destinationOut,
+    //             amountOut: params.amountOut,
+    //             tokenOut: params.tokenOut,
+    //             _baseAsset: _baseAsset,
+    //             _shutdown: _shutdown
+    //         }),
+    //         destinationInfo[address(params.destinationOut)]
+    //     );
 
-        // Handle increase (shares coming "In", getting underlying from the swapper and trading for new shares)
-        if (params.amountIn > 0) {
-            IDestinationVault dvIn = IDestinationVault(params.destinationIn);
+    //     // Handle increase (shares coming "In", getting underlying from the swapper and trading for new shares)
+    //     if (params.amountIn > 0) {
+    //         IDestinationVault dvIn = IDestinationVault(params.destinationIn);
 
-            // get "before" counts
-            uint256 tokenInBalanceBefore = IERC20(params.tokenIn).balanceOf(address(this));
+    //         // get "before" counts
+    //         uint256 tokenInBalanceBefore = IERC20(params.tokenIn).balanceOf(address(this));
 
-            // Give control back to the solver so they can make use of the "out" assets
-            // and get our "in" asset
-            bytes32 flashResult = receiver.onFlashLoan(msg.sender, params.tokenIn, params.amountIn, 0, data);
+    //         // Give control back to the solver so they can make use of the "out" assets
+    //         // and get our "in" asset
+    //         bytes32 flashResult = receiver.onFlashLoan(msg.sender, params.tokenIn, params.amountIn, 0, data);
 
-            // We assume the solver will send us the assets
-            uint256 tokenInBalanceAfter = IERC20(params.tokenIn).balanceOf(address(this));
+    //         // We assume the solver will send us the assets
+    //         uint256 tokenInBalanceAfter = IERC20(params.tokenIn).balanceOf(address(this));
 
-            // Make sure the call was successful and verify we have at least the assets we think
-            // we were getting
-            if (
-                flashResult != keccak256("ERC3156FlashBorrower.onFlashLoan")
-                    || tokenInBalanceAfter < tokenInBalanceBefore + params.amountIn
-            ) {
-                revert Errors.FlashLoanFailed(params.tokenIn, params.amountIn);
-            }
+    //         // Make sure the call was successful and verify we have at least the assets we think
+    //         // we were getting
+    //         if (
+    //             flashResult != keccak256("ERC3156FlashBorrower.onFlashLoan")
+    //                 || tokenInBalanceAfter < tokenInBalanceBefore + params.amountIn
+    //         ) {
+    //             revert Errors.FlashLoanFailed(params.tokenIn, params.amountIn);
+    //         }
 
-            if (params.tokenIn != address(_baseAsset)) {
-                (uint256 debtDecreaseIn, uint256 debtIncreaseIn) = LMPDebt._handleRebalanceIn(
-                    destinationInfo[address(dvIn)], dvIn, params.tokenIn, tokenInBalanceAfter
-                );
-                idleDebtChange.debtDecrease += debtDecreaseIn;
-                idleDebtChange.debtIncrease += debtIncreaseIn;
-            } else {
-                idleDebtChange.idleIncrease += tokenInBalanceAfter - tokenInBalanceBefore;
-            }
-        }
+    //         if (params.tokenIn != address(_baseAsset)) {
+    //             (uint256 debtDecreaseIn, uint256 debtIncreaseIn) = LMPDebt._handleRebalanceIn(
+    //                 destinationInfo[address(dvIn)], dvIn, params.tokenIn, tokenInBalanceAfter
+    //             );
+    //             idleDebtChange.debtDecrease += debtDecreaseIn;
+    //             idleDebtChange.debtIncrease += debtIncreaseIn;
+    //         } else {
+    //             idleDebtChange.idleIncrease += tokenInBalanceAfter - tokenInBalanceBefore;
+    //         }
+    //     }
 
-        {
-            idle = totalIdle;
-            debt = totalDebt;
+    //     {
+    //         idle = totalIdle;
+    //         debt = totalDebt;
 
-            if (idleDebtChange.idleDecrease > 0 || idleDebtChange.idleIncrease > 0) {
-                idle = idle + idleDebtChange.idleIncrease - idleDebtChange.idleDecrease;
-                totalIdle = idle;
-            }
+    //         if (idleDebtChange.idleDecrease > 0 || idleDebtChange.idleIncrease > 0) {
+    //             idle = idle + idleDebtChange.idleIncrease - idleDebtChange.idleDecrease;
+    //             totalIdle = idle;
+    //         }
 
-            if (idleDebtChange.debtDecrease > 0 || idleDebtChange.debtIncrease > 0) {
-                debt = debt + idleDebtChange.debtIncrease - idleDebtChange.debtDecrease;
-                totalDebt = debt;
-            }
-        }
-    }
+    //         if (idleDebtChange.debtDecrease > 0 || idleDebtChange.debtIncrease > 0) {
+    //             debt = debt + idleDebtChange.debtIncrease - idleDebtChange.debtDecrease;
+    //             totalDebt = debt;
+    //         }
+    //     }
+    // }
 
     function _rebalance(RebalanceParams memory params) private returns (uint256 idle, uint256 debt) {
         LMPDebt.IdleDebtChange memory idleDebtChange;
@@ -758,7 +772,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         // Handle decrease (shares going "Out", cashing in shares and sending underlying back to swapper)
         // If the tokenOut is _asset we assume they are taking idle
         // which is already in the contract
-        idleDebtChange = LMPDebt._handleRebalanceOut(
+        idleDebtChange = LMPDebt.handleRebalanceOut(
             LMPDebt.RebalanceOutParams({
                 receiver: msg.sender,
                 destinationOut: params.destinationOut,
@@ -780,7 +794,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
             if (params.tokenIn != address(_baseAsset)) {
                 IDestinationVault dvIn = IDestinationVault(params.destinationIn);
                 (uint256 debtDecreaseIn, uint256 debtIncreaseIn) =
-                    LMPDebt._handleRebalanceIn(destinationInfo[address(dvIn)], dvIn, params.tokenIn, params.amountIn);
+                    LMPDebt.handleRebalanceIn(destinationInfo[address(dvIn)], dvIn, params.tokenIn, params.amountIn);
                 idleDebtChange.debtDecrease += debtDecreaseIn;
                 idleDebtChange.debtIncrease += debtIncreaseIn;
             } else {

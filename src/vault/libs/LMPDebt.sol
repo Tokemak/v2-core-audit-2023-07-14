@@ -7,9 +7,12 @@ import { Errors } from "src/utils/Errors.sol";
 import { IDestinationVault } from "src/interfaces/vault/IDestinationVault.sol";
 import { Math } from "openzeppelin-contracts/utils/math/Math.sol";
 import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
+import { IStrategy } from "src/interfaces/strategy/IStrategy.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { ISystemRegistry, IDestinationVaultRegistry } from "src/interfaces/ISystemRegistry.sol";
+import { IERC3156FlashBorrower } from "openzeppelin-contracts/interfaces/IERC3156FlashBorrower.sol";
+import { LMPStrategy } from "src/strategy/LMPStrategy.sol";
 
 library LMPDebt {
     using Math for uint256;
@@ -17,6 +20,8 @@ library LMPDebt {
 
     error VaultShutdown();
     error WithdrawShareCalcInvalid(uint256 currentShares, uint256 cachedShares);
+    error RebalanceDestinationsMatch(address destinationVault);
+    error RebalanceFailed(string message);
 
     struct DestinationInfo {
         /// @notice Current underlying and reward value at the destination vault
@@ -52,13 +57,109 @@ library LMPDebt {
         uint256 idleIncrease;
     }
 
+    struct FlashRebalanceParams {
+        uint256 totalIdle;
+        uint256 totalDebt;
+        IERC20 baseAsset;
+        bool shutdown;
+    }
+
+    function flashRebalance(
+        DestinationInfo storage destInfoOut,
+        DestinationInfo storage destInfoIn,
+        IERC3156FlashBorrower receiver,
+        IStrategy.RebalanceParams memory params,
+        FlashRebalanceParams memory flashParams,
+        bytes calldata data
+    ) external returns (uint256 idle, uint256 debt) {
+        LMPDebt.IdleDebtChange memory idleDebtChange;
+
+        // make sure there's something to do
+        if (params.amountIn == 0 && params.amountOut == 0) {
+            revert Errors.InvalidParams();
+        }
+
+        if (params.destinationIn == params.destinationOut) {
+            revert RebalanceDestinationsMatch(params.destinationOut);
+        }
+
+        // make sure we have a valid path
+        {
+            (bool success, string memory message) = LMPStrategy.verifyRebalance(params);
+            if (!success) {
+                revert RebalanceFailed(message);
+            }
+        }
+
+        // Handle decrease (shares going "Out", cashing in shares and sending underlying back to swapper)
+        // If the tokenOut is _asset we assume they are taking idle
+        // which is already in the contract
+        idleDebtChange = _handleRebalanceOut(
+            LMPDebt.RebalanceOutParams({
+                receiver: address(receiver),
+                destinationOut: params.destinationOut,
+                amountOut: params.amountOut,
+                tokenOut: params.tokenOut,
+                _baseAsset: flashParams.baseAsset,
+                _shutdown: flashParams.shutdown
+            }),
+            destInfoOut
+        );
+
+        // Handle increase (shares coming "In", getting underlying from the swapper and trading for new shares)
+        if (params.amountIn > 0) {
+            IDestinationVault dvIn = IDestinationVault(params.destinationIn);
+
+            // get "before" counts
+            uint256 tokenInBalanceBefore = IERC20(params.tokenIn).balanceOf(address(this));
+
+            // Give control back to the solver so they can make use of the "out" assets
+            // and get our "in" asset
+            bytes32 flashResult = receiver.onFlashLoan(msg.sender, params.tokenIn, params.amountIn, 0, data);
+
+            // We assume the solver will send us the assets
+            uint256 tokenInBalanceAfter = IERC20(params.tokenIn).balanceOf(address(this));
+
+            // Make sure the call was successful and verify we have at least the assets we think
+            // we were getting
+            if (
+                flashResult != keccak256("ERC3156FlashBorrower.onFlashLoan")
+                    || tokenInBalanceAfter < tokenInBalanceBefore + params.amountIn
+            ) {
+                revert Errors.FlashLoanFailed(params.tokenIn, params.amountIn);
+            }
+
+            if (params.tokenIn != address(flashParams.baseAsset)) {
+                (uint256 debtDecreaseIn, uint256 debtIncreaseIn) =
+                    _handleRebalanceIn(destInfoIn, dvIn, params.tokenIn, tokenInBalanceAfter);
+                idleDebtChange.debtDecrease += debtDecreaseIn;
+                idleDebtChange.debtIncrease += debtIncreaseIn;
+            } else {
+                idleDebtChange.idleIncrease += tokenInBalanceAfter - tokenInBalanceBefore;
+            }
+        }
+
+        {
+            idle = flashParams.totalIdle;
+            debt = flashParams.totalDebt;
+
+            if (idleDebtChange.idleDecrease > 0 || idleDebtChange.idleIncrease > 0) {
+                idle = idle + idleDebtChange.idleIncrease - idleDebtChange.idleDecrease;
+            }
+
+            if (idleDebtChange.debtDecrease > 0 || idleDebtChange.debtIncrease > 0) {
+                debt = debt + idleDebtChange.debtIncrease - idleDebtChange.debtDecrease;
+            }
+        }
+    }
+
     function _calcUserWithdrawSharesToBurn(
         DestinationInfo storage destInfo,
         IDestinationVault destVault,
         uint256 userShares,
         uint256 maxAssetsToPull,
         uint256 totalVaultShares
-    ) internal returns (uint256 sharesToBurn, uint256 totalDebtBurn) {
+    ) external returns (uint256 sharesToBurn, uint256 totalDebtBurn) {
         // Figure out how many shares we can burn from the destination as well
         // as what our totalDebt deduction should be (totalDebt being a cached value).
         // If the destination vault is currently sitting at a profit, then the user can burn
@@ -126,12 +227,28 @@ library LMPDebt {
     /// @param depositAmount The amount of tokenIn that will be deposited
     /// @return debtDecrease The previous amount of debt dvIn accounted for in totalDebt
     /// @return debtIncrease The current amount of debt dvIn should account for in totalDebt
-    function _handleRebalanceIn(
+    function handleRebalanceIn(
         DestinationInfo storage destInfo,
         IDestinationVault dvIn,
         address tokenIn,
         uint256 depositAmount
     ) external returns (uint256 debtDecrease, uint256 debtIncrease) {
+        (debtDecrease, debtIncrease) = _handleRebalanceIn(destInfo, dvIn, tokenIn, depositAmount);
+    }
+
+    /// @notice Perform deposit and debt info update for the "in" destination during a rebalance
+    /// @dev This "in" function performs less validations than its "out" version
+    /// @param dvIn The "in" destination vault
+    /// @param tokenIn The underlyer for dvIn
+    /// @param depositAmount The amount of tokenIn that will be deposited
+    /// @return debtDecrease The previous amount of debt dvIn accounted for in totalDebt
+    /// @return debtIncrease The current amount of debt dvIn should account for in totalDebt
+    function _handleRebalanceIn(
+        DestinationInfo storage destInfo,
+        IDestinationVault dvIn,
+        address tokenIn,
+        uint256 depositAmount
+    ) private returns (uint256 debtDecrease, uint256 debtIncrease) {
         IERC20(tokenIn).safeApprove(address(dvIn), depositAmount);
 
         // Snapshot our current shares so we know how much to back out
@@ -156,10 +273,28 @@ library LMPDebt {
      * @param destOutInfo The "out" destination vault info
      * @return assetChange debt and idle change data
      */
-    function _handleRebalanceOut(
+    function handleRebalanceOut(
         RebalanceOutParams memory params,
         DestinationInfo storage destOutInfo
     ) external returns (IdleDebtChange memory assetChange) {
+        (assetChange) = _handleRebalanceOut(params, destOutInfo);
+    }
+
+    /**
+     * @notice Perform withdraw and debt info update for the "out" destination during a rebalance
+     * @dev This "out" function performs more validations and handles idle as opposed to "in" which does not
+     *  debtDecrease The previous amount of debt destinationOut accounted for in totalDebt
+     *  debtIncrease The current amount of debt destinationOut should account for in totalDebt
+     *  idleDecrease Amount of baseAsset that was sent from the vault. > 0 only when tokenOut == baseAsset
+     *  idleIncrease Amount of baseAsset that was claimed from Destination Vault
+     * @param params Rebalance out params
+     * @param destOutInfo The "out" destination vault info
+     * @return assetChange debt and idle change data
+     */
+    function _handleRebalanceOut(
+        RebalanceOutParams memory params,
+        DestinationInfo storage destOutInfo
+    ) private returns (IdleDebtChange memory assetChange) {
         // Handle decrease (shares going "Out", cashing in shares and sending underlying back to swapper)
         // If the tokenOut is _asset we assume they are taking idle
         // which is already in the contract
