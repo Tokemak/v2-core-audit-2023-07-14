@@ -4,9 +4,9 @@
 
 Destination Vaults are vaults that sit in front of any place we may be deploying assets. These vaults act as a common interface to these various places allowing us to hide the intricacies of DeFi from the rest of the system. These vaults also hold any receipt tokens we receive from these deployments. These are not 4626 vaults.
 
-To facilitate the testing of these vaults, each type of destination has an explicitly defined contract in our code base. These are top-level contracts with minimal code, with the majority of the functionality being accessed from the LMP Vault contracts and Adapter libraries.
+To facilitate the testing of these vaults, each type of destination has an explicitly defined contract in our code base. These are top-level contracts with minimal code, with the majority of the functionality being accessed from the Destination Vault contracts and Adapter libraries.
 
-Destination Vaults mint shares based on the total asset value of what is currently held by the contract. For any deposit (past the first), that share equation is simply `deposit * totalSupply / totalAssetValue` where `deposit` and `totalAssetValue` are in the same terms (the “base asset” which is ETH in our MVP case).
+Destination Vaults mint shares on 1:1 proportion against their underlyer and they're priced in terms of Vault's "base asset".
 
 Every new Vault should be based on `src/vault/DestinationVault.sol` which encapsulates all the common functionality and gives the ability to child contracts to define the details of integrating with the specific exchanges. Destination Vaults usually combine two sources of operating destinations: the base layer of depositing (usually a pool) and LP staking part. E.g. in `CurveConvexDestinationVault` we operate with assets deployed to Curve and manage the rewards from staking Curve LPs to Convex.
 
