@@ -12,4 +12,8 @@ contract StethLSTCalculator is LSTCalculatorBase {
     function calculateEthPerToken() public view override returns (uint256) {
         return IstEth(lstTokenAddress).getPooledEthByShares(1 ether);
     }
+
+    function isRebasing() public pure override returns (bool) {
+        return true;
+    }
 }

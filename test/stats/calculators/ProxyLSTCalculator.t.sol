@@ -50,6 +50,7 @@ contract ProxyLSTCalculatorTest is Test {
         ILSTStats.LSTStatsData memory stats = ILSTStats.LSTStatsData({
             lastSnapshotTimestamp: 12,
             baseApr: 10,
+            premium: 0,
             slashingCosts: new uint256[](0),
             slashingTimestamps: new uint256[](0)
         });
@@ -57,9 +58,14 @@ contract ProxyLSTCalculatorTest is Test {
         vm.mockCall(address(_calculator), abi.encodeWithSelector(ILSTStats.current.selector), abi.encode(stats));
 
         bytes32[] memory dependantAprs = new bytes32[](0);
-        ProxyLSTCalculator.InitData memory initData =
-            ProxyLSTCalculator.InitData({ lstTokenAddress: CBETH_MAINNET, statsCalculator: address(_calculator) });
+        ProxyLSTCalculator.InitData memory initData = ProxyLSTCalculator.InitData({
+            lstTokenAddress: CBETH_MAINNET,
+            statsCalculator: address(_calculator),
+            isRebasing: true
+        });
         _proxyCalculator.initialize(dependantAprs, abi.encode(initData));
+
+        assertTrue(_proxyCalculator.isRebasing());
 
         ILSTStats.LSTStatsData memory res = _proxyCalculator.current();
         assertEq(res.baseApr, 10);
@@ -72,5 +78,9 @@ contract LSTCalculatorHarness is LSTCalculatorBase {
 
     function calculateEthPerToken() public pure override returns (uint256) {
         return 0;
+    }
+
+    function isRebasing() public pure override returns (bool) {
+        return false;
     }
 }

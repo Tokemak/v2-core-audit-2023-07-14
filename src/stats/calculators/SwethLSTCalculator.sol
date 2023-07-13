@@ -12,4 +12,8 @@ contract SwethLSTCalculator is LSTCalculatorBase {
     function calculateEthPerToken() public view override returns (uint256) {
         return IswETH(lstTokenAddress).swETHToETHRate();
     }
+
+    function isRebasing() public pure override returns (bool) {
+        return false;
+    }
 }

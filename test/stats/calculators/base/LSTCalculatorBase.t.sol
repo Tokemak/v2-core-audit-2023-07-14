@@ -12,10 +12,13 @@ import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
 import { ILSTStats } from "src/interfaces/stats/ILSTStats.sol";
 import { TOKE_MAINNET, WETH_MAINNET } from "test/utils/Addresses.sol";
+import { RootPriceOracle } from "src/oracles/RootPriceOracle.sol";
+import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 
 contract LSTCalculatorBaseTest is Test {
     SystemRegistry private systemRegistry;
     AccessController private accessController;
+    RootPriceOracle private rootPriceOracle;
 
     TestLSTCalculator private testCalculator;
     address private mockToken = vm.addr(1);
@@ -48,6 +51,8 @@ contract LSTCalculatorBaseTest is Test {
         accessController = new AccessController(address(systemRegistry));
         systemRegistry.setAccessController(address(accessController));
         accessController.grantRole(Roles.STATS_SNAPSHOT_ROLE, address(this));
+        rootPriceOracle = new RootPriceOracle(systemRegistry);
+        systemRegistry.setRootPriceOracle(address(rootPriceOracle));
 
         testCalculator = new TestLSTCalculator(systemRegistry);
     }
@@ -88,10 +93,15 @@ contract LSTCalculatorBaseTest is Test {
         assertEq(testCalculator.lastSlashingSnapshotTimestamp(), endingTimestamp);
         assertEq(testCalculator.lastSlashingEthPerToken(), endingEthPerShare);
 
+        mockCalculateEthPerToken(1e18);
+        mockTokenPrice(1e18);
+        mockIsRebasing(false);
+
         ILSTStats.LSTStatsData memory stats = testCalculator.current();
         assertEq(stats.baseApr, expectedBaseApr);
         assertEq(stats.slashingCosts.length, 0);
         assertEq(stats.slashingTimestamps.length, 0);
+        assertEq(stats.premium, 0);
 
         // APR Increase
         startingEthPerShare = 1_126_897_087_511_522_171;
@@ -133,10 +143,15 @@ contract LSTCalculatorBaseTest is Test {
         assertEq(testCalculator.lastSlashingSnapshotTimestamp(), END_TIMESTAMP);
         assertEq(testCalculator.lastSlashingEthPerToken(), endingEthPerShare);
 
+        mockCalculateEthPerToken(1e18);
+        mockTokenPrice(1e18);
+        mockIsRebasing(false);
+
         stats = testCalculator.current();
         assertEq(stats.baseApr, expectedBaseApr);
         assertEq(stats.slashingCosts.length, 0);
         assertEq(stats.slashingTimestamps.length, 0);
+        assertEq(stats.premium, 0);
     }
 
     function testAprInitDecreaseSnapshot() public {
@@ -175,10 +190,15 @@ contract LSTCalculatorBaseTest is Test {
         assertEq(testCalculator.lastSlashingSnapshotTimestamp(), endingTimestamp);
         assertEq(testCalculator.lastSlashingEthPerToken(), endingEthPerShare);
 
+        mockCalculateEthPerToken(1e18);
+        mockTokenPrice(1e18);
+        mockIsRebasing(false);
+
         ILSTStats.LSTStatsData memory stats = testCalculator.current();
         assertEq(stats.baseApr, expectedBaseApr);
         assertEq(stats.slashingCosts.length, 0);
         assertEq(stats.slashingTimestamps.length, 0);
+        assertEq(stats.premium, 0);
 
         // APR Decrease
         startingEthPerShare = 1_126_897_087_511_522_171;
@@ -211,6 +231,10 @@ contract LSTCalculatorBaseTest is Test {
         assertEq(testCalculator.lastSlashingSnapshotTimestamp(), END_TIMESTAMP);
         assertEq(testCalculator.lastSlashingEthPerToken(), endingEthPerShare);
 
+        mockCalculateEthPerToken(1e18);
+        mockTokenPrice(1e18);
+        mockIsRebasing(false);
+
         stats = testCalculator.current();
         assertEq(stats.baseApr, expectedBaseApr);
         assertEq(stats.slashingCosts.length, 1);
@@ -218,6 +242,7 @@ contract LSTCalculatorBaseTest is Test {
         assertEq(stats.slashingTimestamps[0], END_TIMESTAMP);
         assertEq(stats.slashingCosts[0], slashingCost);
         assertEq(stats.lastSnapshotTimestamp, END_TIMESTAMP);
+        assertEq(stats.premium, 0);
     }
 
     function testRevertNoSnapshot() public {
@@ -258,10 +283,15 @@ contract LSTCalculatorBaseTest is Test {
         assertEq(testCalculator.lastSlashingSnapshotTimestamp(), endingTimestamp);
         assertEq(testCalculator.lastSlashingEthPerToken(), endingEthPerShare);
 
+        mockCalculateEthPerToken(1e18);
+        mockTokenPrice(1e18);
+        mockIsRebasing(false);
+
         ILSTStats.LSTStatsData memory stats = testCalculator.current();
         assertEq(stats.baseApr, 0);
         assertEq(stats.slashingCosts.length, 0);
         assertEq(stats.slashingTimestamps.length, 0);
+        assertEq(stats.premium, 0);
     }
 
     function testSlashingEventOccurred() public {
@@ -293,15 +323,64 @@ contract LSTCalculatorBaseTest is Test {
         assertEq(testCalculator.lastSlashingSnapshotTimestamp(), endingTimestamp);
         assertEq(testCalculator.lastSlashingEthPerToken(), endingEthPerShare);
 
+        mockCalculateEthPerToken(1e18);
+        mockTokenPrice(1e18);
+        mockIsRebasing(false);
+
         ILSTStats.LSTStatsData memory stats = testCalculator.current();
         assertEq(stats.baseApr, 0);
         assertEq(stats.slashingCosts.length, 1);
         assertEq(stats.slashingTimestamps.length, 1);
         assertEq(stats.slashingTimestamps[0], endingTimestamp);
         assertEq(stats.slashingCosts[0], expectedSlashingCost);
+        assertEq(stats.premium, 0);
 
-        // should use the minimum between slashing and baseApr
-        assertEq(stats.lastSnapshotTimestamp, START_TIMESTAMP);
+        // should use the maximum between slashing and baseApr
+        assertEq(stats.lastSnapshotTimestamp, endingTimestamp);
+    }
+
+    function testPremiumShouldCalculateCorrectly() public {
+        mockCalculateEthPerToken(1e17); // starting value doesn't matter for these tests
+        initCalculator();
+
+        ILSTStats.LSTStatsData memory stats;
+        int256 expected;
+
+        // test handling a premium with a non-rebasing token
+        mockCalculateEthPerToken(1e18);
+        mockTokenPrice(11e17);
+        mockIsRebasing(false);
+
+        expected = int256(11e17 * 1e18) / 1e18 - 1e18;
+        stats = testCalculator.current();
+        assertEq(stats.premium, expected);
+
+        // test handling a discount with a non-rebasing token
+        mockCalculateEthPerToken(11e17);
+        mockTokenPrice(1e18);
+        mockIsRebasing(false);
+
+        expected = int256(1e18 * 1e18) / 11e17 - 1e18;
+        stats = testCalculator.current();
+        assertEq(stats.premium, expected);
+
+        // test handling a premium for a rebasing token
+        // do not mock ethPerToken
+        mockTokenPrice(12e17);
+        mockIsRebasing(true);
+
+        expected = int256(12e17) - 1e18;
+        stats = testCalculator.current();
+        assertEq(stats.premium, expected);
+
+        // test handling a discount for a rebasing token
+        // do not mock ethPerToken
+        mockTokenPrice(9e17);
+        mockIsRebasing(true);
+
+        expected = int256(9e17) - 1e18;
+        stats = testCalculator.current();
+        assertEq(stats.premium, expected);
     }
 
     function initCalculator() private {
@@ -313,10 +392,23 @@ contract LSTCalculatorBaseTest is Test {
     function mockCalculateEthPerToken(uint256 amount) private {
         vm.mockCall(mockToken, abi.encodeWithSelector(MockToken.getValue.selector), abi.encode(amount));
     }
+
+    function mockIsRebasing(bool value) private {
+        vm.mockCall(mockToken, abi.encodeWithSelector(MockToken.isRebasing.selector), abi.encode(value));
+    }
+
+    function mockTokenPrice(uint256 price) internal {
+        vm.mockCall(
+            address(rootPriceOracle),
+            abi.encodeWithSelector(IRootPriceOracle.getPriceInEth.selector, mockToken),
+            abi.encode(price)
+        );
+    }
 }
 
 interface MockToken {
     function getValue() external view returns (uint256);
+    function isRebasing() external view returns (bool);
 }
 
 contract TestLSTCalculator is LSTCalculatorBase {
@@ -325,5 +417,10 @@ contract TestLSTCalculator is LSTCalculatorBase {
     function calculateEthPerToken() public view override returns (uint256) {
         // always mock the value
         return MockToken(lstTokenAddress).getValue();
+    }
+
+    function isRebasing() public view override returns (bool) {
+        // always mock the value
+        return MockToken(lstTokenAddress).isRebasing();
     }
 }

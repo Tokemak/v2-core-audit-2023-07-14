@@ -12,4 +12,8 @@ contract RethLSTCalculator is LSTCalculatorBase {
     function calculateEthPerToken() public view override returns (uint256) {
         return IRocketTokenRETHInterface(lstTokenAddress).getExchangeRate();
     }
+
+    function isRebasing() public pure override returns (bool) {
+        return false;
+    }
 }

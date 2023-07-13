@@ -506,6 +506,7 @@ contract CurveV1PoolRebasingStatsCalculatorTest is Test {
         ILSTStats.LSTStatsData memory res = ILSTStats.LSTStatsData({
             lastSnapshotTimestamp: 0,
             baseApr: baseApr,
+            premium: 0,
             slashingCosts: slashingCosts,
             slashingTimestamps: slashingTimestamps
         });

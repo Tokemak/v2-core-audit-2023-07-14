@@ -399,6 +399,7 @@ contract BalancerStablePoolCalculatorBaseTest is Test {
         ILSTStats.LSTStatsData memory res = ILSTStats.LSTStatsData({
             lastSnapshotTimestamp: 0,
             baseApr: baseApr,
+            premium: 0,
             slashingCosts: slashingCosts,
             slashingTimestamps: slashingTimestamps
         });
@@ -429,7 +430,7 @@ contract TestBalancerCalculator is BalancerStablePoolCalculatorBase {
     ) BalancerStablePoolCalculatorBase(_systemRegistry, vault) { }
 
     function getVirtualPrice() internal view override returns (uint256) {
-        // TODO: correct for adminFee issue
+        // Note: this does not correct for an issue related to balancer not accruing admin fees
         return IBalancerMetaStablePool(poolAddress).getRate();
     }
 

@@ -12,4 +12,8 @@ contract CbethLSTCalculator is LSTCalculatorBase {
     function calculateEthPerToken() public view override returns (uint256) {
         return IStakedTokenV1(lstTokenAddress).exchangeRate();
     }
+
+    function isRebasing() public pure override returns (bool) {
+        return false;
+    }
 }

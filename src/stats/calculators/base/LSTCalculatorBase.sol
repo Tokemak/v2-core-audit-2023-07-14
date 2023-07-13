@@ -9,6 +9,7 @@ import { IStatsCalculator } from "src/interfaces/stats/IStatsCalculator.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { Stats } from "src/stats/Stats.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
+import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 
 abstract contract LSTCalculatorBase is ILSTStats, BaseStatsCalculator, Initializable {
     /// @notice time in seconds between apr snapshots
@@ -185,18 +186,39 @@ abstract contract LSTCalculatorBase is ILSTStats, BaseStatsCalculator, Initializ
     }
 
     /// @inheritdoc ILSTStats
-    function current() external view returns (LSTStatsData memory) {
+    function current() external returns (LSTStatsData memory) {
         uint256 lastSnapshotTimestamp;
+
+        // return the most recent snapshot timestamp
+        // the timestamp is used by the LMP to ensure that snapshots are occurring
+        // so it is indifferent to which snapshot has occurred
         // slither-disable-next-line timestamp
         if (lastBaseAprSnapshotTimestamp < lastSlashingSnapshotTimestamp) {
-            lastSnapshotTimestamp = lastBaseAprSnapshotTimestamp;
-        } else {
             lastSnapshotTimestamp = lastSlashingSnapshotTimestamp;
+        } else {
+            lastSnapshotTimestamp = lastBaseAprSnapshotTimestamp;
         }
+
+        IRootPriceOracle pricer = systemRegistry.rootPriceOracle();
+        uint256 price = pricer.getPriceInEth(lstTokenAddress);
+
+        // result is 1e18
+        uint256 priceToBacking;
+        if (isRebasing()) {
+            priceToBacking = price;
+        } else {
+            uint256 backing = calculateEthPerToken();
+            // price is always 1e18 and backing is in eth, which is 1e18
+            priceToBacking = price * 1e18 / backing;
+        }
+
+        // positive value is a premium; negative value is a discount
+        int256 premium = int256(priceToBacking) - 1e18;
 
         return LSTStatsData({
             lastSnapshotTimestamp: lastSnapshotTimestamp,
             baseApr: baseApr,
+            premium: premium,
             slashingCosts: slashingCosts,
             slashingTimestamps: slashingTimestamps
         });
@@ -204,4 +226,7 @@ abstract contract LSTCalculatorBase is ILSTStats, BaseStatsCalculator, Initializ
 
     /// @inheritdoc ILSTStats
     function calculateEthPerToken() public view virtual returns (uint256);
+
+    /// @inheritdoc ILSTStats
+    function isRebasing() public view virtual returns (bool);
 }
