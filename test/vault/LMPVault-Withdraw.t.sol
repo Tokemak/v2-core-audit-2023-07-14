@@ -114,6 +114,9 @@ contract LMPVaultMintingTests is Test {
     event TotalSupplyLimitSet(uint256 limit);
     event PerWalletLimitSet(uint256 limit);
     event Shutdown();
+    event Withdraw(
+        address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares
+    );
 
     function setUp() public {
         vm.label(address(this), "testContract");
@@ -556,7 +559,7 @@ contract LMPVaultMintingTests is Test {
 
         _lmpVault.doTweak(true);
 
-        vm.expectRevert(abi.encodeWithSelector(LMPVault.NavChanged.selector, 10_000, 10_000_000_000_000_000_010_000));
+        vm.expectRevert(abi.encodeWithSelector(LMPVault.NavChanged.selector, 10_000, 5000));
         _lmpVault.deposit(50, address(this));
     }
 
@@ -724,7 +727,7 @@ contract LMPVaultMintingTests is Test {
 
         _lmpVault.doTweak(true);
 
-        vm.expectRevert(abi.encodeWithSelector(LMPVault.NavChanged.selector, 10_000, 10_000_000_000_000_000_010_000));
+        vm.expectRevert(abi.encodeWithSelector(LMPVault.NavChanged.selector, 10_000, 5000));
         _lmpVault.mint(50, address(this));
     }
 
@@ -861,7 +864,7 @@ contract LMPVaultMintingTests is Test {
 
         _lmpVault.doTweak(true);
 
-        vm.expectRevert(abi.encodeWithSelector(LMPVault.NavChanged.selector, 10_000, 1_250_000_000_000_000_010_000));
+        vm.expectRevert(abi.encodeWithSelector(LMPVault.NavChanged.selector, 10_000, 5000));
         _lmpVault.withdraw(100, address(this), address(this));
     }
 
@@ -922,6 +925,107 @@ contract LMPVaultMintingTests is Test {
         );
     }
 
+    function test_withdraw_ReceivesLessAssetsIfPriceDrop() public {
+        _accessController.grantRole(Roles.SOLVER_ROLE, address(this));
+        _accessController.grantRole(Roles.LMP_FEE_SETTER_ROLE, address(this));
+
+        // User is going to deposit 1000 asset
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+        _lmpVault.deposit(1000, address(this));
+
+        // Deployed 200 asset to DV1
+        _underlyerOne.mint(address(this), 100);
+        _underlyerOne.approve(address(_lmpVault), 100);
+        _lmpVault.rebalance(
+            address(_destVaultOne),
+            address(_underlyerOne), // tokenIn
+            100,
+            address(0), // destinationOut, none when sending out baseAsset
+            address(_asset), // baseAsset, tokenOut
+            200
+        );
+
+        // Deploy 800 asset to DV2
+        _underlyerTwo.mint(address(this), 800);
+        _underlyerTwo.approve(address(_lmpVault), 800);
+        _lmpVault.rebalance(
+            address(_destVaultTwo),
+            address(_underlyerTwo), // tokenIn
+            800,
+            address(0), // destinationOut, none when sending out baseAsset
+            address(_asset), // baseAsset, tokenOut
+            800
+        );
+
+        // Drop the price of DV1 to 25% of original, so that 200 we transferred out is not only worth 50
+        _mockRootPrice(address(_underlyerOne), 5e17);
+
+        // Cashing in half of our shares
+        // That should mean we get half of the 50 that DV1 is worth - 25
+        // Then we get the rest from DV2
+        // Even though we could recoup the whole thing from DV2, we hit DV1 so we have to take our loss
+
+        uint256 balBefore = _asset.balanceOf(address(this));
+        vm.expectEmit(true, true, true, true);
+        emit Withdraw(address(this), address(this), address(this), 425, 500);
+        uint256 assets = _lmpVault.redeem(500, address(this), address(this));
+        uint256 balAfter = _asset.balanceOf(address(this));
+
+        assertEq(assets, 425, "returned");
+        assertEq(balAfter - balBefore, 425, "actual");
+    }
+
+    function test_withdraw_ReceivesNoMoreThanCachedIfPriceIncreases() public {
+        _accessController.grantRole(Roles.SOLVER_ROLE, address(this));
+        _accessController.grantRole(Roles.LMP_FEE_SETTER_ROLE, address(this));
+
+        // User is going to deposit 1000 asset
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+        _lmpVault.deposit(1000, address(this));
+
+        // Deployed 200 asset to DV1
+        _underlyerOne.mint(address(this), 100);
+        _underlyerOne.approve(address(_lmpVault), 100);
+        _lmpVault.rebalance(
+            address(_destVaultOne),
+            address(_underlyerOne), // tokenIn
+            100,
+            address(0), // destinationOut, none when sending out baseAsset
+            address(_asset), // baseAsset, tokenOut
+            200
+        );
+
+        // Deploy 800 asset to DV2
+        _underlyerTwo.mint(address(this), 800);
+        _underlyerTwo.approve(address(_lmpVault), 800);
+        _lmpVault.rebalance(
+            address(_destVaultTwo),
+            address(_underlyerTwo), // tokenIn
+            800,
+            address(0), // destinationOut, none when sending out baseAsset
+            address(_asset), // baseAsset, tokenOut
+            800
+        );
+
+        // Price of DV1 doubled
+        _mockRootPrice(address(_underlyerOne), 4e18);
+
+        // Cashing in 900 shares, which means we're entitled to at most 900 assets
+        // We can get 400 from DV1, and we'll get the remaining 500 from DV2
+        // Should leave us with no shares of DV1 and 300 of DV2
+
+        uint256 balBefore = _asset.balanceOf(address(this));
+        // vm.expectEmit(true, true, true, true);
+        // emit Withdraw(address(this), address(this), address(this), 425, 500);
+        uint256 assets = _lmpVault.redeem(900, address(this), address(this));
+        uint256 balAfter = _asset.balanceOf(address(this));
+
+        assertEq(assets, 900, "returned");
+        assertEq(balAfter - balBefore, 900, "actual");
+    }
+
     function test_redeem_RevertIf_Paused() public {
         _asset.mint(address(this), 1000);
         _asset.approve(address(_lmpVault), 1000);
@@ -964,7 +1068,7 @@ contract LMPVaultMintingTests is Test {
 
         _lmpVault.doTweak(true);
 
-        vm.expectRevert(abi.encodeWithSelector(LMPVault.NavChanged.selector, 10_000, 1_250_000_000_000_000_010_000));
+        vm.expectRevert(abi.encodeWithSelector(LMPVault.NavChanged.selector, 10_000, 5000));
         _lmpVault.redeem(100, address(this), address(this));
     }
 
@@ -2782,7 +2886,7 @@ contract LMPVaultNavChange is LMPVaultMinting {
     function _transferAndMint(uint256 assets, uint256 shares, address receiver) internal virtual override {
         super._transferAndMint(assets, shares, receiver);
         if (_tweak) {
-            totalIdle += 100e18;
+            totalIdle -= totalIdle / 2;
         }
     }
 
@@ -2794,7 +2898,7 @@ contract LMPVaultNavChange is LMPVaultMinting {
     ) internal virtual override returns (uint256 ret) {
         ret = super._withdraw(assets, shares, receiver, owner);
         if (_tweak) {
-            totalIdle += 100e18;
+            totalIdle -= totalIdle / 2;
         }
     }
 }

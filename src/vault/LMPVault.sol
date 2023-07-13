@@ -31,8 +31,6 @@ import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/ext
 // but slither was still complaining
 //slither-disable-start reentrancy-no-eth,reentrancy-benign
 
-// TODO: Be on the look out for an issue for where the destination vaults decimals are different than
-// the LMPVaults decimals. It's in here, just lost track of it.
 contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, NonReentrant {
     using EnumerableSet for EnumerableSet.AddressSet;
     using Math for uint256;
@@ -126,14 +124,15 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     event PerWalletLimitSet(uint256 limit);
 
     modifier noNavChange() {
-        uint256 ts = totalSupply();
-        if (ts > 0) {
-            uint256 oldNav = _snapStartNav();
-            _;
-            _ensureNoNavChange(oldNav);
-        } else {
-            _;
-        }
+        (uint256 oldNav, uint256 startingTotalSupply) = _snapStartNav();
+        _;
+        _ensureNoNavChange(oldNav, startingTotalSupply);
+    }
+
+    modifier noNavDecrease() {
+        (uint256 oldNav, uint256 startingTotalSupply) = _snapStartNav();
+        _;
+        _ensureNoNavDecrease(oldNav, startingTotalSupply);
     }
 
     modifier ensureNoNavOps() {
@@ -354,7 +353,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         uint256 assets,
         address receiver,
         address owner
-    ) public virtual override nonReentrant noNavChange ensureNoNavOps returns (uint256 shares) {
+    ) public virtual override nonReentrant noNavDecrease ensureNoNavOps returns (uint256 shares) {
         Errors.verifyNotZero(assets, "assets");
         uint256 maxAssets = maxWithdraw(owner);
         if (assets > maxAssets) {
@@ -376,15 +375,14 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         uint256 shares,
         address receiver,
         address owner
-    ) public virtual override nonReentrant noNavChange ensureNoNavOps returns (uint256 assets) {
+    ) public virtual override nonReentrant noNavDecrease ensureNoNavOps returns (uint256 assets) {
         uint256 maxShares = maxRedeem(owner);
         if (shares > maxShares) {
             revert ERC4626ExceededMaxRedeem(owner, shares, maxShares);
         }
+        uint256 possibleAssets = previewRedeem(shares);
 
-        assets = previewRedeem(shares);
-
-        _withdraw(assets, shares, receiver, owner);
+        assets = _withdraw(possibleAssets, shares, receiver, owner);
     }
 
     function _calcUserWithdrawSharesToBurn(
@@ -424,7 +422,10 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
             for (uint256 i = 0; i < withdrawalQueueLength; ++i) {
                 IDestinationVault destVault = IDestinationVault(withdrawalQueue[i]);
                 (uint256 sharesToBurn, uint256 totalDebtBurn) = _calcUserWithdrawSharesToBurn(
-                    destVault, shares, info.totalAssetsToPull - info.totalAssetsPulled, totalVaultShares
+                    destVault,
+                    shares,
+                    info.totalAssetsToPull - Math.max(info.debtDecrease, info.totalAssetsPulled),
+                    totalVaultShares
                 );
                 if (sharesToBurn == 0) {
                     continue;
@@ -475,7 +476,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
 
         _burn(owner, shares);
 
-        emit Withdraw(msg.sender, receiver, owner, assets, shares);
+        emit Withdraw(msg.sender, receiver, owner, returnedAssets, shares);
 
         _baseAsset.safeTransfer(receiver, returnedAssets);
 
@@ -486,11 +487,13 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         rewarder.getReward(msg.sender, true);
     }
 
+    /// @notice Transfer out non-tracked tokens
     function recover(
         address[] calldata tokens,
         uint256[] calldata amounts,
         address[] calldata _destinations
     ) external virtual override hasRole(Roles.TOKEN_RECOVERY_ROLE) {
+        // Makes sure our params are valid
         uint256 len = tokens.length;
         if (len == 0) {
             revert Errors.InvalidParams();
@@ -503,6 +506,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         for (uint256 i = 0; i < len; ++i) {
             (address tokenAddress, uint256 amount, address destination) = (tokens[i], amounts[i], _destinations[i]);
 
+            // Ensure this isn't an asset we care about
             if (_isTrackedAsset(tokenAddress)) {
                 revert Errors.AssetNotAllowed(tokenAddress);
             }
@@ -525,9 +529,6 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
 
     /**
      * @dev Internal conversion function (from assets to shares) with support for rounding direction.
-     *
-     * Will revert if assets > 0, totalSupply > 0 and totalAssets = 0. That corresponds to a case where any asset
-     * would represent an infinite amount of shares.
      */
     function _convertToShares(uint256 assets, Math.Rounding rounding) internal view virtual returns (uint256 shares) {
         uint256 supply = totalSupply();
@@ -575,12 +576,6 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     }
 
     //////////////////////////////////////////////////////////////////////////
-    //                                                                      //
-    //							Strategy Related   							//
-    //                                                                      //
-    //////////////////////////////////////////////////////////////////////////
-
-    //////////////////////////////////////////////////////////////////////////
     //							  Destinations     							//
     //////////////////////////////////////////////////////////////////////////
 
@@ -608,7 +603,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         LMPDestinations.removeFromRemovalQueue(removalQueue, vaultToRemove);
     }
 
-    // @dev Order is set as list of interfaces to minimize gas for our users
+    /// @dev Order is set as list of interfaces to minimize gas for our users
     function setWithdrawalQueue(address[] calldata _destinations)
         public
         override
@@ -617,10 +612,12 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         LMPDestinations.setWithdrawalQueue(withdrawalQueue, _destinations, systemRegistry);
     }
 
+    /// @notice Get the current withdrawal queue
     function getWithdrawalQueue() public view override returns (IDestinationVault[] memory withdrawalDestinations) {
         return withdrawalQueue;
     }
 
+    /// @notice Get the current snapshot debt info for a destination
     function getDestinationInfo(address destVault)
         external
         view
@@ -629,6 +626,12 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     {
         return destinationInfo[destVault];
     }
+
+    //////////////////////////////////////////////////////////////////////////
+    //                                                                      //
+    //							Strategy Related   							//
+    //                                                                      //
+    //////////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IStrategy
     function rebalance(RebalanceParams memory params) public nonReentrant hasRole(Roles.SOLVER_ROLE) trackNavOps {
@@ -691,9 +694,8 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         );
     }
 
+    /// @notice Process the destinations calculating current value and snapshotting for safe deposit/mint'ing
     function _updateDebtReporting(address[] memory _destinations) private {
-        // TODO: Access control
-        // TODO: Decide if we need to enforce all destinations to be processed as a set
         uint256 nDest = _destinations.length;
 
         uint256 idleIncrease = 0;
@@ -710,7 +712,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
             // Get the reward value we've earned. DV rewards are always in terms of base asset
             // We track the gas used purely for off-chain stats purposes
             // Main rewarder on DV's store the earned and liquidated rewards
-            // Any extra rewarders would not be taken into account here as they still need liquidated
+            // Extra rewarders are disabled at the DV level
             uint256 claimGasUsed = gasleft();
             uint256 beforeBaseAsset = _baseAsset.balanceOf(address(this));
             // We don't want any extras, those would likely not be baseAsset
@@ -731,6 +733,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
             emit DestinationDebtReporting(address(destVault), totalDebtIncrease, claimedRewardValue, claimGasUsed);
         }
 
+        // Persist our change in idle and debt
         uint256 idle = totalIdle + idleIncrease;
         uint256 debt = totalDebt - prevNTotalDebt + afterNTotalDebt;
 
@@ -746,6 +749,8 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         uint256 shares = 0;
         uint256 profit = 0;
 
+        // If there's no supply then there should be no assets and so nothing
+        // to actually take fees on
         if (totalSupply == 0) {
             return;
         }
@@ -754,14 +759,17 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         uint256 effectiveNavPerShareHighMark = navPerShareHighMark;
 
         if (currentNavPerShare > effectiveNavPerShareHighMark) {
+            // Even if we aren't going to take the fee (haven't set a sink)
+            // We still want to calculate so we can emit for off-chain analysis
             profit = (currentNavPerShare - effectiveNavPerShareHighMark) * totalSupply;
             fees = profit.mulDiv(performanceFeeBps, (MAX_FEE_BPS ** 2), Math.Rounding.Up);
             if (fees > 0 && sink != address(0)) {
+                // Calculated separate from other mints as normal share mint is round down
                 shares = _convertToShares(fees, Math.Rounding.Up);
                 _mint(sink, shares);
                 emit Deposit(address(this), sink, fees, shares);
             }
-            // Set our new high water mark
+            // Set our new high water mark, the last nav/share height we took fees
             navPerShareHighMark = currentNavPerShare;
             navPerShareHighMarkTimestamp = block.timestamp;
             emit NewNavHighWatermark(currentNavPerShare, block.timestamp);
@@ -802,26 +810,54 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         }
     }
 
-    function _snapStartNav() private view returns (uint256 oldNav) {
-        oldNav = (totalAssets() * MAX_FEE_BPS) / totalSupply();
+    function _snapStartNav() private view returns (uint256 oldNav, uint256 startingTotalSupply) {
+        startingTotalSupply = totalSupply();
+        if (startingTotalSupply == 0) {
+            return (0, 0);
+        }
+        oldNav = (totalAssets() * MAX_FEE_BPS) / startingTotalSupply;
     }
 
-    function _ensureNoNavChange(uint256 oldNav) private view {
+    /// @notice Vault nav/share should not change on deposit/mint within rounding tolerance
+    /// @dev Disregarded for initial deposit
+    function _ensureNoNavChange(uint256 oldNav, uint256 startingTotalSupply) private view {
+        // Can change on initial deposit
+        if (startingTotalSupply == 0) {
+            return;
+        }
+
+        uint256 ts = totalSupply();
+
+        // Calculate the valid range
         uint256 lowerBound = Math.max(oldNav, NAV_CHANGE_ROUNDING_BUFFER) - NAV_CHANGE_ROUNDING_BUFFER;
         uint256 upperBound = oldNav > type(uint256).max - NAV_CHANGE_ROUNDING_BUFFER
             ? type(uint256).max
             : oldNav + NAV_CHANGE_ROUNDING_BUFFER;
-        uint256 ts = totalSupply();
-        if (ts > 0) {
-            uint256 newNav = (totalAssets() * MAX_FEE_BPS) / ts;
 
-            if (newNav < lowerBound || newNav > upperBound) {
-                revert NavChanged(oldNav, newNav);
-            }
+        // Make sure new nav is in range
+        uint256 newNav = (totalAssets() * MAX_FEE_BPS) / ts;
+        if (newNav < lowerBound || newNav > upperBound) {
+            revert NavChanged(oldNav, newNav);
         }
     }
 
+    /// @notice Vault nav/share shouldn't decrease on withdraw/redeem within rounding tolerance
+    /// @dev No check when no shares
+    function _ensureNoNavDecrease(uint256 oldNav, uint256 startingTotalSupply) private view {
+        uint256 ts = totalSupply();
+        if (ts == 0 || startingTotalSupply == 0) {
+            return;
+        }
+        uint256 lowerBound = Math.max(oldNav, NAV_CHANGE_ROUNDING_BUFFER) - NAV_CHANGE_ROUNDING_BUFFER;
+        uint256 newNav = (totalAssets() * MAX_FEE_BPS) / ts;
+        if (newNav < lowerBound) {
+            revert NavChanged(oldNav, newNav);
+        }
+    }
+
+    /// @notice Returns true if the provided asset one that is allowed to be transferred out via recover()
     function _isTrackedAsset(address _asset) private view returns (bool) {
+        // Any asset that is core to functionality of this vault should not be removed
         if (_asset == address(this) || _asset == address(_baseAsset)) {
             return true;
         }
@@ -829,6 +865,8 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     }
 
     function _maxMint(address wallet) internal view virtual returns (uint256 shares) {
+        // If we are temporarily paused, or in full shutdown mode,
+        // no new shares are able to be minted
         if (paused() || _shutdown) {
             return 0;
         }
@@ -840,7 +878,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
             return Math.min(tsLimit, walletLimit);
         }
 
-        // Return max if there is no limit
+        // Return max if there is no limit as per spec
         if (tsLimit == type(uint256).max && walletLimit == type(uint256).max) {
             return type(uint256).max;
         }
@@ -858,6 +896,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
             return 0;
         }
 
+        // User gets the minimum of of the limit buffers
         shares = Math.min(tsLimit - totalSupply, walletLimit - walletBalance);
     }
 
@@ -876,6 +915,8 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     /// @notice Set the per-wallet share limit
     /// @param newWalletLimit new total shares a wallet is allowed to hold
     function _setPerWalletLimit(uint256 newWalletLimit) private {
+        // Any decrease in this value shouldn't affect what a wallet is already holding
+        // Just that their amount can't increase
         Errors.verifyNotZero(newWalletLimit, "newWalletLimit");
 
         perWalletLimit = newWalletLimit;
