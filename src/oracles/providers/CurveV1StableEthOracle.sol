@@ -11,9 +11,10 @@ import { ICurveResolver } from "src/interfaces/utils/ICurveResolver.sol";
 import { ICurveOwner } from "src/interfaces/external/curve/ICurveOwner.sol";
 import { ICurveV1StableSwap } from "src/interfaces/external/curve/ICurveV1StableSwap.sol";
 import { SystemComponent } from "src/SystemComponent.sol";
+import { LibAdapter } from "src/libs/LibAdapter.sol";
 
 /// @title Price oracle for Curve StableSwap pools
-/// @dev getPriceEth is not a view fn to support reentrancy checks. Dont actually change state.
+/// @dev getPriceEth is not a view fn to support reentrancy checks. Don't actually change state.
 contract CurveV1StableEthOracle is SystemComponent, SecurityBase, IPriceOracle {
     bytes32 public constant LOCK_REVERT_MSG = keccak256(abi.encode("lock"));
 
@@ -128,7 +129,7 @@ contract CurveV1StableEthOracle is SystemComponent, SecurityBase, IPriceOracle {
 
             // We're in a V1 ETH pool and we'll be reading the virtual price later
             // make sure we're not in a read-only reentrancy scenario
-            if (iToken == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE) {
+            if (iToken == LibAdapter.CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
                 if (poolInfo.checkReentrancy == 1) {
                     // This will fail in reentrancy
                     ICurveOwner(pool.owner()).withdraw_admin_fees(address(pool));

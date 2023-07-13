@@ -8,6 +8,13 @@ import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.so
 library LibAdapter {
     using SafeERC20 for IERC20;
 
+    address public constant CURVE_REGISTRY_ETH_ADDRESS_POINTER = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
+    error MinLpAmountNotReached();
+    error LpTokenAmountMismatch();
+    error NoNonZeroAmountProvided();
+    error InvalidBalanceChange();
+
     // Utils
     function _approve(IERC20 token, address spender, uint256 amount) internal {
         uint256 currentAllowance = token.allowance(address(this), spender);

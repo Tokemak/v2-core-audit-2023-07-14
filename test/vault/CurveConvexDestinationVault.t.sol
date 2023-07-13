@@ -119,8 +119,7 @@ contract CurveConvexDestinationVaultTests is Test {
         _underlyer = IERC20(ST_ETH_CURVE_LP_TOKEN_MAINNET);
         vm.label(address(_underlyer), "underlyer");
 
-        CurveConvexDestinationVault dvTemplate =
-            new CurveConvexDestinationVault(_systemRegistry, WETH_MAINNET, CVX_MAINNET);
+        CurveConvexDestinationVault dvTemplate = new CurveConvexDestinationVault(_systemRegistry, CVX_MAINNET);
         bytes32 dvType = keccak256(abi.encode("template"));
         bytes32[] memory dvTypes = new bytes32[](1);
         dvTypes[0] = dvType;

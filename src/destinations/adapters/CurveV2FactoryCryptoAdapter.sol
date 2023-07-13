@@ -4,7 +4,7 @@ pragma solidity 0.8.17;
 
 import { Address } from "openzeppelin-contracts/utils/Address.sol";
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
-import { ReentrancyGuard } from "openzeppelin-contracts/security/ReentrancyGuard.sol";
+
 import { IPoolAdapter } from "src/interfaces/destinations/IPoolAdapter.sol";
 import { ICryptoSwapPool, IPool } from "src/interfaces/external/curve/ICryptoSwapPool.sol";
 import { IWETH9 } from "src/interfaces/utils/IWETH9.sol";
@@ -12,22 +12,7 @@ import { LibAdapter } from "src/libs/LibAdapter.sol";
 import { Errors } from "src/utils/Errors.sol";
 
 //slither-disable-start similar-names
-contract CurveV2FactoryCryptoAdapter is ReentrancyGuard {
-    // TODO: Move to common Curve library
-    address public constant CURVE_REGISTRY_ETH_ADDRESS_POINTER = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-
-    IWETH9 public immutable weth;
-
-    // TODO: Move errors to a common library
-    error MustBeMoreThanZero();
-    error ArraysLengthMismatch();
-    error BalanceMustIncrease();
-    error MinLpAmountNotReached();
-    error LpTokenAmountMismatch();
-    error NoNonZeroAmountProvided();
-    error InvalidBalanceChange();
-    error InvalidAddress(address);
-
+library CurveV2FactoryCryptoAdapter {
     event DeployLiquidity(
         uint256[] amountsDeposited,
         address[] tokens,
@@ -48,38 +33,19 @@ contract CurveV2FactoryCryptoAdapter is ReentrancyGuard {
         address poolAddress
     );
 
-    error InvalidWethAddress();
-    error TooManyAmountsProvided();
-
-    struct CurveExtraParams {
-        address poolAddress;
-        address lpTokenAddress;
-        bool useEth;
-    }
-
-    // TODO: Convert this to a library so this will be passed in differently
-    constructor(address _weth) {
-        Errors.verifyNotZero(address(_weth), "_weth");
-
-        weth = IWETH9(_weth);
-    }
-
-    ///@notice Auto-wrap on receive as system operates with WETH
-    receive() external payable {
-        weth.deposit{ value: msg.value }();
-    }
-
     function addLiquidity(
         uint256[] calldata amounts,
         uint256 minLpMintAmount,
-        bytes calldata extraParams
-    ) public nonReentrant {
-        (CurveExtraParams memory curveExtraParams) = abi.decode(extraParams, (CurveExtraParams));
-
-        if (minLpMintAmount == 0) revert MustBeMoreThanZero();
+        address poolAddress,
+        address lpTokenAddress,
+        IWETH9 weth,
+        bool useEth
+    ) public {
         _validateAmounts(amounts);
-
-        address poolAddress = curveExtraParams.poolAddress;
+        Errors.verifyNotZero(minLpMintAmount, "minLpMintAmount");
+        Errors.verifyNotZero(poolAddress, "poolAddress");
+        Errors.verifyNotZero(lpTokenAddress, "lpTokenAddress");
+        Errors.verifyNotZero(address(weth), "weth");
 
         uint256 nTokens = amounts.length;
         address[] memory tokens = new address[](nTokens);
@@ -88,86 +54,84 @@ contract CurveV2FactoryCryptoAdapter is ReentrancyGuard {
             uint256 amount = amounts[i];
             address coin = ICryptoSwapPool(poolAddress).coins(i);
             tokens[i] = coin;
-            if (amount > 0 && coin != CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
+            if (amount > 0 && coin != LibAdapter.CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
                 LibAdapter._approve(IERC20(coin), poolAddress, amount);
             }
-            coinsBalancesBefore[i] = coin == CURVE_REGISTRY_ETH_ADDRESS_POINTER
+            coinsBalancesBefore[i] = coin == LibAdapter.CURVE_REGISTRY_ETH_ADDRESS_POINTER
                 ? address(this).balance
                 : IERC20(coin).balanceOf(address(this));
         }
 
-        uint256 deployed = _runDeposit(amounts, minLpMintAmount, curveExtraParams.poolAddress, curveExtraParams.useEth);
+        uint256 deployed = _runDeposit(amounts, minLpMintAmount, poolAddress, useEth);
 
-        IERC20 lpToken = IERC20(curveExtraParams.lpTokenAddress);
+        IERC20 lpToken = IERC20(lpTokenAddress);
+
+        _updateWethAddress(tokens, address(weth));
 
         emit DeployLiquidity(
-            _compareCoinsBalances(
-                coinsBalancesBefore, _getCoinsBalances(tokens, curveExtraParams.useEth), amounts, true
-            ),
+            _compareCoinsBalances(coinsBalancesBefore, _getCoinsBalances(tokens, weth, useEth), amounts, true),
             tokens,
             [deployed, lpToken.balanceOf(address(this)), lpToken.totalSupply()],
             poolAddress
         );
     }
 
-    // This is likely a temporary fn, will change once library conversion is done
-    function removeLiquidityTyped(
+    function removeLiquidity(
         uint256[] memory amounts,
         uint256 maxLpBurnAmount,
-        CurveExtraParams memory curveExtraParams
-    ) public nonReentrant returns (address[] memory tokens, uint256[] memory actualAmounts) {
-        return _removeLiquidityTyped(amounts, maxLpBurnAmount, curveExtraParams);
-    }
+        address poolAddress,
+        address lpTokenAddress,
+        IWETH9 weth
+    ) public returns (address[] memory tokens, uint256[] memory actualAmounts) {
+        if (amounts.length > 4) {
+            revert Errors.InvalidParam("amounts");
+        }
+        Errors.verifyNotZero(maxLpBurnAmount, "maxLpBurnAmount");
+        Errors.verifyNotZero(poolAddress, "poolAddress");
+        Errors.verifyNotZero(lpTokenAddress, "lpTokenAddress");
+        Errors.verifyNotZero(address(weth), "weth");
 
-    function _removeLiquidityTyped(
-        uint256[] memory amounts,
-        uint256 maxLpBurnAmount,
-        CurveExtraParams memory curveExtraParams
-    ) private returns (address[] memory tokens, uint256[] memory actualAmounts) {
-        if (maxLpBurnAmount == 0) revert MustBeMoreThanZero();
         uint256[] memory coinsBalancesBefore = new uint256[](amounts.length);
         tokens = new address[](amounts.length);
-        bool useEth = false;
+        uint256 ethIndex = 999;
         for (uint256 i = 0; i < amounts.length; ++i) {
-            address coin = IPool(curveExtraParams.poolAddress).coins(i);
+            address coin = IPool(poolAddress).coins(i);
             tokens[i] = coin;
 
-            if (coin == CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
-                tokens[i] = address(weth); // Send back as WETH address so the rest of the system (swapper) can handle
-                coinsBalancesBefore[i] = weth.balanceOf(address(this));
-                useEth = true;
+            if (coin == LibAdapter.CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
+                coinsBalancesBefore[i] = address(this).balance;
+                ethIndex = i;
             } else {
                 tokens[i] = coin;
                 coinsBalancesBefore[i] = IERC20(coin).balanceOf(address(this));
             }
         }
-        uint256 lpTokenBalanceBefore = IERC20(curveExtraParams.lpTokenAddress).balanceOf(address(this));
+        uint256 lpTokenBalanceBefore = IERC20(lpTokenAddress).balanceOf(address(this));
 
-        _runWithdrawal(curveExtraParams.poolAddress, amounts, maxLpBurnAmount);
+        _runWithdrawal(poolAddress, amounts, maxLpBurnAmount);
 
-        uint256 lpTokenBalanceAfter = IERC20(curveExtraParams.lpTokenAddress).balanceOf(address(this));
+        uint256 lpTokenBalanceAfter = IERC20(lpTokenAddress).balanceOf(address(this));
         uint256 lpTokenAmount = lpTokenBalanceBefore - lpTokenBalanceAfter;
         if (lpTokenAmount > maxLpBurnAmount) {
-            revert LpTokenAmountMismatch();
+            revert LibAdapter.LpTokenAmountMismatch();
         }
-        actualAmounts = _compareCoinsBalances(coinsBalancesBefore, _getCoinsBalances(tokens, useEth), amounts, false);
+        actualAmounts = _compareCoinsBalances(
+            coinsBalancesBefore, _getCoinsBalances(tokens, weth, ethIndex != 999 ? true : false), amounts, false
+        );
+
+        if (ethIndex != 999) {
+            // Wrapping up received ETH as system operates with WETH
+            weth.deposit{ value: actualAmounts[ethIndex] }();
+        }
+
+        _updateWethAddress(tokens, address(weth));
 
         emit WithdrawLiquidity(
             actualAmounts,
             tokens,
-            [lpTokenAmount, lpTokenBalanceAfter, IERC20(curveExtraParams.lpTokenAddress).totalSupply()],
-            curveExtraParams.poolAddress
+            [lpTokenAmount, lpTokenBalanceAfter, IERC20(lpTokenAddress).totalSupply()],
+            poolAddress
         );
-    }
-
-    function removeLiquidity(
-        uint256[] calldata amounts,
-        uint256 maxLpBurnAmount,
-        bytes calldata extraParams
-    ) public nonReentrant returns (address[] memory tokens, uint256[] memory actualAmounts) {
-        (CurveExtraParams memory curveExtraParams) = abi.decode(extraParams, (CurveExtraParams));
-
-        return _removeLiquidityTyped(amounts, maxLpBurnAmount, curveExtraParams);
     }
 
     /// @notice Withdraw liquidity from Curve pool
@@ -184,52 +148,70 @@ contract CurveV2FactoryCryptoAdapter is ReentrancyGuard {
         address poolAddress,
         uint256 lpBurnAmount,
         uint256 coinIndex,
-        uint256 minAmount
-    ) public nonReentrant returns (uint256 coinAmount, address coin) {
+        uint256 minAmount,
+        IWETH9 weth
+    ) public returns (uint256 coinAmount, address coin) {
         // We don't check for a minAmount == 0 as that is a valid scenario on
         // withdrawals where the user accounts for slippage at the router
+        Errors.verifyNotZero(poolAddress, "poolAddress");
+        Errors.verifyNotZero(lpBurnAmount, "lpBurnAmount");
+        Errors.verifyNotZero(address(weth), "weth");
 
         // TODO: Test this, not sure this is working
 
-        // slither-disable-next-line incorrect-equality
-        if (lpBurnAmount == 0) {
-            revert MustBeMoreThanZero();
-        }
         uint256 coinBalanceBefore;
         coin = ICryptoSwapPool(poolAddress).coins(coinIndex);
 
-        if (coin == CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
-            coinBalanceBefore = weth.balanceOf(address(this));
+        if (coin == LibAdapter.CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
+            coinBalanceBefore = address(this).balance;
         } else {
             coinBalanceBefore = IERC20(coin).balanceOf(address(this));
         }
 
         // In Curve V2 Factory Pools LP token address = pool address
-        IERC20 lpToken = IERC20(poolAddress);
-        uint256 lpTokenBalanceBefore = lpToken.balanceOf(address(this));
+        uint256 lpTokenBalanceBefore = IERC20(poolAddress).balanceOf(address(this));
 
         ICryptoSwapPool(poolAddress).remove_liquidity_one_coin(lpBurnAmount, coinIndex, minAmount);
 
-        uint256 lpTokenBalanceAfter = lpToken.balanceOf(address(this));
+        uint256 lpTokenBalanceAfter = IERC20(poolAddress).balanceOf(address(this));
         uint256 lpTokenAmount = lpTokenBalanceBefore - lpTokenBalanceAfter;
         if (lpTokenAmount != lpBurnAmount) {
-            revert LpTokenAmountMismatch();
+            revert LibAdapter.LpTokenAmountMismatch();
+        }
+        coinAmount = _getCoinAmount(coin, coinBalanceBefore);
+
+        if (coinAmount < minAmount) revert LibAdapter.InvalidBalanceChange();
+
+        if (coin == LibAdapter.CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
+            // Wrapping up received ETH as system operates with WETH
+            weth.deposit{ value: coinAmount }();
+            coin = address(weth);
         }
 
-        uint256 coinBalanceAfter;
-        if (coin == CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
-            coinBalanceAfter = weth.balanceOf(address(this));
-        } else {
-            coinBalanceAfter = IERC20(coin).balanceOf(address(this));
-        }
-        coinAmount = coinBalanceAfter - coinBalanceBefore;
-        if (coinAmount < minAmount) revert InvalidBalanceChange();
+        _emitWithdraw(coinAmount, coin, [lpTokenAmount, lpTokenBalanceAfter], poolAddress);
+    }
 
+    /**
+     * @dev This is a helper function to replace Curve's Registry pointer
+     * to ETH with WETH address to be compatible with the rest of the system
+     */
+    function _updateWethAddress(address[] memory tokens, address weth) private pure {
+        for (uint256 i = 0; i < tokens.length; ++i) {
+            if (tokens[i] == LibAdapter.CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
+                tokens[i] = weth;
+            }
+        }
+    }
+
+    /**
+     * @dev This is a helper function to avoid stack-too-deep-errors
+     */
+    function _emitWithdraw(uint256 coinAmount, address coin, uint256[2] memory lpAmounts, address pool) private {
         emit WithdrawLiquidity(
             _toDynamicArray(coinAmount),
             _toDynamicArray(coin),
-            [lpTokenAmount, lpTokenBalanceAfter, lpToken.totalSupply()],
-            poolAddress
+            [lpAmounts[0], lpAmounts[1], IERC20(pool).totalSupply()],
+            pool
         );
     }
 
@@ -237,7 +219,7 @@ contract CurveV2FactoryCryptoAdapter is ReentrancyGuard {
     function _validateAmounts(uint256[] memory amounts) internal pure {
         uint256 nTokens = amounts.length;
         if (nTokens > 4) {
-            revert TooManyAmountsProvided();
+            revert Errors.InvalidParam("amounts");
         }
         bool nonZeroAmountPresent = false;
         for (uint256 i = 0; i < nTokens; ++i) {
@@ -246,12 +228,13 @@ contract CurveV2FactoryCryptoAdapter is ReentrancyGuard {
                 break;
             }
         }
-        if (!nonZeroAmountPresent) revert NoNonZeroAmountProvided();
+        if (!nonZeroAmountPresent) revert LibAdapter.NoNonZeroAmountProvided();
     }
 
     /// @dev Gets balances of pool's ERC-20 tokens or ETH
     function _getCoinsBalances(
         address[] memory tokens,
+        IWETH9 weth,
         bool useEth
     ) private view returns (uint256[] memory coinsBalances) {
         uint256 nTokens = tokens.length;
@@ -259,12 +242,23 @@ contract CurveV2FactoryCryptoAdapter is ReentrancyGuard {
 
         for (uint256 i = 0; i < nTokens; ++i) {
             address coin = tokens[i];
-            if (coin == CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
+            if (coin == LibAdapter.CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
                 coinsBalances[i] = useEth ? address(this).balance : weth.balanceOf(address(this));
             } else {
                 coinsBalances[i] = IERC20(coin).balanceOf(address(this));
             }
         }
+    }
+
+    /// @dev Calculate the amount of coin received after one-coin-withdrawal
+    function _getCoinAmount(address coin, uint256 coinBalanceBefore) private view returns (uint256 coinAmount) {
+        uint256 coinBalanceAfter;
+        if (coin == LibAdapter.CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
+            coinBalanceAfter = address(this).balance;
+        } else {
+            coinBalanceAfter = IERC20(coin).balanceOf(address(this));
+        }
+        coinAmount = coinBalanceAfter - coinBalanceBefore;
     }
 
     /// @dev Validate to have a valid balance change
@@ -282,7 +276,7 @@ contract CurveV2FactoryCryptoAdapter is ReentrancyGuard {
                 isLiqDeployment ? balancesBefore[i] - balancesAfter[i] : balancesAfter[i] - balancesBefore[i];
 
             if (balanceDiff < amounts[i]) {
-                revert InvalidBalanceChange();
+                revert LibAdapter.InvalidBalanceChange();
             }
             balanceChange[i] = balanceDiff;
         }
@@ -322,7 +316,7 @@ contract CurveV2FactoryCryptoAdapter is ReentrancyGuard {
             }
         }
         if (deployed < minLpMintAmount) {
-            revert MinLpAmountNotReached();
+            revert LibAdapter.MinLpAmountNotReached();
         }
     }
 

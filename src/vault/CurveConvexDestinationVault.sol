@@ -3,6 +3,8 @@
 pragma solidity 0.8.17;
 
 import { Errors } from "src/utils/Errors.sol";
+import { LibAdapter } from "src/libs/LibAdapter.sol";
+import { IWETH9 } from "src/interfaces/utils/IWETH9.sol";
 import { DestinationVault } from "src/vault/DestinationVault.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { ICurveResolver } from "src/interfaces/utils/ICurveResolver.sol";
@@ -18,7 +20,7 @@ import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/ext
 
 /// @notice Destination Vault to proxy a Curve Pool that goes into Convex
 /// @dev Supports Curve V1 StableSwap, Curve V2 CryptoSwap, and Curve-ng pools
-contract CurveConvexDestinationVault is CurveV2FactoryCryptoAdapter, DestinationVault {
+contract CurveConvexDestinationVault is DestinationVault {
     /// @notice Only used to initialize the vault
     struct InitParams {
         /// @notice Pool this vault proxies
@@ -70,16 +72,14 @@ contract CurveConvexDestinationVault is CurveV2FactoryCryptoAdapter, Destination
     /// @dev Always 0, used as min amounts during withdrawals
     uint256[] private minAmounts;
 
-    constructor(
-        ISystemRegistry sysRegistry,
-        address _weth,
-        /// TODO: Remove this and pull from registry after Curve library refactor
-        address _defaultStakingRewardToken
-    ) DestinationVault(sysRegistry) CurveV2FactoryCryptoAdapter(_weth) {
+    constructor(ISystemRegistry sysRegistry, address _defaultStakingRewardToken) DestinationVault(sysRegistry) {
         // Zero is valid here if no default token is minted by the reward system
         // slither-disable-next-line missing-zero-check
         defaultStakingRewardToken = _defaultStakingRewardToken;
     }
+
+    ///@notice Support ETH operations
+    receive() external payable { }
 
     /// @inheritdoc DestinationVault
     function initialize(
@@ -119,9 +119,9 @@ contract CurveConvexDestinationVault is CurveV2FactoryCryptoAdapter, Destination
         Errors.verifyNotZero(numTokens, "numTokens");
 
         for (uint256 i = 0; i < numTokens; ++i) {
-            // TODO: Reference 0xEee from library once refactored
-            address token =
-                tokens[i] == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE ? address(_systemRegistry.weth()) : tokens[i];
+            address weth = address(_systemRegistry.weth());
+            address token = tokens[i] == LibAdapter.CURVE_REGISTRY_ETH_ADDRESS_POINTER ? weth : tokens[i];
+
             _addTrackedToken(token);
             constituentTokens.push(token);
         }
@@ -193,11 +193,8 @@ contract CurveConvexDestinationVault is CurveV2FactoryCryptoAdapter, Destination
         // controlled for at the router
 
         // We always want our tokens back in WETH so useEth false
-        // TODO: Once we convert the Curve adapter to a library, we'll have to make this receive() 'able
-        (tokens, amounts) = removeLiquidityTyped(
-            minAmounts,
-            underlyerAmount,
-            CurveExtraParams({ poolAddress: curvePool, lpTokenAddress: curveLpToken, useEth: false })
+        (tokens, amounts) = CurveV2FactoryCryptoAdapter.removeLiquidity(
+            minAmounts, underlyerAmount, curvePool, curveLpToken, IWETH9(_systemRegistry.weth())
         );
     }
 }

@@ -8,12 +8,11 @@ import { ICurveV1StableSwap } from "src/interfaces/external/curve/ICurveV1Stable
 import { ISwapRouter } from "src/interfaces/swapper/ISwapRouter.sol";
 import { BaseAdapter, ISyncSwapper } from "src/swapper/adapters/BaseAdapter.sol";
 import { IWETH9 } from "src/interfaces/utils/IWETH9.sol";
+import { LibAdapter } from "src/libs/LibAdapter.sol";
 
 contract CurveV1StableSwap is BaseAdapter {
     using SafeERC20 for IERC20;
 
-    // TODO: Move to common library
-    address public constant CURVE_REGISTRY_ETH_ADDRESS_POINTER = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     IWETH9 public immutable weth;
 
     // TODO: Pull weth from the systemRegistry of the parent router
@@ -76,8 +75,8 @@ contract CurveV1StableSwap is BaseAdapter {
     /// @param queriedAddress Token queried based on the supplied index
     /// @return true for "matches"
     function isTokenMatch(address fromAddress, address queriedAddress) internal view returns (bool) {
-        if (queriedAddress == CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
-            if (fromAddress == CURVE_REGISTRY_ETH_ADDRESS_POINTER || fromAddress == address(weth)) {
+        if (queriedAddress == LibAdapter.CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
+            if (fromAddress == LibAdapter.CURVE_REGISTRY_ETH_ADDRESS_POINTER || fromAddress == address(weth)) {
                 return true;
             }
         }
