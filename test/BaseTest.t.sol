@@ -19,15 +19,17 @@ import { StrategyFactory } from "src/strategy/StrategyFactory.sol";
 import { StakeTrackingMock } from "test/mocks/StakeTrackingMock.sol";
 import { SystemSecurity } from "src/security/SystemSecurity.sol";
 import { IMainRewarder, MainRewarder } from "src/rewarders/MainRewarder.sol";
-
+import { LMPVault } from "src/vault/LMPVault.sol";
 import { IGPToke, GPToke } from "src/staking/GPToke.sol";
-
+import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { VaultTypes } from "src/vault/VaultTypes.sol";
 import { Roles } from "src/libs/Roles.sol";
 import { TOKE_MAINNET, USDC_MAINNET, WETH_MAINNET } from "test/utils/Addresses.sol";
 
 contract BaseTest is Test {
     mapping(bytes => address) internal _tokens;
+
+    IERC20 public baseAsset;
 
     SystemRegistry public systemRegistry;
 
@@ -43,6 +45,8 @@ contract BaseTest is Test {
     IAccessController public accessController;
 
     SystemSecurity public systemSecurity;
+
+    address lmpVaultTemplate;
 
     // -- Staking -- //
     GPToke public gpToke;
@@ -83,6 +87,13 @@ contract BaseTest is Test {
         vm.label(address(usdc), "USDC");
         vm.label(address(weth), "WETH");
 
+        if (toFork) {
+            baseAsset = IERC20(address(weth));
+        } else {
+            uint256 amt = uint256(1_000_000_000_000_000_000_000_000);
+            baseAsset = IERC20(address(mockAsset("MockERC20", "MockERC20", amt)));
+        }
+
         //////////////////////////////////////
         // Set up system registry
         //////////////////////////////////////
@@ -95,15 +106,21 @@ contract BaseTest is Test {
         systemRegistry.setLMPVaultRegistry(address(lmpVaultRegistry));
         lmpVaultRouter = new LMPVaultRouter(systemRegistry, WETH_MAINNET);
         systemRegistry.setLMPVaultRouter(address(lmpVaultRouter));
-        lmpVaultFactory = new LMPVaultFactory(systemRegistry);
-        systemRegistry.setLMPVaultFactory(VaultTypes.LST, address(lmpVaultFactory));
-        // NOTE: deployer grants factory permission to update the registry
-        accessController.grantRole(Roles.REGISTRY_UPDATER, address(lmpVaultFactory));
 
         systemSecurity = new SystemSecurity(systemRegistry);
         systemRegistry.setSystemSecurity(address(systemSecurity));
         vm.label(address(systemRegistry), "System Registry");
         vm.label(address(accessController), "Access Controller");
+
+        systemRegistry.addRewardToken(address(baseAsset));
+        systemRegistry.addRewardToken(address(TOKE_MAINNET));
+
+        lmpVaultTemplate = address(new LMPVault(systemRegistry, address(baseAsset)));
+
+        lmpVaultFactory = new LMPVaultFactory(systemRegistry, lmpVaultTemplate, 800, 100);
+        // NOTE: deployer grants factory permission to update the registry
+        accessController.grantRole(Roles.REGISTRY_UPDATER, address(lmpVaultFactory));
+        systemRegistry.setLMPVaultFactory(VaultTypes.LST, address(lmpVaultFactory));
 
         // NOTE: these pieces were taken out so that each set of tests can init only the components it needs!
         //       Saves a ton of unnecessary setup time and makes fuzzing tests run much much faster
@@ -128,7 +145,6 @@ contract BaseTest is Test {
 
     function mockAsset(string memory name, string memory symbol, uint256 initialBalance) public returns (ERC20Mock) {
         ERC20Mock newMock = new ERC20Mock(name, symbol, address(this), 0);
-
         if (initialBalance > 0) {
             deal(address(newMock), msg.sender, initialBalance);
         }
@@ -191,7 +207,7 @@ contract BaseTest is Test {
     function deployLMPVaultFactory() public {
         if (address(lmpVaultFactory) != address(0)) return;
 
-        lmpVaultFactory = new LMPVaultFactory(systemRegistry);
+        lmpVaultFactory = new LMPVaultFactory(systemRegistry, lmpVaultTemplate, 800, 100);
         systemRegistry.setLMPVaultFactory(VaultTypes.LST, address(lmpVaultFactory));
         // NOTE: deployer grants factory permission to update the registry
         accessController.grantRole(Roles.REGISTRY_UPDATER, address(lmpVaultFactory));

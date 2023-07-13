@@ -15,6 +15,7 @@ import { LMPDestinations } from "src/vault/libs/LMPDestinations.sol";
 import { LMPDebt } from "src/vault/libs/LMPDebt.sol";
 import { IStrategy } from "src/interfaces/strategy/IStrategy.sol";
 import { Math } from "openzeppelin-contracts/utils/math/Math.sol";
+import { Initializable } from "openzeppelin-contracts/proxy/utils/Initializable.sol";
 import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import { IERC4626 } from "openzeppelin-contracts/interfaces/IERC4626.sol";
 import { IMainRewarder } from "src/interfaces/rewarders/IMainRewarder.sol";
@@ -31,7 +32,16 @@ import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/ext
 // but slither was still complaining
 //slither-disable-start reentrancy-no-eth,reentrancy-benign
 
-contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, SecurityBase, Pausable, NonReentrant {
+contract LMPVault is
+    SystemComponent,
+    Initializable,
+    ILMPVault,
+    IStrategy,
+    ERC20Permit,
+    SecurityBase,
+    Pausable,
+    NonReentrant
+{
     using EnumerableSet for EnumerableSet.AddressSet;
     using Math for uint256;
     using SafeERC20 for ERC20;
@@ -53,7 +63,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     uint256 public constant NAV_CHANGE_ROUNDING_BUFFER = 100;
 
     /// @notice Factory contract that created this vault
-    address public immutable factory;
+    address public factory;
 
     /// @notice Overarching baseAsset type
     bytes32 public immutable vaultType = VaultTypes.LST;
@@ -106,6 +116,9 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
     /// @notice The max shares a single wallet is allowed to hold
     uint256 public perWalletLimit;
 
+    string private _desc;
+    string private _symbol;
+
     error TooFewAssets(uint256 requested, uint256 actual);
     error WithdrawShareCalcInvalid(uint256 currentShares, uint256 cachedShares);
     error InvalidFee(uint256 newFee);
@@ -150,9 +163,7 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
 
     constructor(
         ISystemRegistry _systemRegistry,
-        address _vaultAsset,
-        uint256 supplyLimit,
-        uint256 walletLimit
+        address _vaultAsset
     )
         SystemComponent(_systemRegistry)
         ERC20(
@@ -166,14 +177,49 @@ contract LMPVault is SystemComponent, ILMPVault, IStrategy, ERC20Permit, Securit
         _baseAsset = IERC20(_vaultAsset);
         _baseAssetDecimals = IERC20(_vaultAsset).decimals();
 
+        _symbol = ERC20(_vaultAsset).symbol();
+        _desc = ERC20(_vaultAsset).name();
+
+        _disableInitializers();
+    }
+
+    function initialize(
+        uint256 supplyLimit,
+        uint256 walletLimit,
+        string memory symbolSuffix,
+        string memory descPrefix,
+        bytes memory
+    ) public virtual initializer {
+        Errors.verifyNotEmpty(symbolSuffix, "symbolSuffix");
+        Errors.verifyNotEmpty(descPrefix, "descPrefix");
+
         // init withdrawal queue to empty (slither issue)
         withdrawalQueue = new IDestinationVault[](0);
 
-        factory = msg.sender;
         navPerShareHighMarkTimestamp = block.timestamp;
 
         _setTotalSupplyLimit(supplyLimit);
         _setPerWalletLimit(walletLimit);
+
+        factory = msg.sender;
+
+        _symbol = symbolSuffix;
+        _desc = descPrefix;
+    }
+
+    /**
+     * @dev Returns the name of the token.
+     */
+    function name() public view virtual override(ERC20, IERC20) returns (string memory) {
+        return string(abi.encodePacked(_desc, " Pool Token"));
+    }
+
+    /**
+     * @dev Returns the symbol of the token, usually a shorter version of the
+     * name.
+     */
+    function symbol() public view virtual override(ERC20, IERC20) returns (string memory) {
+        return string(abi.encodePacked("lmp", _symbol));
     }
 
     /// @inheritdoc IERC20

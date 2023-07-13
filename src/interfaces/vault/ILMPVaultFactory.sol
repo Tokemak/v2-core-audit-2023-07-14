@@ -9,12 +9,19 @@ interface ILMPVaultFactory {
 
     /**
      * @notice Spin up a new LMPVault
-     * @param _vaultAsset Underlyer asset
-     * @param extraParams Extra parameters for vault initialization
+     * @param supplyLimit Total supply limit for the new vault
+     * @param walletLimit Wallet limit for the new vault
+     * @param symbolSuffix Symbol suffix of the new token
+     * @param descPrefix Description prefix of the new token
+     * @param salt Vault creation salt
+     * @param extraParams Any extra data needed for the vault
      */
     function createVault(
-        address _vaultAsset,
-        address _rewarder,
+        uint256 supplyLimit,
+        uint256 walletLimit,
+        string memory symbolSuffix,
+        string memory descPrefix,
+        bytes32 salt,
         bytes calldata extraParams
     ) external returns (address newVaultAddress);
 }

@@ -3,7 +3,8 @@ pragma solidity 0.8.17;
 
 /* solhint-disable func-name-mixedcase */
 
-import { IERC20, ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
+import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import { AccessController } from "src/security/AccessController.sol";
 import { MockERC20 } from "test/mocks/MockERC20.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
@@ -29,7 +30,6 @@ contract LMPVaultBaseTest is BaseTest {
     IDestinationVault public destinationVault;
     IDestinationVault public destinationVault2;
     LMPVault public lmpVault;
-    ERC20 public baseAsset;
 
     address private unauthorizedUser = address(0x33);
 
@@ -47,9 +47,6 @@ contract LMPVaultBaseTest is BaseTest {
         // create and initialize factory
         //
 
-        // create mock asset
-        baseAsset = mockAsset("TestERC20", "TestERC20", uint256(1_000_000_000_000_000_000_000_000));
-
         // create destination vault mocks
         destinationVault = _createDestinationVault(address(baseAsset));
         destinationVault2 = _createDestinationVault(address(baseAsset));
@@ -66,7 +63,8 @@ contract LMPVaultBaseTest is BaseTest {
         vm.mockCall(
             address(systemRegistry), abi.encodeWithSelector(SystemRegistry.isRewardToken.selector), abi.encode(true)
         );
-        lmpVault = LMPVault(vaultFactory.createVault(address(baseAsset), address(0), ""));
+        lmpVault =
+            LMPVault(vaultFactory.createVault(type(uint256).max, type(uint256).max, "x", "y", keccak256("vault"), ""));
 
         assert(systemRegistry.lmpVaultRegistry().isVault(address(lmpVault)));
     }

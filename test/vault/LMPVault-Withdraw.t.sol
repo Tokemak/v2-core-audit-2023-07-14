@@ -11,12 +11,12 @@ import { TestERC20 } from "test/mocks/TestERC20.sol";
 import { Pausable } from "src/security/Pausable.sol";
 import { SystemRegistry } from "src/SystemRegistry.sol";
 import { MainRewarder } from "src/rewarders/MainRewarder.sol";
-import { MainRewarder } from "src/rewarders/MainRewarder.sol";
 import { ILMPVault } from "src/interfaces/vault/ILMPVault.sol";
 import { Test, StdCheats, StdUtils } from "forge-std/Test.sol";
 import { DestinationVault } from "src/vault/DestinationVault.sol";
 import { IStrategy } from "src/interfaces/strategy/IStrategy.sol";
 import { LMPVaultRegistry } from "src/vault/LMPVaultRegistry.sol";
+import { LMPVaultFactory } from "src/vault/LMPVaultFactory.sol";
 import { ISystemRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { AccessController } from "src/security/AccessController.sol";
 import { ISystemComponent } from "src/interfaces/ISystemComponent.sol";
@@ -90,6 +90,7 @@ contract LMPVaultMintingTests is Test {
     DestinationVaultRegistry private _destinationVaultRegistry;
     DestinationRegistry private _destinationTemplateRegistry;
     LMPVaultRegistry private _lmpVaultRegistry;
+    LMPVaultFactory private _lmpVaultFactory;
     IRootPriceOracle private _rootPriceOracle;
     SystemSecurity private _systemSecurity;
 
@@ -124,7 +125,7 @@ contract LMPVaultMintingTests is Test {
         _toke = new TestERC20("test", "test");
         vm.label(address(_toke), "toke");
 
-        _systemRegistry = new SystemRegistry(address(_toke), vm.addr(101));
+        _systemRegistry = new SystemRegistry(address(_toke), address(new TestERC20("weth", "weth")));
         _systemRegistry.addRewardToken(address(_toke));
 
         _accessController = new AccessController(address(_systemRegistry));
@@ -142,41 +143,19 @@ contract LMPVaultMintingTests is Test {
         _systemRegistry.addRewardToken(address(_asset));
         vm.label(address(_asset), "asset");
 
-        _lmpVault = new LMPVaultNavChange(_systemRegistry, address(_asset));
+        address template = address(new LMPVaultNavChange(_systemRegistry, address(_asset)));
+
+        _lmpVaultFactory = new LMPVaultFactory(_systemRegistry, template, 800, 100);
+        _accessController.grantRole(Roles.REGISTRY_UPDATER, address(_lmpVaultFactory));
+
+        uint256 limit = type(uint256).max;
+        _lmpVault = LMPVaultNavChange(_lmpVaultFactory.createVault(limit, limit, "x", "y", keccak256("v1"), ""));
         vm.label(address(_lmpVault), "lmpVault");
-
-        _rewarder = new MainRewarder(
-            _systemRegistry, // registry
-            address(_lmpVault), // stakeTracker
-            address(_toke),
-            800, // newRewardRatio
-            100, // durationInBlock
-            true // allowExtraRewards
-        );
-
-        _lmpVault.setRewarder(address(_rewarder));
-
-        _accessController.grantRole(Roles.REGISTRY_UPDATER, address(this));
-        _lmpVaultRegistry.addVault(address(_lmpVault));
+        _rewarder = MainRewarder(address(_lmpVault.rewarder()));
 
         // Setup second LMP Vault
-
-        _lmpVault2 = new LMPVaultNavChange(_systemRegistry, address(_asset));
+        _lmpVault2 = LMPVaultNavChange(_lmpVaultFactory.createVault(limit, limit, "x", "y", keccak256("v2"), ""));
         vm.label(address(_lmpVault2), "lmpVault2");
-
-        MainRewarder _rewarder2 = new MainRewarder(
-            _systemRegistry, // registry
-            address(_lmpVault2), // stakeTracker
-            address(_toke),
-            800, // newRewardRatio
-            100, // durationInBlock
-            true // allowExtraRewards
-        );
-
-        _lmpVault2.setRewarder(address(_rewarder2));
-
-        _accessController.grantRole(Roles.REGISTRY_UPDATER, address(this));
-        _lmpVaultRegistry.addVault(address(_lmpVault2));
 
         // Setup the Destination system
 
@@ -2823,10 +2802,7 @@ contract LMPVaultMintingTests is Test {
 }
 
 contract LMPVaultMinting is LMPVault {
-    constructor(
-        ISystemRegistry _systemRegistry,
-        address _vaultAsset
-    ) LMPVault(_systemRegistry, _vaultAsset, type(uint256).max, type(uint256).max) { }
+    constructor(ISystemRegistry _systemRegistry, address _vaultAsset) LMPVault(_systemRegistry, _vaultAsset) { }
 
     bool private _rebalanceVerifies;
     string private _rebalanceVerifyError;
@@ -3387,10 +3363,7 @@ contract FlashRebalancerReentrant is IERC3156FlashBorrower {
 }
 
 contract TestWithdrawSharesLMPVault is LMPVault {
-    constructor(
-        ISystemRegistry _systemRegistry,
-        address _vaultAsset
-    ) LMPVault(_systemRegistry, _vaultAsset, type(uint256).max, type(uint256).max) { }
+    constructor(ISystemRegistry _systemRegistry, address _vaultAsset) LMPVault(_systemRegistry, _vaultAsset) { }
 
     function setDestInfoDebtBasis(address destVault, uint256 debtBasis) public {
         destinationInfo[destVault].debtBasis = debtBasis;

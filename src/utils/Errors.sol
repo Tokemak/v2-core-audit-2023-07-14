@@ -52,6 +52,12 @@ library Errors {
         }
     }
 
+    function verifyNotEmpty(string memory val, string memory paramName) internal pure {
+        if (bytes(val).length == 0) {
+            revert InvalidParam(paramName);
+        }
+    }
+
     function verifyNotZero(uint256 num, string memory paramName) internal pure {
         if (num == 0) {
             revert InvalidParam(paramName);

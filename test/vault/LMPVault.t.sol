@@ -9,7 +9,7 @@ import { ERC4626Test } from "erc4626-tests/ERC4626.test.sol";
 import { ERC20Mock } from "openzeppelin-contracts/mocks/ERC20Mock.sol";
 import { ERC4626Mock, IERC20Metadata } from "openzeppelin-contracts/mocks/ERC4626Mock.sol";
 import { BaseTest } from "test/BaseTest.t.sol";
-
+import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IMainRewarder, MainRewarder } from "src/rewarders/MainRewarder.sol";
 
 import { ILMPVault, LMPVault } from "src/vault/LMPVault.sol";
@@ -21,24 +21,11 @@ contract LMPVaultTest is ERC4626Test, BaseTest {
         // everything's mocked, so disable forking
         super._setUp(false);
 
-        _underlying_ = address(mockAsset("MockERC20", "MockERC20", uint256(1_000_000_000_000_000_000_000_000)));
+        _underlying_ = address(baseAsset);
 
         // create vault
-        LMPVault vault = new LMPVault(
-                systemRegistry,
-                _underlying_,
-                type(uint256).max,
-                type(uint256).max
-            );
-
-        // create and set rewarder
-        MainRewarder rewarder = createMainRewarder(_underlying_, address(vault), true);
-        accessController.grantRole(Roles.DV_REWARD_MANAGER_ROLE, address(this));
-        accessController.grantRole(Roles.REGISTRY_UPDATER, address(this));
-        rewarder.setTokeLockDuration(0);
-        vault.setRewarder(address(rewarder));
-
-        lmpVaultRegistry.addVault(address(vault));
+        LMPVault vault =
+            LMPVault(lmpVaultFactory.createVault(type(uint256).max, type(uint256).max, "x", "y", keccak256("v8"), ""));
 
         _vault_ = address(vault);
         _delta_ = 0;
