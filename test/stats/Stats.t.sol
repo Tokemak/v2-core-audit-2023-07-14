@@ -77,6 +77,25 @@ contract StatsTest is Test {
         Stats.getFilteredValue(1e18 + 1, 1, 1);
     }
 
+    function testGetFilteredValueRevertIfAlphaIsZero() public {
+        vm.expectRevert(abi.encodeWithSelector(Errors.InvalidParam.selector, "alpha"));
+        Stats.getFilteredValue(0, 1, 1);
+    }
+
+    function testGetFilteredValueAtExtremes() public {
+        uint256 alpha = 1e18;
+        uint256 prior = 55e18;
+        uint256 current = 1e16;
+
+        uint256 actual = Stats.getFilteredValue(alpha, prior, current);
+        assertEq(actual, current);
+
+        alpha = 1;
+        actual = Stats.getFilteredValue(alpha, prior, current);
+        uint256 expected = (prior * (1e18 - 1) + current) / 1e18;
+        assertEq(actual, expected);
+    }
+
     function testGetFilteredValueSuccess() public {
         uint256 alpha = 1e17;
         uint256 prior = 55e18;
