@@ -51,7 +51,7 @@ abstract contract BaseOracleDenominations is SystemComponent, IPriceOracle, Secu
     }
 
     /**
-     * @notice Necessary when lack of USD / Eth price feed.  Price of both assets in USD make it possible
+     * @notice Necessary due to of USD / Eth price feed.  Price of both assets in USD make it possible
      *      to get `normalizedPrice` in terms of Eth.  Many assets are priced in USD as opposed to Eth
      *      on Chainlink price feeds.
      *
