@@ -84,4 +84,12 @@ The System Registry can be thought of holding two types of references: supportin
     <img style="border: 10px solid white" alt="basic user flow" src="./docs/images/root-system-view-1.svg">
 </p>
 
-For a new contract to be configured in the system, it only needs to be given a reference to the SystemRegistry.
+For a new contract to be configured in the system, it only needs to be given a reference to the SystemRegistry. The subsystem entry points would be
+
+-   RootPriceOracle - `src/oracles/RootPriceOracle.sol`
+-   SwapRouter - `src/swapper/SwapRouter.sol`
+-   Reward Liquidations - `src/liquidation/AsyncSwapperRegistry.sol`
+-   Stats - `src/stats/StatsCalculatorRegistry.sol`
+-   Vaults - `src/vault/*`
+
+Readmes should be available in the folders of those areas

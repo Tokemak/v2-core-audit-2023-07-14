@@ -2,7 +2,9 @@
 
 The primary goal of this process is to claim rewards for each Vault. Once rewards are claimed, they are sent to the Liquidator Row contract for subsequent liquidation.
 
-Sequence diagram: https://app.diagrams.net/#G1nVeX6V3yy8ODWu_YAusSSB_PQs-kDlXA
+<p align="center">
+    <img style="border: 10px solid white" alt="basic user flow" src="../../docs/images/claim-rewards-v2.svg">
+</p>
 
 ### Process
 

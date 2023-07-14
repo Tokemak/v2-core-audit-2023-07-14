@@ -8,7 +8,6 @@ pragma solidity >=0.8.7;
 
 import { Test } from "forge-std/Test.sol";
 
-// import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IERC20, ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import { IERC4626 } from "openzeppelin-contracts/interfaces/IERC4626.sol";
 
@@ -29,7 +28,7 @@ import { IAsyncSwapper, SwapParams } from "src/interfaces/liquidation/IAsyncSwap
 import { BaseTest } from "test/BaseTest.t.sol";
 import { TOKE_MAINNET, WETH_MAINNET, ZERO_EX_MAINNET, CVX_MAINNET } from "test/utils/Addresses.sol";
 
-import { console, Utils } from "test/utils/common.sol";
+import { Utils } from "test/utils/common.sol";
 
 // solhint-disable func-name-mixedcase
 contract LMPVaultRouterTest is BaseTest {
