@@ -79,7 +79,7 @@ abstract contract LMPVaultRouterBase is ILMPVaultRouterBase, SelfPermit, Multica
     ) public virtual override returns (uint256 sharesOut) {
         address destination = unwrapWETH ? address(this) : to;
 
-        sharesOut = vault.withdraw(amount, destination, to);
+        sharesOut = vault.withdraw(amount, destination, msg.sender);
         if (sharesOut > maxSharesOut) {
             revert MaxSharesError();
         }
