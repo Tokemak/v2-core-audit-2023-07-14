@@ -11,6 +11,7 @@ import { IDexLSTStats } from "src/interfaces/stats/IDexLSTStats.sol";
 import { ICurveV1StableSwap } from "src/interfaces/external/curve/ICurveV1StableSwap.sol";
 import { ICurveOwner } from "src/interfaces/external/curve/ICurveOwner.sol";
 
+/// @title Curve V1 Pool With Rebasing Tokens
 /// @notice Calculate stats for a Curve V1 StableSwap pool
 contract CurveV1PoolRebasingStatsCalculator is CurvePoolRebasingCalculatorBase {
     constructor(ISystemRegistry _systemRegistry) CurvePoolRebasingCalculatorBase(_systemRegistry) { }

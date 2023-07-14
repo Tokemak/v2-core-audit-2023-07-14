@@ -170,9 +170,6 @@ contract BalancerStablePoolCalculatorBaseTest is Test {
         assertEq(calculator.reserveTokens(0), RETH_MAINNET);
         assertEq(calculator.reserveTokens(1), WETH_MAINNET);
 
-        assertEq(calculator.reserveTokenDecimals(0), 18);
-        assertEq(calculator.reserveTokenDecimals(1), 18);
-
         assertEq(calculator.poolId(), RETH_WETH_POOL_ID);
         assertEq(calculator.getAddressId(), RETH_WETH_BAL_POOL);
         assertEq(calculator.getAprId(), Stats.generateBalancerPoolIdentifier(RETH_WETH_BAL_POOL));

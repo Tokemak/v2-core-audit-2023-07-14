@@ -32,10 +32,6 @@ abstract contract BalancerStablePoolCalculatorBase is IDexLSTStats, BaseStatsCal
     /// @return the reserve token address for the specified index
     address[] public reserveTokens;
 
-    /// @notice The decimals of the pools reserve tokens
-    /// @return the reserve token decimals for the specified index
-    uint8[] public reserveTokenDecimals;
-
     /// @notice The number of underlying tokens in the pool
     uint256 public numTokens;
 
@@ -113,7 +109,6 @@ abstract contract BalancerStablePoolCalculatorBase is IDexLSTStats, BaseStatsCal
         IStatsCalculatorRegistry registry = systemRegistry.statsCalculatorRegistry();
         lstStats = new ILSTStats[](numTokens);
         reserveTokens = new address[](numTokens);
-        reserveTokenDecimals = new uint8[](numTokens);
         lastEthPerShare = new uint256[](numTokens);
 
         for (uint256 i = 0; i < numTokens; i++) {
@@ -122,7 +117,10 @@ abstract contract BalancerStablePoolCalculatorBase is IDexLSTStats, BaseStatsCal
             Errors.verifyNotZero(coin, "coin");
 
             reserveTokens[i] = coin;
-            reserveTokenDecimals[i] = IERC20Metadata(coin).decimals();
+
+            // call now to revert at init if there is an issue b/c this call is made in other calculations
+            // slither-disable-next-line unused-return
+            IERC20Metadata(coin).decimals();
 
             if (dependentAprId != Stats.NOOP_APR_ID) {
                 IStatsCalculator calculator = registry.getCalculator(dependentAprId);
@@ -260,13 +258,15 @@ abstract contract BalancerStablePoolCalculatorBase is IDexLSTStats, BaseStatsCal
         uint256[] memory balances,
         uint256 index
     ) internal returns (uint256) {
+        address token = reserveTokens[index];
+
         // the price oracle is always 18 decimals, so divide by the decimals of the token
         // to ensure that we always report the value in ETH as 18 decimals
-        uint256 divisor = 10 ** reserveTokenDecimals[index];
+        uint256 divisor = 10 ** IERC20Metadata(token).decimals();
 
         // the pricer handles the reentrancy issues
         // slither-disable-next-line reentrancy-benign,reentrancy-no-eth
-        return pricer.getPriceInEth(reserveTokens[index]) * balances[index] / divisor;
+        return pricer.getPriceInEth(token) * balances[index] / divisor;
     }
 
     function adjustForBalancerAdminFee(uint256 value) internal view returns (uint256) {

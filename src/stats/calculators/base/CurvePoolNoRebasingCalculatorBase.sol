@@ -15,7 +15,7 @@ import { ILSTStats } from "src/interfaces/stats/ILSTStats.sol";
 import { ICurveResolver } from "src/interfaces/utils/ICurveResolver.sol";
 import { IRootPriceOracle } from "src/interfaces/oracles/IRootPriceOracle.sol";
 import { IPool } from "src/interfaces/external/curve/IPool.sol";
-import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { CurveUtils } from "src/stats/utils/CurveUtils.sol";
 
 /// @title Curve Pool No Rebasing Calculator Base
 /// @notice Generates stats for Curve pools that do not include any rebasing tokens
@@ -28,10 +28,6 @@ abstract contract CurvePoolNoRebasingCalculatorBase is IDexLSTStats, BaseStatsCa
     /// @notice The addresses of the pools reserve tokens
     /// @return the reserve token address for the specified index
     address[] public reserveTokens;
-
-    /// @notice The decimals of the pools reserve tokens
-    /// @return the reserve token decimals for the specified index
-    uint8[] public reserveTokenDecimals;
 
     /// @notice The number of underlying tokens in the pool
     uint256 public numTokens;
@@ -98,7 +94,6 @@ abstract contract CurvePoolNoRebasingCalculatorBase is IDexLSTStats, BaseStatsCa
 
         IStatsCalculatorRegistry registry = systemRegistry.statsCalculatorRegistry();
         lstStats = new ILSTStats[](numTokens);
-        reserveTokenDecimals = new uint8[](numTokens);
 
         for (uint256 i = 0; i < numTokens; i++) {
             bytes32 dependentAprId = dependentAprIds[i];
@@ -117,11 +112,9 @@ abstract contract CurvePoolNoRebasingCalculatorBase is IDexLSTStats, BaseStatsCa
                 lstStats[i] = ILSTStats(address(calculator));
             }
 
-            if (coin == Stats.CURVE_ETH) {
-                reserveTokenDecimals[i] = 18;
-            } else {
-                reserveTokenDecimals[i] = IERC20Metadata(coin).decimals();
-            }
+            // call now to revert at init if there is an issue b/c this call is made in other calculations
+            // slither-disable-next-line unused-return
+            CurveUtils.getDecimals(coin);
         }
 
         lastSnapshotTimestamp = block.timestamp;
@@ -148,10 +141,12 @@ abstract contract CurvePoolNoRebasingCalculatorBase is IDexLSTStats, BaseStatsCa
         uint256[] memory reservesInEth = new uint256[](numTokens);
 
         for (uint256 i = 0; i < numTokens; i++) {
+            address token = reserveTokens[i];
+
             // the price oracle is always 18 decimals, so divide by the decimals of the token
             // to ensure that we always report the value in ETH as 18 decimals
-            uint256 priceDivisor = 10 ** reserveTokenDecimals[i];
-            reservesInEth[i] = pricer.getPriceInEth(reserveTokens[i]) * IPool(poolAddress).balances(i) / priceDivisor;
+            uint256 priceDivisor = 10 ** CurveUtils.getDecimals(token);
+            reservesInEth[i] = pricer.getPriceInEth(token) * IPool(poolAddress).balances(i) / priceDivisor;
 
             if (address(lstStats[i]) != address(0)) {
                 lstStatsData[i] = lstStats[i].current();
