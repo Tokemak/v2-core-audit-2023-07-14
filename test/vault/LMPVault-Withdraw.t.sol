@@ -955,6 +955,48 @@ contract LMPVaultMintingTests is Test {
         assertEq(balAfter - balBefore, 425, "actual");
     }
 
+    function test_redeem_DestinationVaultRewardsGoToIdle() public {
+        _accessController.grantRole(Roles.SOLVER_ROLE, address(this));
+        _accessController.grantRole(Roles.LMP_FEE_SETTER_ROLE, address(this));
+
+        // User is going to deposit 1000 asset
+        _asset.mint(address(this), 1000);
+        _asset.approve(address(_lmpVault), 1000);
+        _lmpVault.deposit(1000, address(this));
+
+        // Queue up some Destination Vault rewards
+        _accessController.grantRole(Roles.DV_REWARD_MANAGER_ROLE, address(this));
+        _accessController.grantRole(Roles.LIQUIDATOR_ROLE, address(this));
+
+        _asset.mint(address(this), 2000);
+        _asset.approve(_destVaultOne.rewarder(), 2000);
+        IMainRewarder(_destVaultOne.rewarder()).queueNewRewards(2000);
+
+        // Deployed 200 asset to DV1
+        _underlyerOne.mint(address(this), 100);
+        _underlyerOne.approve(address(_lmpVault), 100);
+        _lmpVault.rebalance(
+            address(_destVaultOne),
+            address(_underlyerOne), // tokenIn
+            100,
+            address(0), // destinationOut, none when sending out baseAsset
+            address(_asset), // baseAsset, tokenOut
+            200
+        );
+
+        // Roll the block so that the rewards we queued earlier will become available
+        vm.roll(block.number + 10_000);
+
+        assertEq(_lmpVault.totalIdle(), 800);
+
+        uint256 assets = _lmpVault.redeem(1000, address(this), address(this));
+
+        assertEq(_lmpVault.totalIdle(), 2000);
+
+        // assertEq(assets, 425, "returned");
+        // assertEq(balAfter - balBefore, 425, "actual");
+    }
+
     function test_withdraw_ReceivesNoMoreThanCachedIfPriceIncreases() public {
         _accessController.grantRole(Roles.SOLVER_ROLE, address(this));
         _accessController.grantRole(Roles.LMP_FEE_SETTER_ROLE, address(this));

@@ -76,7 +76,7 @@ Upon claiming from the Rewarder, regardless of how, the path those reward tokens
 
 ### System View
 
-The entire system revolves around a single contract, the `SystemRegistry`. This is the contract that ties all other contracts together and from this contract we should be able to enumerate every other contract in the system. A registry of registries almost. It is our plan that there will be multiple "Systems" running concurrently on the same chain. On for ETH based assets, LSTs and such. Another for USD stable-coins. Etc. Given the configuration complexity of these contracts, having a central reference that two contracts must agree upon will save in accidental mis-configurations down the line.
+The entire system revolves around a single contract, the `SystemRegistry`. This is the contract that ties all other contracts together and from this contract we should be able to enumerate every other contract in the system. A registry of registries almost. It is our plan that there will be multiple "Systems" running concurrently on the same chain. One for ETH based assets, LSTs and such. Another for USD stable-coins. Etc. Given the configuration complexity of these contracts, having a central reference that two contracts must agree upon will save in accidental mis-configurations down the line.
 
 The System Registry can be thought of holding two types of references: supporting contracts, sub-system entry points:
 

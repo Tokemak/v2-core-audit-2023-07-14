@@ -15,6 +15,7 @@ import { IBalancerPool } from "src/interfaces/external/balancer/IBalancerPool.so
 import { AuraRewards } from "src/destinations/adapters/rewards/AuraRewardsAdapter.sol";
 import { BalancerBeethovenAdapter } from "src/destinations/adapters/BalancerBeethovenAdapter.sol";
 import { IERC20Metadata } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { IBalancerComposableStablePool } from "src/interfaces/external/balancer/IBalancerComposableStablePool.sol";
 
 /// @title Destination Vault to proxy a Balancer Pool that goes into Aura
 contract BalancerAuraDestinationVault is DestinationVault {
@@ -107,7 +108,7 @@ contract BalancerAuraDestinationVault is DestinationVault {
         (IERC20[] memory balancerPoolTokens,,) = balancerVault.getPoolTokens(poolId);
         if (balancerPoolTokens.length == 0) revert ArrayLengthMismatch();
         poolTokens = balancerPoolTokens;
-        // TODO: Filter BPT token
+
         for (uint256 i = 0; i < balancerPoolTokens.length; ++i) {
             _addTrackedToken(address(balancerPoolTokens[i]));
         }
@@ -125,8 +126,20 @@ contract BalancerAuraDestinationVault is DestinationVault {
     }
 
     /// @inheritdoc DestinationVault
-    function underlyingTokens() external view override returns (address[] memory) {
-        return _convertToAddresses(poolTokens);
+    function underlyingTokens() external view override returns (address[] memory ret) {
+        if (isComposable) {
+            ret = new address[](poolTokens.length -1);
+            uint256 bptIndex = IBalancerComposableStablePool(balancerPool).getBptIndex();
+            uint256 h = 0;
+            for (uint256 i = 0; i < poolTokens.length; ++i) {
+                if (i != bptIndex) {
+                    ret[h] = address(poolTokens[i]);
+                    h++;
+                }
+            }
+        } else {
+            ret = _convertToAddresses(poolTokens);
+        }
     }
 
     /// @inheritdoc DestinationVault

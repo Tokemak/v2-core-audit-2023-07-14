@@ -6,6 +6,7 @@ pragma solidity 0.8.17;
 
 import { Roles } from "src/libs/Roles.sol";
 import { Errors } from "src/utils/Errors.sol";
+import { LMPDebt } from "src/vault/libs/LMPDebt.sol";
 import { Pausable } from "src/security/Pausable.sol";
 import { VaultTypes } from "src/vault/VaultTypes.sol";
 import { NonReentrant } from "src/utils/NonReentrant.sol";
@@ -13,16 +14,15 @@ import { SystemComponent } from "src/SystemComponent.sol";
 import { LMPStrategy } from "src/strategy/LMPStrategy.sol";
 import { SecurityBase } from "src/security/SecurityBase.sol";
 import { ILMPVault } from "src/interfaces/vault/ILMPVault.sol";
-import { LMPDestinations } from "src/vault/libs/LMPDestinations.sol";
-import { LMPDebt } from "src/vault/libs/LMPDebt.sol";
 import { IStrategy } from "src/interfaces/strategy/IStrategy.sol";
 import { Math } from "openzeppelin-contracts/utils/math/Math.sol";
-import { Initializable } from "openzeppelin-contracts/proxy/utils/Initializable.sol";
+import { LMPDestinations } from "src/vault/libs/LMPDestinations.sol";
 import { ERC20 } from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 import { IERC4626 } from "openzeppelin-contracts/interfaces/IERC4626.sol";
 import { IMainRewarder } from "src/interfaces/rewarders/IMainRewarder.sol";
 import { IDestinationVault } from "src/interfaces/vault/IDestinationVault.sol";
 import { SafeERC20 } from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
+import { Initializable } from "openzeppelin-contracts/proxy/utils/Initializable.sol";
 import { EnumerableSet } from "openzeppelin-contracts/utils/structs/EnumerableSet.sol";
 import { ISystemRegistry, IDestinationVaultRegistry } from "src/interfaces/ISystemRegistry.sol";
 import { ERC20Permit } from "openzeppelin-contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
@@ -479,7 +479,13 @@ contract LMPVault is
                     continue;
                 }
 
-                info.totalAssetsPulled += destVault.withdrawBaseAsset(sharesToBurn, address(this));
+                uint256 assetPreBal = _baseAsset.balanceOf(address(this));
+                uint256 assetPulled = destVault.withdrawBaseAsset(sharesToBurn, address(this));
+
+                // Destination Vault rewards will be transferred to us as part of burning out shares
+                // Back into what that amount is and make sure it gets into idle
+                info.idleIncrease += _baseAsset.balanceOf(address(this)) - assetPreBal - assetPulled;
+                info.totalAssetsPulled += assetPulled;
                 info.debtDecrease += totalDebtBurn;
 
                 // It's possible we'll get back more assets than we anticipate from a swap
