@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 // Copyright (c) 2023 Tokemak Foundation. All rights reserved.
-pragma solidity 0.8.17;
+pragma solidity >=0.8.17 <0.9.0;
 
 // solhint-disable max-states-count
 
@@ -102,6 +102,7 @@ contract BaseTest is Test {
         systemRegistry.setAccessController(address(accessController));
         lmpVaultRegistry = new LMPVaultRegistry(systemRegistry);
         systemRegistry.setLMPVaultRegistry(address(lmpVaultRegistry));
+        // TODO: replace below 2 lines with `deployLMPVaultRouter`
         lmpVaultRouter = new LMPVaultRouter(systemRegistry, WETH_MAINNET);
         systemRegistry.setLMPVaultRouter(address(lmpVaultRouter));
 

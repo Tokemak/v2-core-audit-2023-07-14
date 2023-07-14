@@ -17,7 +17,7 @@ abstract contract LMPVaultRouterBase is ILMPVaultRouterBase, SelfPermit, Multica
 
     error InvalidAsset();
 
-    constructor(address _weth9) SelfPermit() PeripheryPayments(IWETH9(_weth9)) { }
+    constructor(address _weth9) PeripheryPayments(IWETH9(_weth9)) { }
 
     /// @inheritdoc ILMPVaultRouterBase
     function mint(
@@ -54,10 +54,6 @@ abstract contract LMPVaultRouterBase is ILMPVaultRouterBase, SelfPermit, Multica
         pullToken(vaultAsset, amount, address(this));
 
         return _deposit(vault, to, amount, minSharesOut);
-        // approve(vaultAsset, address(vault), amount);
-        // if ((sharesOut = vault.deposit(amount, to)) < minSharesOut) {
-        //     revert MinSharesError();
-        // }
     }
 
     /// @dev Assumes tokens are already in the router

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 // Copyright (c) 2023 Tokemak Foundation. All rights reserved.
-pragma solidity >=0.8.7;
+pragma solidity >=0.8.17 <0.9.0;
 
 // solhint-disable func-name-mixedcase,max-states-count
 
