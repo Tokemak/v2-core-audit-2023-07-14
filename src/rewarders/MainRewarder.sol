@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
 
 import { IERC20 } from "openzeppelin-contracts/token/ERC20/IERC20.sol";
@@ -96,8 +97,10 @@ contract MainRewarder is AbstractRewarder, IMainRewarder, ReentrancyGuard {
         _processRewards(msg.sender, true);
     }
 
-    // TODO: Is this something we want?
     function getReward(address account, bool claimExtras) external nonReentrant {
+        if (msg.sender != address(stakeTracker) && msg.sender != account) {
+            revert Errors.AccessDenied();
+        }
         _updateReward(account);
         _processRewards(account, claimExtras);
     }

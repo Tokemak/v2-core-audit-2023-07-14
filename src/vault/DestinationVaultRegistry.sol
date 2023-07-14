@@ -62,8 +62,6 @@ contract DestinationVaultRegistry is SystemComponent, IDestinationVaultRegistry,
     /// @dev Systems must match
     /// @param newAddress Address of the new factory
     function setVaultFactory(address newAddress) external onlyOwner {
-        // TODO: Switch to specific access role
-
         Errors.verifyNotZero(newAddress, "newAddress");
 
         factory = IDestinationVaultFactory(newAddress);

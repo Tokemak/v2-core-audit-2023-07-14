@@ -327,16 +327,9 @@ abstract contract DestinationVault is SecurityBase, ERC20, Initializable, IDesti
 
         uint256 price = _systemRegistry.rootPriceOracle().getPriceInEth(_underlying);
 
-        // If the base asset is WETH then we know its 1:1 to ETH so we'll just return the current value
-        if (address(_baseAsset) == address(_systemRegistry.weth())) {
-            return (price * shares) / (10 ** _underlyingDecimals);
-        }
-
-        // TODO: Make sure this is correct,
-        // Otherwise get the price of the base asset and convert
-        uint256 baseAssetPriceInEth = _systemRegistry.rootPriceOracle().getPriceInEth(address(_baseAsset));
-
-        value = ((price * shares) * 1e18) / (baseAssetPriceInEth * (10 ** _underlyingDecimals));
+        // At the moment we are only supporting WETH baseAsset
+        // We know its 1:1 to ETH so we'll just return the current value
+        return (price * shares) / (10 ** _underlyingDecimals);
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual override {

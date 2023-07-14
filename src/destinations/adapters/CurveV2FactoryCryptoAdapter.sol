@@ -165,70 +165,6 @@ library CurveV2FactoryCryptoAdapter {
     }
 
     /**
-     * @notice Withdraw liquidity from Curve pool
-     *  @dev Calls to external contract
-     *  @dev We trust sender to send a true Curve poolAddress.
-     *       If it's not the case it will fail in the remove_liquidity_one_coin part
-     *  @param poolAddress Curve pool address
-     *  @param lpBurnAmount Amount of LP tokens to burn in the withdrawal
-     *  @param coinIndex Index value of the coin to withdraw
-     *  @param minAmount Minimum amount of coin to receive
-     *  @param weth WETH address on the operating chain
-     *  @return coinAmount Actual amount of the withdrawn token
-     *  @return coin Address of the withdrawn token
-     */
-    function removeLiquidityOneCoin(
-        address poolAddress,
-        uint256 lpBurnAmount,
-        uint256 coinIndex,
-        uint256 minAmount,
-        IWETH9 weth
-    ) public returns (uint256 coinAmount, address coin) {
-        //slither-disable-start reentrancy-events
-
-        // We don't check for a minAmount == 0 as that is a valid scenario on
-        // withdrawals where the user accounts for slippage at the router
-        Errors.verifyNotZero(poolAddress, "poolAddress");
-        Errors.verifyNotZero(lpBurnAmount, "lpBurnAmount");
-        Errors.verifyNotZero(address(weth), "weth");
-
-        // TODO: Test this, not sure this is working
-
-        uint256 coinBalanceBefore;
-        coin = ICryptoSwapPool(poolAddress).coins(coinIndex);
-
-        if (coin == LibAdapter.CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
-            coinBalanceBefore = address(this).balance;
-        } else {
-            coinBalanceBefore = IERC20(coin).balanceOf(address(this));
-        }
-
-        // In Curve V2 Factory Pools LP token address = pool address
-        uint256 lpTokenBalanceBefore = IERC20(poolAddress).balanceOf(address(this));
-
-        ICryptoSwapPool(poolAddress).remove_liquidity_one_coin(lpBurnAmount, coinIndex, minAmount);
-
-        uint256 lpTokenBalanceAfter = IERC20(poolAddress).balanceOf(address(this));
-        uint256 lpTokenAmount = lpTokenBalanceBefore - lpTokenBalanceAfter;
-        if (lpTokenAmount != lpBurnAmount) {
-            revert LibAdapter.LpTokenAmountMismatch();
-        }
-        coinAmount = _getCoinAmount(coin, coinBalanceBefore);
-
-        if (coinAmount < minAmount) revert LibAdapter.InvalidBalanceChange();
-
-        if (coin == LibAdapter.CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
-            // Wrapping up received ETH as system operates with WETH
-            // slither-disable-next-line arbitrary-send-eth
-            weth.deposit{ value: coinAmount }();
-            coin = address(weth);
-        }
-
-        _emitWithdraw(coinAmount, coin, [lpTokenAmount, lpTokenBalanceAfter], poolAddress);
-        //slither-disable-end reentrancy-events
-    }
-
-    /**
      * @dev This is a helper function to replace Curve's Registry pointer
      * to ETH with WETH address to be compatible with the rest of the system
      */
@@ -238,18 +174,6 @@ library CurveV2FactoryCryptoAdapter {
                 tokens[i] = weth;
             }
         }
-    }
-
-    /**
-     * @dev This is a helper function to avoid stack-too-deep-errors
-     */
-    function _emitWithdraw(uint256 coinAmount, address coin, uint256[2] memory lpAmounts, address pool) private {
-        emit WithdrawLiquidity(
-            _toDynamicArray(coinAmount),
-            _toDynamicArray(coin),
-            [lpAmounts[0], lpAmounts[1], IERC20(pool).totalSupply()],
-            pool
-        );
     }
 
     /// @dev Validate to have at least one `amount` > 0 provided and `amounts` is <=4
@@ -285,17 +209,6 @@ library CurveV2FactoryCryptoAdapter {
                 coinsBalances[i] = IERC20(coin).balanceOf(address(this));
             }
         }
-    }
-
-    /// @dev Calculate the amount of coin received after one-coin-withdrawal
-    function _getCoinAmount(address coin, uint256 coinBalanceBefore) private view returns (uint256 coinAmount) {
-        uint256 coinBalanceAfter;
-        if (coin == LibAdapter.CURVE_REGISTRY_ETH_ADDRESS_POINTER) {
-            coinBalanceAfter = address(this).balance;
-        } else {
-            coinBalanceAfter = IERC20(coin).balanceOf(address(this));
-        }
-        coinAmount = coinBalanceAfter - coinBalanceBefore;
     }
 
     /// @dev Validate to have a valid balance change
@@ -372,14 +285,5 @@ library CurveV2FactoryCryptoAdapter {
         }
     }
 
-    function _toDynamicArray(uint256 value) private pure returns (uint256[] memory dynamicArray) {
-        dynamicArray = new uint256[](1);
-        dynamicArray[0] = value;
-    }
-
-    function _toDynamicArray(address value) private pure returns (address[] memory dynamicArray) {
-        dynamicArray = new address[](1);
-        dynamicArray[0] = value;
-    }
     //slither-disable-end similar-names
 }

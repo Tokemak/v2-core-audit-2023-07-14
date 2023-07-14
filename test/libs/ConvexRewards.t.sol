@@ -8,6 +8,8 @@ import { ConvexRewards } from "src/libs/ConvexRewards.sol";
 import { CVX_MAINNET } from "test/utils/Addresses.sol";
 
 contract ConvexRewardTest is Test {
+    using ConvexRewards for address;
+
     function testCVXRewardHistoric() public {
         // targeting this transaction:
         // https://etherscan.io/tx/0x46314e9730ef79c43135de478daf04b08acec36095045376f46ec7920daef0bb
@@ -35,14 +37,20 @@ contract ConvexRewardTest is Test {
         uint256 totalSupply = 99_999_000 * 1e18; // leaves 1000 tokens
         uint256 crvEarned = 1001 * 1000 * 1e18; // try to exceed the max supply
         uint256 expectedCVX = 1000 * 1e18; // expect to only get the remaining 1000 tokens, not 1001
-        checkCVXMintAmount(totalSupply, crvEarned, expectedCVX);
+
+        address cvx = vm.addr(totalSupply + crvEarned);
+        vm.mockCall(cvx, abi.encodeWithSelector(IERC20.totalSupply.selector), abi.encode(totalSupply));
+
+        uint256 cvxAmount = cvx.getCVXMintAmount(crvEarned);
+
+        assertEq(cvxAmount, expectedCVX);
     }
 
     function checkCVXMintAmount(uint256 totalSupply, uint256 crvEarned, uint256 expectedCVXAmount) internal {
         address cvx = vm.addr(totalSupply + crvEarned);
         vm.mockCall(cvx, abi.encodeWithSelector(IERC20.totalSupply.selector), abi.encode(totalSupply));
 
-        uint256 cvxAmount = ConvexRewards.getCVXMintAmount(cvx, crvEarned);
+        uint256 cvxAmount = cvx.getCVXMintAmount(crvEarned);
 
         assertEq(cvxAmount, expectedCVXAmount);
     }

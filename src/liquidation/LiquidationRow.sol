@@ -20,8 +20,6 @@ import { SecurityBase } from "src/security/SecurityBase.sol";
 import { Roles } from "src/libs/Roles.sol";
 import { Errors } from "src/utils/Errors.sol";
 
-// TODO: Swap roles addAllowedSwapper/remove to onlyOwner
-
 contract LiquidationRow is ILiquidationRow, ReentrancyGuard, SystemComponent, SecurityBase {
     using Address for address;
     using SafeERC20 for IERC20;

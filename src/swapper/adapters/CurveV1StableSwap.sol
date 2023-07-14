@@ -15,7 +15,6 @@ contract CurveV1StableSwap is BaseAdapter {
 
     IWETH9 public immutable weth;
 
-    // TODO: Pull weth from the systemRegistry of the parent router
     constructor(address _router, address _weth) BaseAdapter(_router) {
         weth = IWETH9(_weth);
     }

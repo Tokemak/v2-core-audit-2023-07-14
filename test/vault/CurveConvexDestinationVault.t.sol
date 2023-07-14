@@ -2,7 +2,8 @@
 // Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity >=0.8.17;
 
-// solhint-disable func-name-mixedcase,max-stats-count
+// solhint-disable func-name-mixedcase
+// solhint-disable max-states-count
 
 import { ISystemComponent } from "src/interfaces/ISystemComponent.sol";
 import { Errors } from "src/utils/Errors.sol";
@@ -70,7 +71,11 @@ contract CurveConvexDestinationVaultTests is Test {
     SwapRouter private swapRouter;
     CurveV1StableSwap private curveSwapper;
 
+    address[] private additionalTrackedTokens;
+
     function setUp() public {
+        additionalTrackedTokens = new address[](0);
+
         _mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"), 16_728_070);
         vm.selectFork(_mainnetFork);
 
@@ -129,7 +134,6 @@ contract CurveConvexDestinationVaultTests is Test {
         _destinationTemplateRegistry.register(dvTypes, dvAddresses);
 
         _accessController.grantRole(Roles.CREATE_DESTINATION_VAULT_ROLE, address(this));
-        address[] memory additionalTrackedTokens = new address[](0);
 
         CurveConvexDestinationVault.InitParams memory initParams = CurveConvexDestinationVault.InitParams({
             curvePool: STETH_ETH_CURVE_POOL,
@@ -167,6 +171,30 @@ contract CurveConvexDestinationVaultTests is Test {
         vm.label(address(_lmpVaultRegistry), "lmpVaultRegistry");
         _mockSystemBound(address(_systemRegistry), address(_lmpVaultRegistry));
         _systemRegistry.setLMPVaultRegistry(address(_lmpVaultRegistry));
+    }
+
+    function test_initializer_ConfiguresVault() public {
+        CurveConvexDestinationVault.InitParams memory initParams = CurveConvexDestinationVault.InitParams({
+            curvePool: STETH_ETH_CURVE_POOL,
+            convexStaking: 0x0A760466E1B4621579a82a39CB56Dda2F4E70f03,
+            convexBooster: CONVEX_BOOSTER,
+            convexPoolId: 25,
+            baseAssetBurnTokenIndex: 0
+        });
+        bytes memory initParamBytes = abi.encode(initParams);
+
+        address payable newVault = payable(
+            _destinationVaultFactory.create(
+                "template",
+                address(_asset),
+                address(_underlyer),
+                additionalTrackedTokens,
+                keccak256("salt2"),
+                initParamBytes
+            )
+        );
+
+        assertTrue(DestinationVault(newVault).underlyingTokens().length > 0);
     }
 
     function testExchangeName() public {

@@ -66,9 +66,13 @@ contract BalancerAuraDestinationVaultTests is Test {
     SwapRouter private swapRouter;
     BalancerV2Swap private balSwapper;
 
+    address[] private additionalTrackedTokens;
+
     function setUp() public {
         _mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"), 17_586_885);
         vm.selectFork(_mainnetFork);
+
+        additionalTrackedTokens = new address[](0);
 
         vm.label(address(this), "testContract");
 
@@ -121,7 +125,6 @@ contract BalancerAuraDestinationVaultTests is Test {
         _destinationTemplateRegistry.register(dvTypes, dvAddresses);
 
         _accessController.grantRole(Roles.CREATE_DESTINATION_VAULT_ROLE, address(this));
-        address[] memory additionalTrackedTokens = new address[](0);
 
         BalancerAuraDestinationVault.InitParams memory initParams = BalancerAuraDestinationVault.InitParams({
             balancerPool: WSETH_WETH_BAL_POOL,
@@ -158,6 +161,29 @@ contract BalancerAuraDestinationVaultTests is Test {
         vm.label(address(_lmpVaultRegistry), "lmpVaultRegistry");
         _mockSystemBound(address(_systemRegistry), address(_lmpVaultRegistry));
         _systemRegistry.setLMPVaultRegistry(address(_lmpVaultRegistry));
+    }
+
+    function test_initializer_ConfiguresVault() public {
+        BalancerAuraDestinationVault.InitParams memory initParams = BalancerAuraDestinationVault.InitParams({
+            balancerPool: WSETH_WETH_BAL_POOL,
+            auraStaking: 0x59D66C58E83A26d6a0E35114323f65c3945c89c1,
+            auraBooster: AURA_BOOSTER,
+            auraPoolId: 115
+        });
+        bytes memory initParamBytes = abi.encode(initParams);
+
+        address payable newVault = payable(
+            _destinationVaultFactory.create(
+                "template",
+                address(_asset),
+                address(_underlyer),
+                additionalTrackedTokens,
+                keccak256("salt2"),
+                initParamBytes
+            )
+        );
+
+        assertTrue(DestinationVault(newVault).underlyingTokens().length > 0);
     }
 
     function test_exchangeName_Returns() public {

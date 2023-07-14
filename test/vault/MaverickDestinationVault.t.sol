@@ -65,7 +65,11 @@ contract MaverickDestinationVaultTests is Test {
     SwapRouter private swapRouter;
     BalancerV2Swap private balSwapper;
 
+    address[] private additionalTrackedTokens;
+
     function setUp() public {
+        additionalTrackedTokens = new address[](0);
+
         _mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"), 17_360_127);
         vm.selectFork(_mainnetFork);
 
@@ -119,7 +123,6 @@ contract MaverickDestinationVaultTests is Test {
         _destinationTemplateRegistry.register(dvTypes, dvAddresses);
 
         _accessController.grantRole(Roles.CREATE_DESTINATION_VAULT_ROLE, address(this));
-        address[] memory additionalTrackedTokens = new address[](0);
 
         MaverickDestinationVault.InitParams memory initParams = MaverickDestinationVault.InitParams({
             maverickRouter: MAV_ROUTER,
@@ -156,6 +159,29 @@ contract MaverickDestinationVaultTests is Test {
         vm.label(address(_lmpVaultRegistry), "lmpVaultRegistry");
         _mockSystemBound(address(_systemRegistry), address(_lmpVaultRegistry));
         _systemRegistry.setLMPVaultRegistry(address(_lmpVaultRegistry));
+    }
+
+    function test_initializer_ConfiguresVault() public {
+        MaverickDestinationVault.InitParams memory initParams = MaverickDestinationVault.InitParams({
+            maverickRouter: MAV_ROUTER,
+            maverickBoostedPosition: MAV_WSTETH_WETH_BOOSTED_POS,
+            maverickRewarder: MAV_WSTETH_WETH_BOOSTED_POS_REWARDER,
+            maverickPool: MAV_WSTETH_WETH_POOL
+        });
+        bytes memory initParamBytes = abi.encode(initParams);
+
+        address payable newVault = payable(
+            _destinationVaultFactory.create(
+                "template",
+                address(_asset),
+                address(_underlyer),
+                additionalTrackedTokens,
+                keccak256("salt2"),
+                initParamBytes
+            )
+        );
+
+        assertTrue(DestinationVault(newVault).underlyingTokens().length > 0);
     }
 
     function test_exchangeName_ReturnsMaverick() public {

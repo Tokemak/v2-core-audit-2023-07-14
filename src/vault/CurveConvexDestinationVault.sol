@@ -16,8 +16,6 @@ import { ConvexRewards } from "src/destinations/adapters/rewards/ConvexRewardsAd
 import { CurveV2FactoryCryptoAdapter } from "src/destinations/adapters/CurveV2FactoryCryptoAdapter.sol";
 import { IERC20Metadata as IERC20 } from "openzeppelin-contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-// TODO: Verify that supporting claim below
-
 /// @notice Destination Vault to proxy a Curve Pool that goes into Convex
 /// @dev Supports Curve V1 StableSwap, Curve V2 CryptoSwap, and Curve-ng pools
 contract CurveConvexDestinationVault is DestinationVault {

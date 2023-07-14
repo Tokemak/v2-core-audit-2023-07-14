@@ -59,7 +59,6 @@ contract SwapRouter is SystemComponent, ISwapRouter, SecurityBase, ReentrancyGua
         emit SwapRouteSet(assetToken, _swapRoute);
     }
 
-    // TODO: do we need special handling if a route does return eth
     receive() external payable {
         // we accept ETH so we can unwrap WETH
     }

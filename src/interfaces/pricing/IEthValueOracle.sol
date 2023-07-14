@@ -1,7 +1,6 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity 0.8.17;
-
-import { BaseValueProvider } from "../../pricing/value-providers/base/BaseValueProvider.sol";
 
 interface IEthValueOracle {
     /**
@@ -22,12 +21,6 @@ interface IEthValueOracle {
      * @notice Revert when zero amount.
      */
     error CannotBeZeroAmount();
-
-    /**
-     * @notice Returns value provider for token address.
-     * @param token Address of token paired with value provider.
-     */
-    function valueProviderByToken(address token) external view returns (BaseValueProvider);
 
     /**
      * @notice Allows privileged address to add value providers.

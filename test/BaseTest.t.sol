@@ -70,12 +70,6 @@ contract BaseTest is Test {
         if (toFork) {
             fork();
         }
-        // TODO: proper mocks (bombs currently with just basic setup)
-        // } else {
-        //     toke = mockAsset("TOKE", "TOKE", 1 ether);
-        //     usdc = mockAsset("USDC", "USDC", 1 ether);
-        //     weth = IWETH9(address(mockAsset("WETH", "WETH", 1 ether)));
-        // }
 
         //////////////////////////////////////
         // Set up misc labels

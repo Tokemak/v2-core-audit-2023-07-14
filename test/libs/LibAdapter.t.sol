@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+// Copyright (c) 2023 Tokemak Foundation. All rights reserved.
 pragma solidity >=0.8.7;
 
 import { Test, StdCheats, StdUtils } from "forge-std/Test.sol";
@@ -50,5 +51,15 @@ contract LibAdapterTests is Test {
         uint256 queried = token.allowance(address(this), user1);
 
         assertEq(queried, 0);
+    }
+
+    function testAllowanceIncreasing() public {
+        address user1 = vm.addr(1);
+        LibAdapter._approve(token, user1, 100);
+        LibAdapter._approve(token, user1, 200);
+
+        uint256 queried = token.allowance(address(this), user1);
+
+        assertEq(queried, 200);
     }
 }
