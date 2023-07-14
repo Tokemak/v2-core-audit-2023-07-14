@@ -16,7 +16,7 @@ The diagram below provides the high-level architecture for the stats system
 -   Each concrete calculator has a unique `AprId` that is registered at the `StatsCalculatorRegistry` by the factory
 -   The registry and AprId is used by the LMP and other calculators to find relevant stats contracts (more detail on this below)
 
-## Stats Calculators
+## ![Stats Calculators](./calculators/Calculators.md)
 
 The purpose of the calculators is to store, augment, and clean data relevant for the LMPs. Each calculator must be snapshot by a keeper to stay up to date.
 
